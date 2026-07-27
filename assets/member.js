@@ -2,14 +2,15 @@
   "use strict";
 
   const API = window.SponsorFlowAPI;
-  const config = window.SPONSORFLOW_CONFIG || {};
-  const STORAGE_KEY = "asmeSponsorFlowRequestsV1";
-
   const state = {
     contacts: [],
     templates: [],
+    stats: null,
+    memberNames: [],
+    sponsorMode: "directory",
     revision: null,
-    currentSubmitted: null
+    loadedRequests: [],
+    activeLookupName: ""
   };
 
   const $ = selector => document.querySelector(selector);
@@ -25,38 +26,7 @@
   }
 
   function normalizeName(value) {
-    return value.trim().replace(/\s+/g, " ");
-  }
-
-  function randomChars(length) {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const bytes = new Uint8Array(length);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, byte => alphabet[byte % alphabet.length]).join("");
-  }
-
-  function makeRequestId() {
-    return `REQ-${randomChars(8)}`;
-  }
-
-  function makeAccessCode() {
-    const raw = randomChars(12);
-    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
-  }
-
-  function getSavedAccess() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function saveAccess(entry) {
-    const items = getSavedAccess().filter(item => item.requestId !== entry.requestId);
-    items.unshift(entry);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 100)));
+    return String(value || "").trim().replace(/\s+/g, " ");
   }
 
   function setFormStatus(message, type = "") {
@@ -72,36 +42,59 @@
   }
 
   function switchView(view) {
-    $$("[data-view]").forEach(section => section.classList.toggle("is-hidden", section.dataset.view !== view));
-    $$("[data-view-button]").forEach(button => button.classList.toggle("is-active", button.dataset.viewButton === view));
-    if (view === "requests") loadSavedRequests();
-    window.scrollTo({ top: document.querySelector(".workspace-shell").offsetTop - 20, behavior: "smooth" });
+    $$('[data-view]').forEach(section => section.classList.toggle("is-hidden", section.dataset.view !== view));
+    $$('[data-view-button]').forEach(button => button.classList.toggle("is-active", button.dataset.viewButton === view));
+
+    if (view === "requests") {
+      const remembered = normalizeName(localStorage.getItem("asmeSponsorFlowName"));
+      if (remembered && !$("#requestLookupName").value) $("#requestLookupName").value = remembered;
+      if ($("#requestLookupName").value.trim()) loadRequestsByName($("#requestLookupName").value);
+    }
+    if (view === "stats") renderStats();
+
+    const workspace = document.querySelector(".workspace-shell");
+    if (workspace) window.scrollTo({ top: workspace.offsetTop - 16, behavior: "smooth" });
   }
 
   async function bootstrap() {
     if (!API.configured()) {
-      showConnectionError("Setup required: add your Apps Script web app URL to assets/config.js. The deployment guide explains exactly where to paste it.");
+      showConnectionError("Setup required: add your Apps Script web app URL to assets/config.js.");
       $("#contactId").innerHTML = '<option value="">Not connected</option>';
       $("#templateId").innerHTML = '<option value="">Not connected</option>';
       return;
     }
+
     try {
       const data = await API.post("bootstrap");
       state.contacts = data.contacts || [];
       state.templates = data.templates || [];
+      state.stats = data.stats || null;
+      state.memberNames = data.memberNames || [];
       renderContactOptions();
       renderTemplateOptions();
-      const rememberedName = localStorage.getItem("asmeSponsorFlowName");
-      if (rememberedName) $("#requesterName").value = rememberedName;
+      renderNameSuggestions();
+      renderStats();
+
+      const rememberedName = normalizeName(localStorage.getItem("asmeSponsorFlowName"));
+      if (rememberedName) {
+        $("#requesterName").value = rememberedName;
+        $("#requestLookupName").value = rememberedName;
+      }
     } catch (error) {
       showConnectionError(error.message);
     }
   }
 
+  function renderNameSuggestions() {
+    $("#memberNameSuggestions").innerHTML = state.memberNames
+      .map(name => `<option value="${escapeHtml(name)}"></option>`)
+      .join("");
+  }
+
   function renderContactOptions() {
     const select = $("#contactId");
     if (!state.contacts.length) {
-      select.innerHTML = '<option value="">No verified contacts yet—ask an admin to add one</option>';
+      select.innerHTML = '<option value="">No verified contacts yet—suggest a sponsor instead</option>';
       return;
     }
     select.innerHTML = '<option value="">Choose a verified sponsor</option>' + state.contacts.map(contact => {
@@ -122,45 +115,94 @@
   }
 
   function selectedContact() {
-    return state.contacts.find(item => item.id === $("#contactId").value);
+    return state.contacts.find(item => item.id === $("#contactId").value) || null;
   }
 
   function selectedTemplate() {
-    return state.templates.find(item => item.id === $("#templateId").value);
+    return state.templates.find(item => item.id === $("#templateId").value) || null;
   }
 
-  function firstName(fullName) {
-    return String(fullName || "").trim().split(/\s+/)[0] || "Sponsor Team";
+  function currentSponsor() {
+    if (state.revision) {
+      return {
+        companyName: state.revision.companyName,
+        contactName: state.revision.contactName,
+        verification: state.revision.sponsorVerification
+      };
+    }
+    if (state.sponsorMode === "custom") {
+      return {
+        companyName: $("#customCompanyName").value.trim(),
+        contactName: $("#customContactName").value.trim(),
+        verification: "UNVERIFIED"
+      };
+    }
+    const contact = selectedContact();
+    return contact ? { ...contact, verification: "VERIFIED" } : null;
+  }
+
+  function greetingName(contactName, companyName) {
+    const first = String(contactName || "").trim().split(/\s+/)[0];
+    return first || `${companyName || "Sponsor"} Team`;
   }
 
   function renderTemplateText(templateText, values) {
     return String(templateText || "").replace(/{{\s*([a-zA-Z0-9_]+)\s*}}/g, (_, key) => values[key] ?? `{{${key}}}`);
   }
 
+  function shortRequestedItem(value) {
+    const clean = String(value || "").trim().replace(/[.!?]+$/, "");
+    if (!clean) return "Engineering support request";
+    const shortened = clean.length > 70 ? `${clean.slice(0, 67).trim()}…` : clean;
+    return shortened.charAt(0).toUpperCase() + shortened.slice(1);
+  }
+
+  function setSponsorMode(mode) {
+    if (state.revision) return;
+    state.sponsorMode = mode === "custom" ? "custom" : "directory";
+    $$('[data-sponsor-mode]').forEach(button => button.classList.toggle("is-active", button.dataset.sponsorMode === state.sponsorMode));
+
+    const directory = state.sponsorMode === "directory";
+    $("#verifiedSponsorFields").classList.toggle("is-hidden", !directory);
+    $("#customSponsorFields").classList.toggle("is-hidden", directory);
+    $("#contactId").disabled = !directory;
+    $("#contactId").required = directory;
+    ["#customCompanyName", "#customContactEmail"].forEach(selector => {
+      $(selector).disabled = directory;
+      $(selector).required = !directory;
+    });
+    $("#customContactName").disabled = directory;
+    updateQuality();
+  }
+
   function generateDraft() {
-    const contact = selectedContact();
+    const sponsor = currentSponsor();
     const template = selectedTemplate();
     const senderName = normalizeName($("#requesterName").value);
-    if (!contact || !template || !senderName) {
-      setFormStatus("Enter your name, then choose a sponsor and template before generating the draft.", "error");
+    if (!sponsor?.companyName || !template || !senderName) {
+      setFormStatus("Enter your full name, choose or enter a sponsor, and select a template first.", "error");
       return;
     }
 
     const values = {
-      company_name: contact.companyName,
-      contact_first_name: firstName(contact.contactName),
+      company_name: sponsor.companyName,
+      contact_first_name: greetingName(sponsor.contactName, sponsor.companyName),
+      greeting_name: greetingName(sponsor.contactName, sponsor.companyName),
       sender_name: senderName,
       sender_role: $("#requesterRole").value.trim() || "Student Member",
       personalized_connection: $("#personalizedConnection").value.trim(),
       specific_request: $("#specificRequest").value.trim(),
+      requested_item_short: shortRequestedItem($("#specificRequest").value),
       specific_use: $("#specificUse").value.trim(),
       selected_benefits: $("#selectedBenefits").value.trim(),
       custom_message: $("#customMessage").value.trim()
     };
+
     $("#emailSubject").value = renderTemplateText(template.subjectTemplate, values).replace(/\s+/g, " ").trim();
     $("#emailBody").value = renderTemplateText(template.bodyTemplate, values)
+      .replace(/\n[ \t]+\n/g, "\n\n")
       .replace(/\n{3,}/g, "\n\n")
-      .replace(/^\s+|\s+$/g, "");
+      .trim();
     setFormStatus("Draft generated. Edit it freely before submitting.", "success");
     updateQuality();
   }
@@ -168,18 +210,17 @@
   function qualityResult() {
     const subject = $("#emailSubject").value.trim();
     const body = $("#emailBody").value.trim();
-    const company = selectedContact()?.companyName || "";
+    const company = currentSponsor()?.companyName || "";
     const checks = [
-      { label: "A clear, usable subject line", pass: subject.length >= 12 && subject.length <= 120, weight: 15 },
-      { label: "No unresolved template placeholders", pass: !/{{[^}]+}}/.test(`${subject} ${body}`), weight: 20 },
-      { label: "The sponsor is named in the message", pass: Boolean(company && body.toLowerCase().includes(company.toLowerCase())), weight: 15 },
-      { label: "A specific request is included", pass: $("#specificRequest").value.trim().length >= 20 || /seeking|request|consider supporting|sponsorship/i.test(body), weight: 15 },
-      { label: "The use and sponsor return are explained", pass: ($("#specificUse").value.trim().length >= 20 && $("#selectedBenefits").value.trim().length >= 20) || /in return|recognize|support would/i.test(body), weight: 15 },
-      { label: "The message includes a low-friction next step", pass: /conversation|available|open to|would you|brief call|discuss/i.test(body), weight: 10 },
-      { label: "Professional length and official club signature", pass: body.length >= 650 && body.length <= 5000 && body.includes("asmeindy@purdue.edu"), weight: 10 }
+      { label: "Clear subject line", pass: subject.length >= 12 && subject.length <= 120, weight: 15 },
+      { label: "No unresolved placeholders", pass: !/{{[^}]+}}/.test(`${subject} ${body}`), weight: 20 },
+      { label: "Sponsor named in the message", pass: Boolean(company && body.toLowerCase().includes(company.toLowerCase())), weight: 15 },
+      { label: "Specific request included", pass: $("#specificRequest").value.trim().length >= 15 || /seeking|asking|request|consider providing|consider supporting/i.test(body), weight: 15 },
+      { label: "Student impact and sponsor return explained", pass: /support would|help us|allow our team|in return|would receive|can provide/i.test(body), weight: 15 },
+      { label: "Low-friction next step", pass: /brief|15-minute|conversation|open to|would you|direct me|point me/i.test(body), weight: 10 },
+      { label: "Professional length and club signature", pass: body.length >= 450 && body.length <= 4200 && body.includes("asmeindy@purdue.edu"), weight: 10 }
     ];
-    const score = checks.reduce((sum, check) => sum + (check.pass ? check.weight : 0), 0);
-    return { checks, score };
+    return { checks, score: checks.reduce((sum, check) => sum + (check.pass ? check.weight : 0), 0) };
   }
 
   function updateQuality() {
@@ -187,24 +228,48 @@
     $("#qualityScore").textContent = score;
     $("#qualityBar").style.width = `${score}%`;
     $("#qualityLabel").textContent = score >= 85 ? "Sponsor-ready" : score >= 70 ? "Strong draft" : score >= 45 ? "Needs refinement" : "Needs content";
-    $("#qualityChecks").innerHTML = checks.map(check =>
-      `<li class="${check.pass ? "is-pass" : ""}">${escapeHtml(check.label)}</li>`
-    ).join("");
+    $("#qualityChecks").innerHTML = checks.map(check => `<li class="${check.pass ? "is-pass" : ""}">${escapeHtml(check.label)}</li>`).join("");
+  }
+
+  function validateRevisionForm() {
+    const name = normalizeName($("#requesterName").value);
+    const subject = $("#emailSubject").value.trim();
+    const body = $("#emailBody").value.trim();
+    if (name.length < 2) {
+      $("#requesterName").focus();
+      setFormStatus("Enter the same full name used for the original request.", "error");
+      return false;
+    }
+    if (subject.length < 10 || body.length < 100) {
+      setFormStatus("The revised subject and body are incomplete.", "error");
+      return false;
+    }
+    if (!$("#accuracyCheck").checked) {
+      setFormStatus("Confirm that you checked the revised facts and benefits.", "error");
+      return false;
+    }
+    return true;
   }
 
   async function submitRequest(event) {
     event.preventDefault();
-    const form = event.currentTarget;
     const { score } = qualityResult();
-    if (!form.reportValidity()) return;
+
+    if (state.revision) {
+      if (!validateRevisionForm()) return;
+    } else if (!event.currentTarget.reportValidity()) {
+      return;
+    }
+
     if (score < 70) {
       setFormStatus("Bring the quality score to at least 70 before submitting.", "error");
       return;
     }
-    const contact = selectedContact();
+
+    const sponsor = currentSponsor();
     const template = selectedTemplate();
-    if (!contact || !template) {
-      setFormStatus("Choose a verified contact and template.", "error");
+    if (!state.revision && (!sponsor?.companyName || !template)) {
+      setFormStatus("Choose or enter a sponsor and select a template.", "error");
       return;
     }
 
@@ -215,41 +280,44 @@
     try {
       const requesterName = normalizeName($("#requesterName").value);
       localStorage.setItem("asmeSponsorFlowName", requesterName);
+
       if (state.revision) {
-        const result = await API.post("reviseRequest", {
+        await API.post("reviseRequest", {
           requestId: state.revision.requestId,
-          accessCode: state.revision.accessCode,
           requesterName,
           requesterRole: $("#requesterRole").value.trim(),
           subject: $("#emailSubject").value.trim(),
           body: $("#emailBody").value.trim()
         });
-        saveAccess({ requestId: state.revision.requestId, accessCode: state.revision.accessCode, requesterName });
-        state.revision = null;
-        button.textContent = "Submit for admin review";
-        setFormStatus("Revision submitted. The request is back in the admin review queue.", "success");
+        cancelRevision(false);
+        setFormStatus("Revision submitted. The request is back in the officer review queue.", "success");
+        $("#requestLookupName").value = requesterName;
         switchView("requests");
-        return result;
+        return;
       }
 
-      const requestId = makeRequestId();
-      const accessCode = makeAccessCode();
-      await API.post("createRequest", {
-        requestId,
-        accessCode,
+      const payload = {
         requesterName,
         requesterRole: $("#requesterRole").value.trim(),
-        contactId: contact.id,
+        sponsorMode: state.sponsorMode,
+        contactId: state.sponsorMode === "directory" ? $("#contactId").value : "",
+        customCompanyName: state.sponsorMode === "custom" ? $("#customCompanyName").value.trim() : "",
+        customContactName: state.sponsorMode === "custom" ? $("#customContactName").value.trim() : "",
+        customContactEmail: state.sponsorMode === "custom" ? $("#customContactEmail").value.trim() : "",
         templateId: template.id,
         subject: $("#emailSubject").value.trim(),
         body: $("#emailBody").value.trim()
-      });
-      saveAccess({ requestId, accessCode, requesterName });
-      state.currentSubmitted = { requestId, accessCode, requesterName };
-      $("#submittedRequestId").textContent = requestId;
-      $("#submittedAccessCode").textContent = accessCode;
-      $("#accessDialog").showModal();
+      };
+      const result = await API.post("createRequest", payload);
+      $("#submittedName").textContent = requesterName;
+      $("#submittedRequestId").textContent = result.requestId;
+      const badge = $("#submittedVerification");
+      badge.textContent = result.sponsorVerification === "VERIFIED" ? "Verified sponsor" : "Unverified sponsor — officer check required";
+      badge.className = `verification-badge ${result.sponsorVerification === "VERIFIED" ? "verified" : "unverified"}`;
+      $("#requestLookupName").value = requesterName;
+      $("#submittedDialog").showModal();
       setFormStatus("Submitted successfully.", "success");
+      await refreshStats();
     } catch (error) {
       setFormStatus(error.message, "error");
     } finally {
@@ -257,58 +325,62 @@
     }
   }
 
-  async function loadSavedRequests() {
-    const saved = getSavedAccess();
-    const groupsContainer = $("#requestGroups");
-    const empty = $("#requestsEmpty");
-    groupsContainer.innerHTML = "";
-    if (!saved.length) {
-      empty.classList.remove("is-hidden");
+  async function loadRequestsByName(nameValue) {
+    const name = normalizeName(nameValue);
+    const status = $("#requestLookupStatus");
+    if (name.length < 2) {
+      status.textContent = "Enter your full name.";
+      status.className = "form-status is-error";
       return;
     }
-    empty.classList.add("is-hidden");
-    groupsContainer.innerHTML = '<div class="empty-state"><p>Loading saved requests…</p></div>';
-    const results = await Promise.all(saved.map(async entry => {
-      try {
-        const request = await API.post("getRequest", entry);
-        return { ...entry, request };
-      } catch (error) {
-        return { ...entry, error: error.message };
-      }
-    }));
-    const groups = new Map();
-    results.forEach(result => {
-      const name = result.request?.requesterName || result.requesterName || "Unknown member";
-      if (!groups.has(name)) groups.set(name, []);
-      groups.get(name).push(result);
-    });
-    groupsContainer.innerHTML = Array.from(groups.entries()).map(([name, items]) => `
-      <section class="request-group">
-        <h3>${escapeHtml(name)}</h3>
-        <div class="request-list">
-          ${items.map(renderRequestCard).join("")}
-        </div>
-      </section>
-    `).join("");
 
-    $$('[data-open-request]').forEach(button => button.addEventListener("click", () => {
-      const entry = saved.find(item => item.requestId === button.dataset.openRequest);
-      if (entry) openRequest(entry);
-    }));
+    status.textContent = "Loading requests…";
+    status.className = "form-status";
+    $("#requestList").innerHTML = '<div class="empty-state"><p>Loading request history…</p></div>';
+    $("#requestsEmpty").classList.add("is-hidden");
+
+    try {
+      const requests = await API.post("getRequestsByName", { requesterName: name });
+      state.loadedRequests = requests || [];
+      state.activeLookupName = name;
+      localStorage.setItem("asmeSponsorFlowName", name);
+      $("#requesterName").value = name;
+      renderRequestList();
+      status.textContent = `${state.loadedRequests.length} request${state.loadedRequests.length === 1 ? "" : "s"} filed under ${name}.`;
+      status.className = "form-status is-success";
+    } catch (error) {
+      $("#requestList").innerHTML = "";
+      $("#requestsEmpty").classList.remove("is-hidden");
+      status.textContent = error.message;
+      status.className = "form-status is-error";
+    }
   }
 
-  function renderRequestCard(item) {
-    if (item.error) {
-      return `<article class="request-card"><h4>${escapeHtml(item.requestId)}</h4><p>${escapeHtml(item.error)}</p></article>`;
+  function renderRequestList() {
+    const container = $("#requestList");
+    if (!state.loadedRequests.length) {
+      container.innerHTML = "";
+      $("#requestsEmpty").classList.remove("is-hidden");
+      $("#requestsEmpty h3").textContent = `No requests found for ${state.activeLookupName}`;
+      $("#requestsEmpty p").textContent = "Check the spelling or start a new request.";
+      return;
     }
-    const request = item.request;
+
+    $("#requestsEmpty").classList.add("is-hidden");
+    container.innerHTML = state.loadedRequests.map(renderRequestCard).join("");
+    $$('[data-open-request]').forEach(button => button.addEventListener("click", () => openRequest(button.dataset.openRequest)));
+  }
+
+  function renderRequestCard(request) {
+    const verification = request.sponsorVerification === "VERIFIED" ? "verified" : "unverified";
+    const verificationLabel = request.sponsorVerification === "VERIFIED" ? "Verified sponsor" : "Unverified sponsor";
     return `<article class="request-card">
       <div class="request-card-top">
-        <div><h4>${escapeHtml(request.companyName)}</h4><p>${escapeHtml(request.templateName)}</p></div>
+        <div><div class="badge-row"><span class="verification-badge ${verification}">${verificationLabel}</span></div><h4>${escapeHtml(request.companyName)}</h4><p>${escapeHtml(request.templateName)}</p></div>
         <span class="status-badge status-${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span>
       </div>
       <div class="request-meta"><span>${escapeHtml(request.id)}</span><span>Revision ${escapeHtml(request.revisionNumber)}</span><span>${escapeHtml(formatDate(request.updatedAt))}</span></div>
-      ${request.adminComment ? `<p class="admin-comment">${escapeHtml(request.adminComment)}</p>` : ""}
+      ${request.adminComment ? `<p class="admin-comment compact-comment">${escapeHtml(request.adminComment)}</p>` : ""}
       <button class="button button-secondary button-small" type="button" data-open-request="${escapeHtml(request.id)}">View request</button>
     </article>`;
   }
@@ -329,22 +401,24 @@
     return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
   }
 
-  async function openRequest(entry) {
+  async function openRequest(requestId) {
     const detail = $("#requestDetail");
     detail.innerHTML = "<p>Loading request…</p>";
     $("#requestDialog").showModal();
+
     try {
-      const request = await API.post("getRequest", entry);
+      const request = await API.post("getRequestByName", { requestId, requesterName: state.activeLookupName });
+      const verification = request.sponsorVerification === "VERIFIED" ? "verified" : "unverified";
       detail.innerHTML = `
         <div class="request-detail-header">
           <div><p class="eyebrow">${escapeHtml(request.id)}</p><h2>${escapeHtml(request.companyName)}</h2><p>${escapeHtml(request.contactName || "Sponsor contact")} · ${escapeHtml(request.templateName)}</p></div>
-          <span class="status-badge status-${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span>
+          <div class="detail-badges"><span class="verification-badge ${verification}">${request.sponsorVerification === "VERIFIED" ? "Verified sponsor" : "Unverified sponsor"}</span><span class="status-badge status-${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span></div>
         </div>
         <div class="request-detail-grid">
           <div class="detail-block"><span>Submitted by</span><strong>${escapeHtml(request.requesterName)}${request.requesterRole ? ` · ${escapeHtml(request.requesterRole)}` : ""}</strong></div>
           <div class="detail-block"><span>Last updated</span><strong>${escapeHtml(formatDate(request.updatedAt))}</strong></div>
         </div>
-        ${request.adminComment ? `<div class="admin-comment"><strong>Admin comment</strong><br>${escapeHtml(request.adminComment)}</div>` : ""}
+        ${request.adminComment ? `<div class="admin-comment"><strong>Officer comment</strong><br>${escapeHtml(request.adminComment)}</div>` : ""}
         <label class="field"><span>Subject</span><input value="${escapeHtml(request.subject)}" readonly></label>
         <div class="field"><span>Email body</span><div class="email-preview">${escapeHtml(request.body)}</div></div>
         <div class="field-grid two-col">
@@ -352,80 +426,151 @@
           ${request.status === "CHANGES_REQUESTED" ? '<button id="reviseRequestButton" class="button button-primary" type="button">Revise this draft</button>' : ""}
         </div>`;
       $("#copyRequestButton").addEventListener("click", () => navigator.clipboard.writeText(`Subject: ${request.subject}\n\n${request.body}`));
-      if ($("#reviseRequestButton")) {
-        $("#reviseRequestButton").addEventListener("click", () => beginRevision(request, entry));
-      }
+      if ($("#reviseRequestButton")) $("#reviseRequestButton").addEventListener("click", () => beginRevision(request));
     } catch (error) {
       detail.innerHTML = `<p class="form-status is-error">${escapeHtml(error.message)}</p>`;
     }
   }
 
-  function beginRevision(request, entry) {
-    state.revision = { requestId: request.id, accessCode: entry.accessCode };
+  function beginRevision(request) {
+    state.revision = {
+      requestId: request.id,
+      requesterName: request.requesterName,
+      companyName: request.companyName,
+      contactName: request.contactName,
+      sponsorVerification: request.sponsorVerification,
+      templateId: request.templateId
+    };
     $("#requesterName").value = request.requesterName;
     $("#requesterRole").value = request.requesterRole || "";
-    $("#contactId").value = request.contactId;
-    $("#templateId").value = request.templateId;
     $("#emailSubject").value = request.subject;
     $("#emailBody").value = request.body;
+    $("#sponsorChooser").classList.add("is-hidden");
+    $("#revisionBanner").classList.remove("is-hidden");
+    $("#revisionSponsorName").textContent = request.companyName;
+    const badge = $("#revisionSponsorBadge");
+    badge.textContent = request.sponsorVerification === "VERIFIED" ? "Verified sponsor" : "Unverified sponsor";
+    badge.className = `verification-badge ${request.sponsorVerification === "VERIFIED" ? "verified" : "unverified"}`;
+    $("#templateId").value = request.templateId || "";
+    $("#templateId").disabled = true;
+    $("#substancePanel").classList.add("revision-only");
+    $("#generateDraftButton").disabled = true;
     $("#submitRequestButton").textContent = "Submit revised draft";
     $("#requestDialog").close();
     switchView("compose");
-    setFormStatus("Editing a requested revision. Update the subject or body, then resubmit.");
+    setFormStatus("Revision mode: edit the final subject and body using the officer comment as your guide.");
     updateQuality();
   }
 
-  async function lookupRequest(event) {
-    event.preventDefault();
-    const status = $("#lookupStatus");
-    status.textContent = "Opening request…";
-    status.className = "form-status";
-    const entry = {
-      requestId: $("#lookupRequestId").value.trim().toUpperCase(),
-      accessCode: $("#lookupAccessCode").value.trim().toUpperCase(),
-      requesterName: ""
-    };
+  function cancelRevision(clearStatus = true) {
+    state.revision = null;
+    $("#sponsorChooser").classList.remove("is-hidden");
+    $("#revisionBanner").classList.add("is-hidden");
+    $("#templateId").disabled = false;
+    $("#substancePanel").classList.remove("revision-only");
+    $("#generateDraftButton").disabled = false;
+    $("#submitRequestButton").textContent = "Submit for admin review";
+    if (clearStatus) setFormStatus("Revision canceled.");
+    setSponsorMode(state.sponsorMode);
+  }
+
+  async function refreshStats() {
     try {
-      const request = await API.post("getRequest", entry);
-      entry.requesterName = request.requesterName;
-      saveAccess(entry);
-      $("#lookupDialog").close();
-      switchView("requests");
-    } catch (error) {
-      status.textContent = error.message;
-      status.className = "form-status is-error";
+      const data = await API.post("bootstrap");
+      state.stats = data.stats || null;
+      state.memberNames = data.memberNames || [];
+      renderNameSuggestions();
+      renderStats();
+    } catch {
+      // The request itself succeeded; a statistics refresh failure should not interrupt the user.
     }
   }
 
+  function renderStats() {
+    const stats = state.stats || { totalRequests: 0, totalSent: 0, totalPending: 0, participatingMembers: 0, leadersSent: [], leadersPending: [], timeline: [] };
+    $("#statTotalRequests").textContent = stats.totalRequests || 0;
+    $("#statTotalSent").textContent = stats.totalSent || 0;
+    $("#statTotalPending").textContent = stats.totalPending || 0;
+    $("#statMembers").textContent = stats.participatingMembers || 0;
+    $("#sentLeaders").innerHTML = renderLeaderboard(stats.leadersSent, "No emails have been marked sent yet.");
+    $("#pendingLeaders").innerHTML = renderLeaderboard(stats.leadersPending, "No requests are currently active.");
+    renderTimeline(stats.timeline || []);
+  }
+
+  function renderLeaderboard(items, emptyMessage) {
+    if (!items?.length) return `<li class="leaderboard-empty">${escapeHtml(emptyMessage)}</li>`;
+    return items.map((item, index) => `<li><span class="leader-rank">${index + 1}</span><strong>${escapeHtml(item.name)}</strong><span class="leader-count">${escapeHtml(item.count)}</span></li>`).join("");
+  }
+
+  function renderTimeline(points) {
+    const container = $("#timelineChart");
+    const total = points.length ? points[points.length - 1].cumulative : 0;
+    $("#chartTotal").textContent = `${total} sent`;
+    if (!points.length) {
+      container.innerHTML = '<div class="chart-empty"><span>↗</span><p>The graph will appear after the first request is marked sent.</p></div>';
+      return;
+    }
+
+    const width = 900;
+    const height = 300;
+    const left = 52;
+    const right = 24;
+    const top = 24;
+    const bottom = 48;
+    const plotWidth = width - left - right;
+    const plotHeight = height - top - bottom;
+    const max = Math.max(total, 1);
+    const x = index => points.length === 1 ? left + plotWidth / 2 : left + (index / (points.length - 1)) * plotWidth;
+    const y = value => top + plotHeight - (value / max) * plotHeight;
+    const path = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)},${y(point.cumulative).toFixed(1)}`).join(" ");
+    const area = `${path} L${x(points.length - 1).toFixed(1)},${top + plotHeight} L${x(0).toFixed(1)},${top + plotHeight} Z`;
+    const labelEvery = Math.max(1, Math.ceil(points.length / 6));
+    const labels = points.map((point, index) => {
+      if (index % labelEvery !== 0 && index !== points.length - 1) return "";
+      const [year, month] = point.month.split("-").map(Number);
+      const label = new Intl.DateTimeFormat("en-US", { month: "short", year: "2-digit" }).format(new Date(Date.UTC(year, month - 1, 1)));
+      return `<text x="${x(index)}" y="${height - 15}" text-anchor="middle">${escapeHtml(label)}</text>`;
+    }).join("");
+    const circles = points.map((point, index) => `<circle cx="${x(index)}" cy="${y(point.cumulative)}" r="4"><title>${escapeHtml(point.month)}: ${point.cumulative} sent total</title></circle>`).join("");
+    const gridValues = [0, Math.ceil(max / 2), max].filter((value, index, arr) => arr.indexOf(value) === index);
+    const grid = gridValues.map(value => `<g><line x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}"></line><text x="${left - 12}" y="${y(value) + 4}" text-anchor="end">${value}</text></g>`).join("");
+
+    container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true"><g class="chart-grid">${grid}</g><path class="chart-area" d="${area}"></path><path class="chart-line" d="${path}"></path><g class="chart-points">${circles}</g><g class="chart-labels">${labels}</g></svg>`;
+  }
+
   function wireEvents() {
-    $$("[data-view-button]").forEach(button => button.addEventListener("click", () => switchView(button.dataset.viewButton)));
+    $$('[data-view-button]').forEach(button => button.addEventListener("click", () => switchView(button.dataset.viewButton)));
+    $$('[data-sponsor-mode]').forEach(button => button.addEventListener("click", () => setSponsorMode(button.dataset.sponsorMode)));
+
     $("#templateId").addEventListener("change", () => {
       const template = selectedTemplate();
       const note = $("#templateDescription");
       if (template?.description) {
         note.textContent = template.description;
         note.classList.remove("is-hidden");
-      } else note.classList.add("is-hidden");
+      } else {
+        note.classList.add("is-hidden");
+      }
     });
+
     $("#benefitPreset").addEventListener("change", event => {
       if (event.target.value) $("#selectedBenefits").value = event.target.value;
       updateQuality();
     });
     $("#generateDraftButton").addEventListener("click", generateDraft);
     $("#composeForm").addEventListener("submit", submitRequest);
-    ["#emailSubject", "#emailBody", "#specificRequest", "#specificUse", "#selectedBenefits"].forEach(selector => $(selector).addEventListener("input", updateQuality));
-    $("#openLookupButton").addEventListener("click", () => $("#lookupDialog").showModal());
-    $("#lookupForm").addEventListener("submit", lookupRequest);
-    $$('[data-close-dialog]').forEach(button => button.addEventListener("click", () => document.getElementById(button.dataset.closeDialog).close()));
-    $("#copyAccessButton").addEventListener("click", async () => {
-      if (!state.currentSubmitted) return;
-      await navigator.clipboard.writeText(`Request ID: ${state.currentSubmitted.requestId}\nEdit code: ${state.currentSubmitted.accessCode}`);
-      $("#copyAccessButton").textContent = "Copied";
+    $("#requestsLookupForm").addEventListener("submit", event => {
+      event.preventDefault();
+      loadRequestsByName($("#requestLookupName").value);
     });
+    $("#cancelRevisionButton").addEventListener("click", () => cancelRevision());
+    ["#emailSubject", "#emailBody", "#specificRequest", "#specificUse", "#selectedBenefits", "#customCompanyName", "#contactId"].forEach(selector => $(selector).addEventListener("input", updateQuality));
+    $$('[data-close-dialog]').forEach(button => button.addEventListener("click", () => document.getElementById(button.dataset.closeDialog).close()));
     $("#goToRequestsButton").addEventListener("click", () => setTimeout(() => switchView("requests"), 0));
   }
 
   wireEvents();
+  setSponsorMode("directory");
   updateQuality();
   bootstrap();
 })();
