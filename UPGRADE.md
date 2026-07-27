@@ -1,17 +1,18 @@
-# Upgrade SponsorFlow to version 2
+# Upgrade SponsorFlow to version 3
 
-This update preserves the existing Google Sheet data and adds:
+This update preserves existing Google Sheet data and adds duplicate-outreach protection, official sponsor-program research, application-form routes, and upgraded templates.
 
-- Name-based request access instead of browser-saved edit codes
-- Member-submitted sponsor companies and emails with an **Unverified sponsor** badge
-- Officer verification before approval or sending
-- Improved built-in sponsorship templates
-- Public club statistics and member leaderboards
-- A cumulative graph of sponsor emails marked sent
-- Responsive UI cleanup
-- Safe spreadsheet schema migration that does not clear existing rows
+## Part 1 — Back up the Sheet
 
-## Part 1 — Update GitHub Pages
+Before upgrading, open the SponsorFlow Google Sheet and choose:
+
+```text
+File → Make a copy
+```
+
+The migration is designed to preserve all rows, but a backup gives the club a simple rollback point.
+
+## Part 2 — Update GitHub Pages
 
 Upload or replace these files in the GitHub repository:
 
@@ -19,52 +20,61 @@ Upload or replace these files in the GitHub repository:
 index.html
 admin.html
 assets/app.css
+assets/api.js
 assets/member.js
 ```
 
-You may also upload `assets/api.js`, although it is unchanged.
+You may also upload the research documents:
 
-**Do not overwrite `assets/config.js`** unless you are intentionally re-entering the Apps Script `/exec` URL.
+```text
+validated-sponsors.csv
+VALIDATED-SPONSORS.md
+README.md
+SECURITY.md
+UPGRADE.md
+```
 
-After committing the files:
+**Do not overwrite `assets/config.js`.** Your existing Apps Script `/exec` URL is already stored there, and the drop-in update package intentionally excludes that file.
 
-1. Open the repository's **Actions** tab.
-2. Wait for **pages build and deployment** to finish with a green check.
-3. Hard-refresh the live site with `Command + Shift + R`.
+Commit the files to `main`, then wait for **Actions → pages build and deployment** to finish with a green check.
 
-## Part 2 — Update Apps Script
+## Part 3 — Update Apps Script
 
-Open the SponsorFlow Google Sheet, then choose **Extensions → Apps Script**.
+Open the SponsorFlow Google Sheet and choose:
 
-Replace the contents of:
+```text
+Extensions → Apps Script
+```
+
+Replace the complete contents of:
 
 ```text
 Code.gs
 Admin.html
 ```
 
-with the matching files in the `apps-script` folder. Copy the raw source code, not the rendered page.
+with the version-3 files in the `apps-script` folder. Copy the raw source, not a browser-rendered page. Click **Save**.
 
-Click **Save**.
+## Part 4 — Run the v3 migration and sponsor import
 
-## Part 3 — Run the migration and refresh templates
-
-Return to the Google Sheet and reload it. Choose:
+Reload the Google Sheet. From the new **SponsorFlow** menu, choose:
 
 ```text
-SponsorFlow → Upgrade to v2 + refresh templates
+Upgrade to v3 + import sponsor research
 ```
 
 This action:
 
-- Adds the new `sponsorVerification` request column
-- Preserves existing contacts and requests
+- Adds outreach-route and duplicate-acknowledgement columns where needed
+- Preserves all existing rows
 - Refreshes the six built-in templates
-- Leaves custom templates untouched
+- Imports 18 official sponsor opportunities
+- Marks newly imported official routes verified and active
+- Preserves an officer's active/verified choices on later research refreshes
 
-Existing version-1 requests are treated as verified when they already reference a directory contact.
+You can later run **SponsorFlow → Import or refresh validated sponsors** to refresh the seeded research without clearing your own contacts.
 
-## Part 4 — Redeploy Apps Script
+## Part 5 — Redeploy Apps Script
 
 Saving Apps Script does not update the live `/exec` deployment by itself.
 
@@ -82,21 +92,39 @@ Then:
 
 Keep the same deployment and URL. You do not need to edit `assets/config.js` again.
 
-## Part 5 — Test the new workflow
+## Part 6 — Refresh GitHub Pages
 
-1. Open the public portal.
-2. Enter a consistent full name.
-3. Select **Suggest a sponsor**.
-4. Enter an email address you control.
-5. Submit a test request.
-6. Open the admin dashboard.
-7. Confirm the request displays **Unverified**.
-8. Click **Verify & add to directory**.
-9. Approve it, copy it, and mark it sent.
-10. Open **Club stats** and confirm the sent total and graph update.
+After the GitHub Pages workflow succeeds, hard-refresh the live site:
 
-## Name-based access behavior
+```text
+Command + Shift + R
+```
 
-Requests are now retrieved by a case-insensitive, whitespace-normalized version of the member name. For example, `Colin Ternus` and `  colin   ternus ` match the same request history.
+The version-3 files use `?v=3` cache-busting, but a hard refresh is still useful after a major update.
 
-There are intentionally no member passwords or edit codes. Anyone entering the same name can view that name's requests. Do not use SponsorFlow for confidential, financial, medical, academic, or private personal information.
+## Part 7 — Test duplicate protection
+
+1. Select an imported sponsor with no prior outreach.
+2. Confirm the page shows **No prior outreach**.
+3. Submit a test request and approve/mark it sent in the admin dashboard.
+4. Start a second request to the same company.
+5. Confirm the page shows **Contacted 1×** and requires acknowledgement.
+6. Create a request to the same company while the first request is still pending.
+7. Confirm the page shows **Active outreach exists**.
+8. Type the same company manually in **Suggest a sponsor** and verify the duplicate warning still appears.
+
+## Part 8 — Review imported sponsor opportunities
+
+The Contacts sheet will contain official email or form routes, suggested asks, eligibility constraints, personalization ideas, and source URLs. Before real outreach:
+
+- Open the official source
+- Confirm the program is still accepting requests
+- Coordinate faculty or Purdue authorization where the record says it is required
+- Tailor the request to a concrete EV-Kart engineering need
+- Avoid submitting to two routes at the same company without officer coordination
+
+## Matching behavior
+
+SponsorFlow matches prior outreach by contact ID, exact email, or normalized company name. Company matching ignores capitalization, punctuation, and common suffixes such as `Inc.`, `LLC`, and `Corporation`.
+
+An intentional follow-up is still allowed, but the member must explicitly acknowledge the previous outreach. The backend enforces this requirement independently of the browser.

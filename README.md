@@ -1,4 +1,4 @@
-# ASME Indy SponsorFlow — GitHub Pages Edition v2
+# ASME Indy SponsorFlow — GitHub Pages Edition v3
 
 SponsorFlow is a free sponsor-outreach workflow for Purdue University Indianapolis ASME.
 
@@ -10,33 +10,62 @@ Google Apps Script data service and admin dashboard
 Private Google Sheet
 ```
 
-The application does not send email automatically. Members draft requests; officers verify recipients, comment, approve, manually copy the final email into `asmeindy@purdue.edu`, and mark the request sent.
+The application does not send email automatically. Members prepare sponsor outreach; officers verify destinations, comment, request revisions, approve, manually copy the final message or application package, and mark it submitted from `asmeindy@purdue.edu`.
 
-## Version 2 highlights
+## Version 3 highlights
 
-- Member requests are grouped and recovered using the member's full name
-- No member accounts, cookies, or edit codes are required
-- Members may select a verified sponsor or suggest a new company and email
-- Suggested contacts are labeled **Unverified** until an officer confirms them
-- Unverified requests cannot be approved or marked sent
-- Six shorter, more sponsor-focused templates
-- Public sent and active-request leaderboards
-- A cumulative sent-email graph
-- Existing spreadsheet rows are preserved during upgrades
+- Duplicate-outreach protection by contact record, exact email, and normalized company name
+- Highly visible **No prior outreach**, **Active outreach exists**, and **Contacted X×** indicators
+- A required acknowledgement before creating an intentional follow-up or separate opportunity
+- 18 researched sponsor opportunities imported from official company programs and contact pages
+- Official email and application-form routes supported side by side
+- Company-specific research briefs with suggested asks, eligibility notes, personalization angles, and a recommended template
+- Six tightened sponsorship templates for direct requests, in-kind support, official programs, local grants, follow-ups, and sponsor fulfillment
+- Name-based request history and public club leaderboards
+- A cumulative sent/submitted outreach graph
+- Member-suggested companies and emails remain marked **Unverified** until officer review
+- Existing contacts, templates, requests, comments, revisions, and statistics are preserved during the upgrade
 
-See [UPGRADE.md](UPGRADE.md) for the exact update steps.
+See [UPGRADE.md](UPGRADE.md) for the exact upgrade sequence.
+
+## What “validated sponsor” means
+
+The imported records were reviewed on **July 27, 2026** against official program, education, sponsorship, or community-application pages. A validated record confirms a legitimate outreach route; it does not guarantee funding, eligibility, approval, or email delivery.
+
+Some opportunities require a faculty advisor, institutional authorization, a W-9, an EIN, or a U.S. 501(c)(3). SponsorFlow shows those constraints before a member drafts the request. Officers should re-open the official source before submitting.
+
+The full research export is available in:
+
+```text
+validated-sponsors.csv
+VALIDATED-SPONSORS.md
+```
+
+## Duplicate protection
+
+When a member chooses or types a sponsor, SponsorFlow checks prior requests using:
+
+1. The exact directory contact ID
+2. The exact normalized email address
+3. The normalized company name
+
+The public portal then shows whether the sponsor is available, has an active request, or has already been contacted. Prior outreach does not create a permanent ban: intentional follow-ups and distinct opportunities can proceed after the member acknowledges the history.
+
+The backend repeats the check at submission time, so bypassing the browser warning does not silently create a duplicate.
 
 ## Files
 
 ```text
-index.html                 Public member portal
-admin.html                 Redirect page to the Apps Script admin dashboard
-assets/config.js           Your deployed Apps Script URL
-assets/api.js              GitHub Pages ↔ Apps Script bridge
-assets/member.js           Member workflow and public statistics
-assets/app.css             Public site styling
-apps-script/Code.gs        Apps Script backend
-apps-script/Admin.html     Officer dashboard
+index.html                    Public member portal
+admin.html                    Redirect page to the Apps Script admin dashboard
+assets/config.js              Your deployed Apps Script URL; preserve this during updates
+assets/api.js                 GitHub Pages ↔ Apps Script bridge
+assets/member.js              Member workflow, duplicate indicators, research, and statistics
+assets/app.css                Public site styling
+apps-script/Code.gs           Apps Script backend and seeded sponsor research
+apps-script/Admin.html        Officer dashboard
+validated-sponsors.csv        Portable research export
+VALIDATED-SPONSORS.md         Human-readable outreach catalog
 ```
 
 ## Initial setup
@@ -50,33 +79,15 @@ apps-script/Admin.html     Officer dashboard
 7. Copy the `/exec` URL into `assets/config.js`.
 8. Upload the public files to a GitHub Pages repository.
 
-## Sponsor verification
+Initial setup automatically creates the spreadsheet schema, refreshes the six built-in templates, and imports the validated sponsor catalog.
 
-A member-suggested contact is automatically added to the Contacts sheet as inactive and unverified. The request stores a snapshot of the company, contact name, and email.
+## Sponsor route types
 
-In the admin dashboard, an officer can select **Verify & add to directory**. That action:
-
-- Marks the contact verified and active
-- Makes it selectable for future members
-- Marks matching requests as verified
-- Records an audit event
-
-## Statistics
-
-The public statistics page displays:
-
-- Total requests submitted
-- Total requests marked sent
-- Active queue count
-- Number of participating member names
-- Leaders by sent requests
-- Leaders by active requests
-- A cumulative monthly graph based on `sentAt`
-
-A request counts as active when it is pending review, changes requested, or approved but not yet sent.
+- **EMAIL:** Officers copy the approved subject and body into the club mailbox, send it, then mark the request sent.
+- **FORM:** Officers open the official company application, copy the approved application package, submit it, then mark the request submitted. It is recorded as `SENT` for statistics and duplicate protection.
 
 ## Privacy model
 
-This edition intentionally uses names rather than member authentication. Names and leaderboard counts are public, and anyone who enters the same name can view that name's request history. Sponsor email addresses are not included in the public directory or public request response; they remain available in the private Sheet and admin dashboard.
+This edition intentionally uses names rather than member authentication. Names and leaderboard counts are public, and anyone entering the same name can view that name's request history. Sponsor email addresses are not included in the public directory or public request response; they remain available in the private Sheet and admin dashboard.
 
 Do not store passwords, payment information, tax records, private academic records, or other sensitive information in SponsorFlow.

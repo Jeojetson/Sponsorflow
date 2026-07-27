@@ -92,6 +92,8 @@
     .APPROVED { color:var(--blue); background:var(--bluebg); }
     .SENT,.VERIFIED { color:var(--green); background:var(--greenbg); }
     .UNVERIFIED { color:var(--amber); background:var(--amberbg); }
+    .CONTACTED,.FORM { color:var(--blue); background:var(--bluebg); }
+    .AVAILABLE,.EMAIL { color:var(--green); background:var(--greenbg); }
     .badge-stack { display:flex; flex-wrap:wrap; gap:5px; }
 
     .split { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(340px,.88fr); gap:18px; }
@@ -188,11 +190,20 @@
               <h2 id="contactFormTitle">Add contact</h2>
               <input id="contactEditId" type="hidden">
               <label class="field"><span>Company name</span><input id="contactCompany" required maxlength="160"></label>
-              <label class="field"><span>Contact name</span><input id="contactName" maxlength="120"></label>
-              <label class="field"><span>Sponsor email</span><input id="contactEmail" type="email" required maxlength="254"></label>
-              <label class="field"><span>Category</span><input id="contactCategory" maxlength="80" placeholder="Manufacturing, local, recruiting…"></label>
-              <label class="field"><span>Internal notes</span><textarea id="contactNotes" rows="5" maxlength="2000"></textarea></label>
-              <label class="check"><input id="contactVerified" type="checkbox"> Verified by an officer</label>
+              <label class="field"><span>Program or contact name</span><input id="contactName" maxlength="120"></label>
+              <label class="field"><span>Outreach route</span><select id="contactOutreachType"><option value="EMAIL">Email</option><option value="FORM">Official application form</option></select></label>
+              <label class="field"><span>Sponsor email (for email routes)</span><input id="contactEmail" type="email" maxlength="254"></label>
+              <label class="field"><span>Official application / program URL</span><input id="contactOutreachUrl" type="url" maxlength="1000" placeholder="https://…"></label>
+              <label class="field"><span>Category</span><input id="contactCategory" maxlength="100" placeholder="Manufacturing, software, local grant…"></label>
+              <label class="field"><span>Suggested ask shown to members</span><textarea id="contactSuggestedAsk" rows="3" maxlength="1200"></textarea></label>
+              <label class="field"><span>Eligibility / routing note</span><textarea id="contactEligibility" rows="3" maxlength="1600"></textarea></label>
+              <label class="field"><span>Personalization idea</span><textarea id="contactPersonalization" rows="3" maxlength="1600"></textarea></label>
+              <label class="field"><span>Recommended template</span><select id="contactRecommendedTemplate"><option value="">No automatic recommendation</option><option value="TPL-GENERAL">Direct Partnership Request</option><option value="TPL-INKIND">Technical Product or Manufacturing Request</option><option value="TPL-PROGRAM">Official Student-Team Program Application</option><option value="TPL-LOCAL">Indianapolis Community or Grant Request</option><option value="TPL-FOLLOWUP">Respectful Follow-Up</option></select></label>
+              <label class="field"><span>Official source URL</span><input id="contactSourceUrl" type="url" maxlength="1000" placeholder="https://…"></label>
+              <label class="field"><span>Research validated date</span><input id="contactValidatedAt" type="date"></label>
+              <label class="field"><span>Validation status</span><input id="contactValidationStatus" maxlength="80" placeholder="OFFICER_VERIFIED"></label>
+              <label class="field"><span>Internal notes</span><textarea id="contactNotes" rows="5" maxlength="2500"></textarea></label>
+              <label class="check"><input id="contactVerified" type="checkbox"> Verified by an officer or official public program</label>
               <label class="check"><input id="contactActive" type="checkbox" checked> Active and selectable by members</label>
               <button class="btn btn-primary btn-full" type="submit">Save contact</button>
               <p id="contactStatus" class="status-text"></p>
@@ -331,9 +342,9 @@
         const rows = filteredRequests();
         $('#requestRows').innerHTML = rows.length ? rows.map(request => `
           <tr>
-            <td><div class="row-title">${esc(request.companyName)}</div><div class="row-sub">${esc(request.contactName || 'No contact name')} · ${esc(request.contactEmail)}</div></td>
+            <td><div class="row-title">${esc(request.companyName)}</div><div class="row-sub">${esc(request.contactName || 'No contact name')} · ${request.outreachType === 'FORM' ? 'Official application' : esc(request.contactEmail)}</div></td>
             <td><div class="row-title">${esc(request.requesterName)}</div><div class="row-sub">${esc(request.requesterRole)} · Revision ${esc(request.revisionNumber)}</div></td>
-            <td><div class="badge-stack"><span class="badge ${esc(request.sponsorVerification)}">${esc(request.sponsorVerification)}</span><span class="badge ${esc(request.status)}">${esc(statusLabel(request.status))}</span></div></td>
+            <td><div class="badge-stack"><span class="badge ${esc(request.sponsorVerification)}">${esc(request.sponsorVerification)}</span><span class="badge ${esc(request.outreachType)}">${esc(request.outreachType)}</span><span class="badge ${esc(request.status)}">${esc(statusLabel(request.status))}</span>${Number(request.priorOutreach?.totalCount || 0) ? '<span class="badge CONTACTED">Prior outreach</span>' : ''}</div></td>
             <td>${esc(date(request.updatedAt))}</td>
             <td><button class="btn btn-secondary btn-small" data-request-id="${esc(request.id)}">Review</button></td>
           </tr>`).join('') : '<tr><td colspan="5" class="empty">No matching requests.</td></tr>';
@@ -345,34 +356,57 @@
         const request = data.requests.find(item => item.id === id);
         if (!request) return;
         const unverified = request.sponsorVerification === 'UNVERIFIED';
+        const isForm = request.outreachType === 'FORM';
         const canMarkSent = request.status === 'APPROVED' && !unverified;
+        const prior = request.priorOutreach || { totalCount: 0, sentCount: 0, activeCount: 0 };
+        const routeLine = isForm
+          ? `<a href="${esc(request.outreachUrl)}" target="_blank" rel="noreferrer">Official application form ↗</a>`
+          : `<a href="mailto:${esc(request.contactEmail)}">${esc(request.contactEmail)}</a>`;
+        const copyPackage = isForm
+          ? `Application content for ${request.companyName}
+Official route: ${request.outreachUrl}
+
+Suggested subject/title: ${request.subject}
+
+${request.body}`
+          : `To: ${request.contactEmail}
+Subject: ${request.subject}
+
+${request.body}`;
+
         $('#requestDetail').innerHTML = `
           <div class="detail-head">
-            <div><p class="eyebrow">${esc(request.id)}</p><h2>${esc(request.companyName)}</h2><p>${esc(request.contactName || 'Sponsor contact')} · <a href="mailto:${esc(request.contactEmail)}">${esc(request.contactEmail)}</a></p></div>
-            <div class="detail-badges"><span class="badge ${esc(request.sponsorVerification)}">${esc(request.sponsorVerification)}</span><span class="badge ${esc(request.status)}">${esc(statusLabel(request.status))}</span></div>
+            <div><p class="eyebrow">${esc(request.id)}</p><h2>${esc(request.companyName)}</h2><p>${esc(request.contactName || 'Sponsor program')} · ${routeLine}</p></div>
+            <div class="detail-badges"><span class="badge ${esc(request.sponsorVerification)}">${esc(request.sponsorVerification)}</span><span class="badge ${esc(request.outreachType)}">${isForm ? 'Application form' : 'Email'}</span><span class="badge ${esc(request.status)}">${esc(statusLabel(request.status))}</span></div>
           </div>
           <div class="detail-grid">
             <div class="detail"><span>Prepared by</span><strong>${esc(request.requesterName)}${request.requesterRole ? ` · ${esc(request.requesterRole)}` : ''}</strong></div>
             <div class="detail"><span>Template</span><strong>${esc(request.templateName)}</strong></div>
             <div class="detail"><span>Revision</span><strong>${esc(request.revisionNumber)}</strong></div>
           </div>
-          ${unverified ? `<div class="notice verify-row"><div><strong>Unverified sponsor email</strong><br>Confirm the company and address before approval.</div><button id="verifySponsorButton" class="btn btn-primary" type="button">Verify & add to directory</button></div>` : '<div class="notice success"><strong>Verified sponsor email</strong><br>This address is approved for the club directory.</div>'}
+          ${Number(prior.totalCount || 0) ? `<div class="notice"><strong>Duplicate-outreach review</strong><br>${esc(prior.sentCount)} sent and ${esc(prior.activeCount)} active earlier request(s) match this sponsor. The member ${request.duplicateAcknowledged ? 'confirmed this was intentional' : 'did not record a confirmation'}.</div>` : '<div class="notice success"><strong>No earlier matching outreach</strong><br>This appears to be the first SponsorFlow request for this sponsor.</div>'}
+          ${unverified ? `<div class="notice verify-row"><div><strong>Unverified sponsor email</strong><br>Confirm the company and address before approval.</div><button id="verifySponsorButton" class="btn btn-primary" type="button">Verify & add to directory</button></div>` : `<div class="notice success"><strong>Verified sponsor ${isForm ? 'application route' : 'email'}</strong><br>This destination is approved for the club directory.</div>`}
           ${request.adminComment ? `<div class="notice"><strong>Current officer comment</strong><br>${esc(request.adminComment)}</div>` : ''}
-          <label class="field"><span>Subject</span><input value="${esc(request.subject)}" readonly></label>
-          <div class="copy-row"><button id="copySubject" class="btn btn-secondary btn-small">Copy subject</button><button id="copyBody" class="btn btn-secondary btn-small">Copy body</button><button id="copyAll" class="btn btn-dark btn-small">Copy complete email</button></div>
+          <label class="field"><span>Subject / application title</span><input value="${esc(request.subject)}" readonly></label>
+          <div class="copy-row">
+            <button id="copySubject" class="btn btn-secondary btn-small">Copy subject</button>
+            <button id="copyBody" class="btn btn-secondary btn-small">Copy body</button>
+            <button id="copyAll" class="btn btn-dark btn-small">Copy ${isForm ? 'application package' : 'complete email'}</button>
+            ${isForm ? `<a class="btn btn-primary btn-small" href="${esc(request.outreachUrl)}" target="_blank" rel="noreferrer">Open official application</a>` : ''}
+          </div>
           <div class="email-box">${esc(request.body)}</div>
           <label class="field comment-box"><span>Officer comment</span><textarea id="adminComment" rows="4" maxlength="2000" placeholder="Be specific about what should change, or record an approval note.">${esc(request.adminComment || '')}</textarea></label>
           <div class="action-grid">
             <button class="btn btn-secondary" data-status="CHANGES_REQUESTED">Request revisions</button>
             <button class="btn btn-primary" data-status="APPROVED" ${unverified ? 'disabled title="Verify the sponsor first"' : ''}>Approve</button>
-            <button class="btn btn-dark" data-status="SENT" ${canMarkSent ? '' : 'disabled title="Approve and verify first"'}>Mark sent</button>
+            <button class="btn btn-dark" data-status="SENT" ${canMarkSent ? '' : 'disabled title="Approve and verify first"'}>${isForm ? 'Mark submitted' : 'Mark sent'}</button>
             <button class="btn btn-danger" data-status="REJECTED">Reject</button>
           </div>
           <p id="requestActionStatus" class="status-text"></p>`;
 
         $('#copySubject').onclick = () => copyText(request.subject, $('#copySubject'));
         $('#copyBody').onclick = () => copyText(request.body, $('#copyBody'));
-        $('#copyAll').onclick = () => copyText(`To: ${request.contactEmail}\nSubject: ${request.subject}\n\n${request.body}`, $('#copyAll'));
+        $('#copyAll').onclick = () => copyText(copyPackage, $('#copyAll'));
         if ($('#verifySponsorButton')) $('#verifySponsorButton').onclick = verifySponsor;
         $$('[data-status]').forEach(button => button.onclick = () => updateRequest(button.dataset.status));
         $('#requestDialog').showModal();
@@ -416,11 +450,21 @@
       }
 
       function renderContacts() {
-        $('#contactList').innerHTML = data.contacts.length ? data.contacts.map(contact => `
-          <div class="item">
-            <div><div class="badge-stack"><span class="badge ${String(contact.verified) === 'true' ? 'VERIFIED' : 'UNVERIFIED'}">${String(contact.verified) === 'true' ? 'Verified' : 'Unverified'}</span>${String(contact.active) === 'true' ? '<span class="badge APPROVED">Active</span>' : '<span class="badge REJECTED">Inactive</span>'}</div><h3>${esc(contact.companyName)}</h3><p>${esc(contact.contactName || 'No contact name')} · ${esc(contact.email)}</p></div>
+        $('#contactList').innerHTML = data.contacts.length ? data.contacts.map(contact => {
+          const history = contact.history || {};
+          const historyBadge = Number(history.activeCount || 0)
+            ? `<span class="badge PENDING_REVIEW">${esc(history.activeCount)} active</span>`
+            : Number(history.sentCount || 0)
+              ? `<span class="badge CONTACTED">Contacted ${esc(history.sentCount)}×</span>`
+              : '<span class="badge AVAILABLE">Available</span>';
+          const route = contact.outreachType === 'FORM'
+            ? 'Official application form'
+            : (contact.email || 'Email not entered');
+          return `<div class="item">
+            <div><div class="badge-stack"><span class="badge ${String(contact.verified) === 'true' ? 'VERIFIED' : 'UNVERIFIED'}">${String(contact.verified) === 'true' ? 'Verified' : 'Unverified'}</span><span class="badge ${esc(contact.outreachType)}">${esc(contact.outreachType)}</span>${String(contact.active) === 'true' ? '<span class="badge APPROVED">Active</span>' : '<span class="badge REJECTED">Inactive</span>'}${historyBadge}</div><h3>${esc(contact.companyName)}</h3><p>${esc(contact.contactName || 'No program name')} · ${esc(route)}</p></div>
             <div class="item-actions"><button class="btn btn-secondary btn-small" data-edit-contact="${esc(contact.id)}">Edit</button></div>
-          </div>`).join('') : '<div class="empty">No contacts yet.</div>';
+          </div>`;
+        }).join('') : '<div class="empty">No contacts yet.</div>';
         $$('[data-edit-contact]').forEach(button => button.onclick = () => editContact(button.dataset.editContact));
       }
 
@@ -428,6 +472,8 @@
         $('#contactForm').reset();
         $('#contactEditId').value = '';
         $('#contactActive').checked = true;
+        $('#contactOutreachType').value = 'EMAIL';
+        $('#contactValidatedAt').value = '';
         $('#contactFormTitle').textContent = 'Add contact';
         setStatus($('#contactStatus'), '');
       }
@@ -438,9 +484,18 @@
         $('#contactEditId').value = contact.id;
         $('#contactCompany').value = contact.companyName;
         $('#contactName').value = contact.contactName;
-        $('#contactEmail').value = contact.email;
-        $('#contactCategory').value = contact.category;
-        $('#contactNotes').value = contact.notes;
+        $('#contactOutreachType').value = contact.outreachType || (contact.email ? 'EMAIL' : 'FORM');
+        $('#contactEmail').value = contact.email || '';
+        $('#contactOutreachUrl').value = contact.outreachUrl || '';
+        $('#contactCategory').value = contact.category || '';
+        $('#contactSuggestedAsk').value = contact.suggestedAsk || '';
+        $('#contactEligibility').value = contact.eligibility || '';
+        $('#contactPersonalization').value = contact.personalizationIdea || '';
+        $('#contactRecommendedTemplate').value = contact.recommendedTemplateId || '';
+        $('#contactSourceUrl').value = contact.sourceUrl || '';
+        $('#contactValidatedAt').value = contact.validatedAt || '';
+        $('#contactValidationStatus').value = contact.validationStatus || '';
+        $('#contactNotes').value = contact.notes || '';
         $('#contactVerified').checked = String(contact.verified) === 'true';
         $('#contactActive').checked = String(contact.active) === 'true';
         $('#contactFormTitle').textContent = 'Edit contact';
@@ -454,8 +509,17 @@
           id: $('#contactEditId').value,
           companyName: $('#contactCompany').value,
           contactName: $('#contactName').value,
+          outreachType: $('#contactOutreachType').value,
           email: $('#contactEmail').value,
+          outreachUrl: $('#contactOutreachUrl').value,
           category: $('#contactCategory').value,
+          suggestedAsk: $('#contactSuggestedAsk').value,
+          eligibility: $('#contactEligibility').value,
+          personalizationIdea: $('#contactPersonalization').value,
+          recommendedTemplateId: $('#contactRecommendedTemplate').value,
+          sourceUrl: $('#contactSourceUrl').value,
+          validatedAt: $('#contactValidatedAt').value,
+          validationStatus: $('#contactValidationStatus').value,
           notes: $('#contactNotes').value,
           verified: $('#contactVerified').checked,
           active: $('#contactActive').checked

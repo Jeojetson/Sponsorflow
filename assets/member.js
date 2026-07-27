@@ -10,7 +10,9 @@
     sponsorMode: "directory",
     revision: null,
     loadedRequests: [],
-    activeLookupName: ""
+    activeLookupName: "",
+    sponsorHistory: null,
+    historyCheckSequence: 0
   };
 
   const $ = selector => document.querySelector(selector);
@@ -99,7 +101,12 @@
     }
     select.innerHTML = '<option value="">Choose a verified sponsor</option>' + state.contacts.map(contact => {
       const contactText = contact.contactName ? ` — ${escapeHtml(contact.contactName)}` : "";
-      return `<option value="${escapeHtml(contact.id)}">${escapeHtml(contact.companyName)}${contactText}</option>`;
+      const history = contact.history || {};
+      let indicator = "";
+      if (history.activeCount) indicator = ` · ${history.activeCount} active`;
+      else if (history.sentCount) indicator = ` · contacted ${history.sentCount}×`;
+      const route = contact.outreachType === "FORM" ? " · application" : "";
+      return `<option value="${escapeHtml(contact.id)}">${escapeHtml(contact.companyName)}${contactText}${escapeHtml(indicator + route)}</option>`;
     }).join("");
   }
 
@@ -112,6 +119,156 @@
     select.innerHTML = '<option value="">Choose a template</option>' + state.templates.map(template =>
       `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} · ${escapeHtml(template.category)}</option>`
     ).join("");
+  }
+
+
+  function formatHistoryDate(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  }
+
+  function renderSponsorInsight(contact) {
+    const card = $("#sponsorInsightCard");
+    if (!contact || (!contact.suggestedAsk && !contact.eligibility && !contact.personalizationIdea)) {
+      card.classList.add("is-hidden");
+      return;
+    }
+
+    $("#sponsorInsightTitle").textContent = `${contact.companyName} outreach brief`;
+    $("#sponsorSuggestedAsk").textContent = contact.suggestedAsk || "Review the official opportunity and tailor a concrete request.";
+    $("#sponsorEligibility").textContent = contact.eligibility || "Review the official program requirements before submitting.";
+    $("#sponsorPersonalizationIdea").textContent = contact.personalizationIdea || "Connect the company’s products or mission to a specific EV-Kart engineering need.";
+
+    const status = String(contact.validationStatus || "");
+    $("#sponsorProgramBadge").textContent =
+      status === "OFFICIAL_COMMUNITY_APPLICATION" ? "Official community application" :
+      status === "OFFICIAL_ACADEMIC_CONTACT" ? "Official academic contact" :
+      status ? "Official student program" : "Officer-verified sponsor";
+
+    const routeLink = $("#sponsorRouteLink");
+    if (contact.outreachUrl) {
+      routeLink.href = contact.outreachUrl;
+      routeLink.textContent = contact.outreachType === "FORM" ? "Open official application" : "View official program";
+      routeLink.classList.remove("is-hidden");
+    } else {
+      routeLink.classList.add("is-hidden");
+    }
+    card.classList.remove("is-hidden");
+  }
+
+  function renderSponsorHistory(history, companyName = "") {
+    const card = $("#sponsorHistoryCard");
+    const badge = $("#sponsorHistoryBadge");
+    const title = $("#sponsorHistoryTitle");
+    const text = $("#sponsorHistoryText");
+    const icon = $("#sponsorHistoryIcon");
+    const acknowledgement = $("#duplicateAcknowledged");
+    const acknowledgementWrap = $("#duplicateAckWrap");
+
+    state.sponsorHistory = history || null;
+    acknowledgement.checked = false;
+
+    if (!history) {
+      card.classList.add("is-hidden");
+      acknowledgement.required = false;
+      acknowledgementWrap.classList.add("is-hidden");
+      return;
+    }
+
+    const name = companyName || "This sponsor";
+    const sent = Number(history.sentCount || 0);
+    const active = Number(history.activeCount || 0);
+    const total = Number(history.totalCount || 0);
+
+    card.className = "outreach-history";
+    badge.className = "verification-badge";
+    acknowledgement.required = total > 0;
+    acknowledgementWrap.classList.toggle("is-hidden", total === 0);
+
+    if (active > 0) {
+      card.classList.add("is-warning");
+      badge.classList.add("pending");
+      badge.textContent = "Active outreach exists";
+      icon.textContent = "!";
+      title.textContent = `${name} already has ${active} active request${active === 1 ? "" : "s"}`;
+      text.textContent = `${sent ? `${sent} earlier message${sent === 1 ? " was" : "s were"} also marked sent. ` : ""}Coordinate with the existing requester before creating another message.`;
+    } else if (sent > 0) {
+      card.classList.add("is-contacted");
+      badge.classList.add("contacted");
+      badge.textContent = `Contacted ${sent}×`;
+      icon.textContent = "↗";
+      title.textContent = `${name} has already received club outreach`;
+      const dateText = formatHistoryDate(history.lastSentAt);
+      text.textContent = `The club has marked ${sent} message${sent === 1 ? "" : "s"} sent${dateText ? `, most recently ${dateText}` : ""}. Use the follow-up template or confirm that this is a separate contact or opportunity.`;
+    } else if (total > 0) {
+      card.classList.add("is-warning");
+      badge.classList.add("pending");
+      badge.textContent = "Previous request found";
+      icon.textContent = "•";
+      title.textContent = `${name} has prior SponsorFlow history`;
+      text.textContent = "Review with an officer before restarting or replacing the earlier request.";
+    } else {
+      card.classList.add("is-available");
+      badge.classList.add("available");
+      badge.textContent = "No prior outreach";
+      icon.textContent = "✓";
+      title.textContent = `${name} appears available for outreach`;
+      text.textContent = "No matching SponsorFlow request was found by company, contact record, or email.";
+    }
+
+    card.classList.remove("is-hidden");
+  }
+
+  async function refreshSponsorContext() {
+    if (state.revision) {
+      renderSponsorInsight(null);
+      renderSponsorHistory(null);
+      return;
+    }
+
+    if (state.sponsorMode === "directory") {
+      const contact = selectedContact();
+      renderSponsorInsight(contact);
+      renderSponsorHistory(contact ? contact.history : null, contact ? contact.companyName : "");
+      if (contact?.recommendedTemplateId && !$("#templateId").value) {
+        $("#templateId").value = contact.recommendedTemplateId;
+        $("#templateId").dispatchEvent(new Event("change"));
+      }
+      return;
+    }
+
+    renderSponsorInsight(null);
+    const companyName = $("#customCompanyName").value.trim();
+    const contactEmail = $("#customContactEmail").value.trim();
+    if (companyName.length < 2 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) {
+      renderSponsorHistory(null);
+      return;
+    }
+
+    const sequence = ++state.historyCheckSequence;
+    try {
+      const history = await API.post("checkSponsorHistory", { companyName, contactEmail });
+      if (sequence !== state.historyCheckSequence) return;
+      renderSponsorHistory(history, companyName);
+    } catch (error) {
+      if (sequence !== state.historyCheckSequence) return;
+      renderSponsorHistory(null);
+    }
+  }
+
+  function useSponsorResearch() {
+    const contact = selectedContact();
+    if (!contact) return;
+    if (contact.suggestedAsk && !$("#specificRequest").value.trim()) $("#specificRequest").value = contact.suggestedAsk;
+    if (contact.recommendedTemplateId) {
+      $("#templateId").value = contact.recommendedTemplateId;
+      $("#templateId").dispatchEvent(new Event("change"));
+    }
+    setFormStatus("Suggested ask and template added. Use the research angle above to write a company-specific opening in your own words.", "success");
+    if (!$("#personalizedConnection").value.trim()) $("#personalizedConnection").focus();
+    updateQuality();
   }
 
   function selectedContact() {
@@ -172,6 +329,7 @@
       $(selector).required = !directory;
     });
     $("#customContactName").disabled = directory;
+    refreshSponsorContext();
     updateQuality();
   }
 
@@ -273,6 +431,12 @@
       return;
     }
 
+    if (!state.revision && Number(state.sponsorHistory?.totalCount || 0) > 0 && !$("#duplicateAcknowledged").checked) {
+      setFormStatus("Review the prior-outreach warning and confirm that this is an intentional follow-up or separate opportunity.", "error");
+      $("#duplicateAcknowledged").focus();
+      return;
+    }
+
     const button = $("#submitRequestButton");
     button.disabled = true;
     setFormStatus(state.revision ? "Submitting the revised draft…" : "Submitting for admin review…");
@@ -304,6 +468,7 @@
         customCompanyName: state.sponsorMode === "custom" ? $("#customCompanyName").value.trim() : "",
         customContactName: state.sponsorMode === "custom" ? $("#customContactName").value.trim() : "",
         customContactEmail: state.sponsorMode === "custom" ? $("#customContactEmail").value.trim() : "",
+        duplicateAcknowledged: $("#duplicateAcknowledged").checked,
         templateId: template.id,
         subject: $("#emailSubject").value.trim(),
         body: $("#emailBody").value.trim()
@@ -317,6 +482,7 @@
       $("#requestLookupName").value = requesterName;
       $("#submittedDialog").showModal();
       setFormStatus("Submitted successfully.", "success");
+      await bootstrap();
       await refreshStats();
     } catch (error) {
       setFormStatus(error.message, "error");
@@ -376,7 +542,7 @@
     const verificationLabel = request.sponsorVerification === "VERIFIED" ? "Verified sponsor" : "Unverified sponsor";
     return `<article class="request-card">
       <div class="request-card-top">
-        <div><div class="badge-row"><span class="verification-badge ${verification}">${verificationLabel}</span></div><h4>${escapeHtml(request.companyName)}</h4><p>${escapeHtml(request.templateName)}</p></div>
+        <div><div class="badge-row"><span class="verification-badge ${verification}">${verificationLabel}</span>${request.outreachType === "FORM" ? '<span class="verification-badge research">Application route</span>' : ""}</div><h4>${escapeHtml(request.companyName)}</h4><p>${escapeHtml(request.templateName)}</p></div>
         <span class="status-badge status-${escapeHtml(request.status)}">${escapeHtml(statusLabel(request.status))}</span>
       </div>
       <div class="request-meta"><span>${escapeHtml(request.id)}</span><span>Revision ${escapeHtml(request.revisionNumber)}</span><span>${escapeHtml(formatDate(request.updatedAt))}</span></div>
@@ -557,6 +723,13 @@
       if (event.target.value) $("#selectedBenefits").value = event.target.value;
       updateQuality();
     });
+    $("#contactId").addEventListener("change", refreshSponsorContext);
+    let customHistoryTimer;
+    ["#customCompanyName", "#customContactEmail"].forEach(selector => $(selector).addEventListener("input", () => {
+      clearTimeout(customHistoryTimer);
+      customHistoryTimer = setTimeout(refreshSponsorContext, 450);
+    }));
+    $("#useSponsorResearchButton").addEventListener("click", useSponsorResearch);
     $("#generateDraftButton").addEventListener("click", generateDraft);
     $("#composeForm").addEventListener("submit", submitRequest);
     $("#requestsLookupForm").addEventListener("submit", event => {

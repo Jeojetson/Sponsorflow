@@ -1,6 +1,6 @@
-# SponsorFlow v2 security and privacy notes
+# SponsorFlow v3 security and privacy notes
 
-SponsorFlow v2 is designed for low-sensitivity student-club outreach, not confidential records.
+SponsorFlow v3 is designed for low-sensitivity student-club outreach, not confidential records.
 
 ## Name-based access
 
@@ -10,7 +10,19 @@ Keep email bodies professional and appropriate for broad club visibility. Do not
 
 ## Sponsor email privacy
 
-Verified sponsor emails are not sent to the public GitHub Pages frontend. Member-suggested emails are submitted directly to the private Sheet and shown only in the admin dashboard.
+Verified sponsor emails are not sent to the public GitHub Pages frontend. The public portal receives a company name, program name, route type, public official link, research guidance, and aggregate outreach history. Member-suggested emails are submitted directly to the private Sheet and shown only in the admin dashboard.
+
+## Duplicate matching
+
+Duplicate protection compares contact IDs, exact normalized emails, and normalized company names. Company-name matching is intentionally broad and can occasionally flag separate divisions or regional offices. Members may proceed after acknowledging that the outreach is an intentional follow-up, different contact, or separate opportunity.
+
+The warning is a coordination control, not an absolute block. Officers should review the existing request history before approving an acknowledged duplicate.
+
+## Validated sponsor catalog
+
+“Validated” means an official public program, sponsorship page, academic contact, or community-application route was confirmed on July 27, 2026. It does not guarantee eligibility, approval, availability, or deliverability. Official programs can change, so officers should recheck the linked source before submitting.
+
+Some imported opportunities require institutional or nonprofit information. Do not enter Purdue tax documents, banking details, or other institutional records into the public member portal. Coordinate those applications through the faculty advisor or appropriate Purdue office.
 
 ## Admin password
 

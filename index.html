@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=2">
+  <link rel="stylesheet" href="assets/app.css?v=3">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -102,6 +102,32 @@
                     <p class="verification-note unverified"><span class="verification-badge unverified">Unverified sponsor</span> An officer will verify this address before the request can be approved or marked sent.</p>
                   </div>
                 </div>
+
+                  <div id="sponsorInsightCard" class="sponsor-insight is-hidden" aria-live="polite">
+                    <div class="sponsor-insight-head">
+                      <div><span id="sponsorProgramBadge" class="verification-badge research">Official opportunity</span><strong id="sponsorInsightTitle"></strong></div>
+                      <a id="sponsorRouteLink" class="button button-ghost button-small is-hidden" href="#" target="_blank" rel="noreferrer">Open official application</a>
+                    </div>
+                    <div class="sponsor-insight-grid">
+                      <div><span>Suggested ask</span><p id="sponsorSuggestedAsk"></p></div>
+                      <div><span>Eligibility / route</span><p id="sponsorEligibility"></p></div>
+                      <div class="sponsor-insight-wide"><span>Strong personalization angle</span><p id="sponsorPersonalizationIdea"></p></div>
+                    </div>
+                    <button id="useSponsorResearchButton" class="button button-secondary button-small" type="button">Use these research notes</button>
+                  </div>
+
+                  <div id="sponsorHistoryCard" class="outreach-history is-hidden" aria-live="polite">
+                    <div class="outreach-history-icon" id="sponsorHistoryIcon">✓</div>
+                    <div class="outreach-history-copy">
+                      <div class="badge-row"><span id="sponsorHistoryBadge" class="verification-badge available">No prior outreach</span></div>
+                      <strong id="sponsorHistoryTitle">No prior SponsorFlow requests found</strong>
+                      <p id="sponsorHistoryText">This sponsor appears available for a new first-touch request.</p>
+                      <label id="duplicateAckWrap" class="check-field duplicate-check is-hidden">
+                        <input id="duplicateAcknowledged" type="checkbox">
+                        <span>I reviewed the existing outreach and confirm this is an intentional follow-up, new contact, or separate opportunity.</span>
+                      </label>
+                    </div>
+                  </div>
 
                 <label class="field template-field"><span>Email template <b aria-hidden="true">*</b></span><select id="templateId" name="templateId" required><option value="">Loading templates…</option></select></label>
                 <div id="templateDescription" class="template-note is-hidden"></div>
@@ -217,8 +243,8 @@
     <div><a href="mailto:asmeindy@purdue.edu">asmeindy@purdue.edu</a><a href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">asmevk.webflow.io</a></div>
   </footer>
 
-  <script src="assets/config.js?v=2"></script>
-  <script src="assets/api.js?v=2"></script>
-  <script src="assets/member.js?v=2"></script>
+  <script src="assets/config.js?v=3"></script>
+  <script src="assets/api.js?v=3"></script>
+  <script src="assets/member.js?v=3"></script>
 </body>
 </html>
