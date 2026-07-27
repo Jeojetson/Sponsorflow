@@ -378,13 +378,13 @@ The origin entered during Initial setup does not exactly match the GitHub Pages 
 For a site at:
 
 ```text
-https://colin.github.io/asme-sponsorflow/
+https://example.github.io/asme-sponsorflow/
 ```
 
 use:
 
 ```text
-https://colin.github.io
+https://example.github.io
 ```
 
 Change it from **SponsorFlow → Change GitHub Pages origin** in the Sheet.
