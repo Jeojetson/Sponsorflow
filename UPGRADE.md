@@ -1,18 +1,10 @@
-# Upgrade to SponsorFlow 1.3
+# Upgrade to SponsorFlow 1.4
 
-SponsorFlow 1.3 adds member-created calendars, a complete light/dark theme system, and a phone-specific application layout.
+SponsorFlow 1.4 is a frontend-only UI finalization release. It does not change Google Sheets, `Code.gs`, the Apps Script `Admin.html`, or live calendar feed behavior.
 
-## 1. Back up the Google Sheet
+## 1. Update the GitHub Pages files
 
-Open the SponsorFlow Sheet and choose:
-
-`File → Make a copy`
-
-The migration is additive, but keeping a backup before any Apps Script upgrade is good practice.
-
-## 2. Update the GitHub Pages files
-
-Extract the GitHub update ZIP and upload its contents to the root of the existing GitHub repository, replacing matching files.
+Extract the 1.4 update ZIP and upload its contents to the root of the existing GitHub repository, replacing matching files.
 
 Replace:
 
@@ -22,10 +14,6 @@ Replace:
 - `calendar.html`
 - `admin.html`
 - `assets/app.css`
-- `assets/calendar.js`
-
-Add:
-
 - `assets/theme.js`
 
 Do not replace or delete:
@@ -33,52 +21,36 @@ Do not replace or delete:
 - `assets/config.js`
 - `assets/img/`
 
-Commit the changes to `main` and wait for the Pages deployment action to finish.
+Commit the changes to `main` and wait for the GitHub Pages deployment workflow to show a green check.
 
-## 3. Replace Google Apps Script Code.gs
+## 2. Refresh the website
 
-Open:
-
-`Google Sheet → Extensions → Apps Script → Code.gs`
-
-Replace the complete contents with `SponsorFlow-1.3-Code.txt`, then save.
-
-The Google Apps Script `Admin.html` file does not change in this release.
-
-## 4. Run the additive Sheet migration
-
-Reload the Google Sheet and choose:
-
-`SponsorFlow → Upgrade to SponsorFlow 1.3`
-
-This creates the `Planner Calendars` sheet. It does not rewrite existing tasks, dates, sponsors, requests, comments, teams, timelines, or funding opportunities.
-
-## 5. Redeploy the existing Apps Script web app
-
-In Apps Script choose:
-
-`Deploy → Manage deployments → Pencil icon → Version: New version → Deploy`
-
-Edit the existing deployment rather than creating a second deployment. This preserves the `/exec` URL already stored in `assets/config.js`.
-
-## 6. Refresh the website
-
-After GitHub Pages finishes deploying, open the site and use:
+Open the live site and use:
 
 `Command + Shift + R`
 
-The website should display a theme button in the header. On phones it should also show the bottom application navigation.
+The HTML files now request the version 14 stylesheet and theme script, so browsers should not reuse the older theme files.
+
+## No Google changes
+
+For this release, do not:
+
+- Replace `Code.gs`
+- Replace the Google Apps Script `Admin.html`
+- Run a Sheet migration
+- Create or update an Apps Script deployment
+
+All existing tasks, events, calendars, sponsors, requests, comments, funding opportunities, subscriptions, and Sheet data remain unchanged.
 
 ## Acceptance test
 
-1. Open Calendar and enter your name.
-2. Select **Manage calendars**.
-3. Create a calendar named `Race Readiness`.
-4. Select Mechanical Design, Kart Setup, Wiring Harness, and Battery.
-5. Include the general timeline and save.
-6. Confirm the new calendar appears in the selector.
-7. Open **Subscribe** and confirm the custom feed appears.
-8. Edit the custom calendar and change its teams or accent.
-9. Remove it and confirm the underlying tasks remain visible in their original team calendars.
-10. Switch between light and dark mode, then reload the page.
-11. Open the site on a phone and confirm the bottom navigation and full-screen editors work.
+1. Open each public page in light mode and dark mode.
+2. Confirm text, inputs, buttons, cards, and badges remain readable in both themes.
+3. On a phone, confirm the header stays on one row and does not create a large blank area.
+4. Scroll down on a phone and confirm the bottom navigation moves out of the way; scroll upward to bring it back.
+5. Open Calendar and confirm the month grid fits the phone width without horizontal page scrolling.
+6. Confirm **Subscribe** and **Download .ics** sit next to each other on phones.
+7. Open a calendar event editor on a phone and confirm the title and eyebrow are not clipped.
+8. Open a planner task editor on a phone and confirm all four task sections are visible in a two-by-two tab grid.
+9. Open Board, Timeline, Table, and Insights at desktop and phone widths.
+10. Confirm there is no page-level horizontal scrollbar. The Kanban board and Gantt view may scroll inside their own contained areas by design.
