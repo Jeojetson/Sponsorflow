@@ -340,7 +340,7 @@
         <span>${escapeHtml(metric.label)}</span>
         <strong>${escapeHtml(String(metric.value))}</strong>
         <small>${escapeHtml(metric.detail)}</small>
-        ${metric.tone === "progress" ? `<div class="metric-progress"><i style="width:${completion}%"></i></div>` : ""}
+        ${metric.tone === "progress" ? `<div class="planner-progress-track"><i style="width:${completion}%"></i></div>` : ""}
       </article>`).join("");
   }
 

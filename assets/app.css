@@ -543,8 +543,8 @@ input::placeholder, textarea::placeholder { color: #a6a59e; }
 .planner-metric.metric-warning::before { background: #d28b22; }
 .planner-metric.metric-good::before { background: var(--green); }
 .planner-metric.metric-parts::before { background: var(--blue); }
-.metric-progress { position: absolute; right: 18px; bottom: 16px; left: 18px; height: 7px; overflow: hidden; background: var(--gray-100); border-radius: 999px; }
-.metric-progress i { display: block; height: 100%; background: var(--gold); border-radius: inherit; }
+.planner-progress-track { position: absolute; right: 18px; bottom: 16px; left: 18px; height: 7px; overflow: hidden; background: var(--gray-100); border-radius: 999px; }
+.planner-progress-track i { display: block; height: 100%; background: var(--gold); border-radius: inherit; }
 
 .planner-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-bottom: 18px; padding: 13px; background: #fff; border: 1px solid var(--gray-100); border-radius: 14px; }
 .planner-search { flex: 1 1 330px; }
@@ -900,4 +900,463 @@ button:focus-visible, a:focus-visible, [role="button"]:focus-visible, input:focu
   .insight-summary-grid { grid-template-columns: 1fr; }
   .planner-view-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   .week-chart { grid-template-columns: repeat(4, minmax(0, 1fr)); row-gap: 16px; }
+}
+
+
+/* SponsorFlow v6 layout stabilization and interaction cleanup */
+.planner-page {
+  overflow-x: hidden;
+}
+
+.planner-shell,
+.planner-control-deck,
+.planner-context-controls,
+.planner-identity-block,
+.planner-view-controls,
+.board-overview,
+.board-overview-copy,
+.board-overview-actions,
+.planner-metrics,
+.planner-toolbar,
+.planner-search,
+.planner-filter-row,
+.planner-view-panel,
+.kanban-board,
+.kanban-column,
+.gantt-host,
+.task-table-wrap,
+.insight-grid,
+.insight-panel {
+  min-width: 0;
+}
+
+button,
+.button,
+.nav-button,
+.nav-link,
+.planner-view-button,
+.kanban-add,
+.workspace-team-button,
+.workspace-board-list button {
+  touch-action: manipulation;
+}
+
+.button,
+.nav-button,
+.nav-link,
+.planner-view-button,
+.kanban-add {
+  line-height: 1.2;
+}
+
+.planner-control-deck {
+  grid-template-columns: minmax(280px, .8fr) minmax(380px, 1fr) auto;
+  gap: 14px;
+  margin-bottom: 20px;
+  isolation: isolate;
+}
+
+.planner-identity-block,
+.planner-context-controls {
+  align-items: end;
+}
+
+.compact-field input,
+.compact-field select {
+  min-height: 42px;
+  height: 42px;
+  padding: 8px 11px;
+}
+
+.compact-field select,
+.planner-context-controls select,
+.planner-filter-row select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planner-view-controls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  width: 100%;
+  min-width: 330px;
+}
+
+.planner-view-button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 13px;
+  white-space: nowrap;
+}
+
+.board-overview {
+  align-items: center;
+  padding: 24px 0 20px;
+}
+
+.board-overview-copy {
+  flex: 1 1 560px;
+}
+
+.board-overview h2 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.board-overview p {
+  overflow-wrap: anywhere;
+}
+
+.board-overview-actions {
+  flex: 0 1 auto;
+  max-width: 560px;
+}
+
+.board-overview-actions .button {
+  min-height: 42px;
+}
+
+.planner-metrics {
+  align-items: stretch;
+  grid-template-columns: repeat(4, minmax(190px, 1fr));
+}
+
+.planner-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 124px;
+  overflow: hidden;
+}
+
+.planner-metric > strong {
+  max-width: 100%;
+  font-size: clamp(28px, 2.3vw, 36px);
+  overflow-wrap: anywhere;
+}
+
+.planner-metric > small {
+  display: block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.planner-progress-track {
+  right: 18px;
+  bottom: 15px;
+  left: 18px;
+}
+
+.planner-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+}
+
+.planner-search input {
+  min-height: 44px;
+  height: 44px;
+}
+
+.planner-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, auto)) auto auto auto;
+  align-items: end;
+  justify-content: end;
+  gap: 8px;
+}
+
+.planner-filter-row .compact-field {
+  min-width: 0;
+}
+
+.planner-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+
+.planner-check input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+}
+
+#clearPlannerFilters {
+  min-height: 42px;
+}
+
+.planner-view-panel {
+  width: 100%;
+}
+
+.kanban-board {
+  grid-template-columns: repeat(6, minmax(215px, 1fr));
+  gap: 12px;
+  max-width: 100%;
+  padding: 2px 2px 20px;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
+.kanban-board::-webkit-scrollbar,
+.gantt-scroll::-webkit-scrollbar,
+.task-table-wrap::-webkit-scrollbar {
+  height: 12px;
+}
+
+.kanban-board::-webkit-scrollbar-track,
+.gantt-scroll::-webkit-scrollbar-track,
+.task-table-wrap::-webkit-scrollbar-track {
+  background: #e8e7e1;
+  border-radius: 999px;
+}
+
+.kanban-board::-webkit-scrollbar-thumb,
+.gantt-scroll::-webkit-scrollbar-thumb,
+.task-table-wrap::-webkit-scrollbar-thumb {
+  background: #b8b6ae;
+  border: 3px solid #e8e7e1;
+  border-radius: 999px;
+}
+
+.kanban-column {
+  min-width: 0;
+  min-height: 340px;
+}
+
+.kanban-column > header strong,
+.kanban-column > p,
+.planner-task-card h3,
+.planner-task-card > p {
+  overflow-wrap: anywhere;
+}
+
+.kanban-add {
+  min-height: 44px;
+}
+
+.task-card-top,
+.planner-task-card footer {
+  min-width: 0;
+}
+
+.task-card-signals {
+  min-width: 0;
+}
+
+.timeline-toolbar {
+  align-items: center;
+}
+
+.gantt-scroll,
+.task-table-wrap {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
+.gantt-axis,
+.gantt-row {
+  grid-template-columns: 250px 1fr;
+}
+
+.gantt-axis-label,
+.gantt-label {
+  width: 250px;
+}
+
+.task-table th,
+.task-table td {
+  white-space: normal;
+}
+
+.task-table th {
+  line-height: 1.25;
+}
+
+.modal-card {
+  max-width: 100%;
+  overscroll-behavior: contain;
+}
+
+.task-modal-card {
+  width: min(1180px, calc(100vw - 24px));
+}
+
+@media (max-width: 1380px) {
+  .planner-control-deck {
+    position: static;
+    grid-template-columns: minmax(280px, .8fr) minmax(390px, 1.2fr);
+    border-radius: 0 0 16px 16px;
+  }
+
+  .planner-view-controls {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    min-width: 0;
+  }
+
+  .planner-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-filter-row {
+    grid-template-columns: repeat(3, minmax(130px, 1fr)) auto auto auto;
+    justify-content: stretch;
+  }
+
+  .kanban-board {
+    grid-template-columns: repeat(6, minmax(225px, 1fr));
+  }
+}
+
+
+
+@media (max-width: 1120px) {
+  .board-overview {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .board-overview-copy {
+    flex: 0 1 auto;
+    width: 100%;
+  }
+
+  .board-overview-actions {
+    justify-content: flex-start;
+    max-width: none;
+    width: 100%;
+  }
+
+  .planner-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 980px) {
+  .planner-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .planner-filter-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .planner-check,
+  #clearPlannerFilters {
+    width: 100%;
+  }
+
+  .board-overview {
+    align-items: flex-start;
+  }
+
+  .board-overview-actions {
+    max-width: none;
+  }
+
+  .gantt-axis,
+  .gantt-row {
+    grid-template-columns: 220px 1fr;
+  }
+
+  .gantt-axis-label,
+  .gantt-label {
+    width: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .top-nav {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .top-nav .nav-link,
+  .top-nav .nav-button {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    white-space: normal;
+  }
+
+  .planner-control-deck {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+
+  .planner-context-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-view-controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .planner-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-toolbar {
+    padding: 12px;
+  }
+
+  .planner-filter-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .board-overview-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .board-overview-actions .button {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .kanban-board {
+    grid-template-columns: repeat(6, minmax(82vw, 1fr));
+    scroll-snap-type: x mandatory;
+  }
+
+  .gantt-axis,
+  .gantt-row {
+    grid-template-columns: 190px 1fr;
+  }
+
+  .gantt-axis-label,
+  .gantt-label {
+    width: 190px;
+  }
+}
+
+@media (max-width: 440px) {
+  .planner-filter-row,
+  .board-overview-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .planner-view-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .planner-metric {
+    min-height: 116px;
+  }
 }

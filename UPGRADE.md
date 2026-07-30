@@ -1,82 +1,39 @@
-# Upgrade SponsorFlow to version 5
+# SponsorFlow v6 — UI cleanup update
 
-Version 5 preserves existing sponsor and planner data. It adds the requested team structure, a research-backed Purdue funding calendar, funding-specific task fields, an Insights dashboard, and larger/cleaner controls.
+This release is a frontend-only repair and polish update. It does not change the Google Sheet schema or Apps Script backend.
 
-## 1. Make a backup
+## What it fixes
 
-Open the SponsorFlow Google Sheet and choose:
+- Repairs the oversized progress card that covered the timeline heading. A CSS class used for both the summary card and its progress bar was causing the card to become absolutely positioned.
+- Prevents timeline titles, metrics, filters, and action buttons from overlapping or being clipped.
+- Makes the board columns fit more cleanly on desktop and scroll predictably on smaller screens.
+- Adds visible, stable horizontal scrollbars to the Board, Timeline, and Table views.
+- Improves control hitboxes, checkbox alignment, focus states, and select-field sizing.
+- Makes the control deck, metrics, toolbar, action row, and navigation responsive at tablet and phone sizes.
+- Removes the large blank space that could appear above the summary cards on medium-size screens.
+- Improves long-title wrapping and protects the page from accidental whole-page horizontal scrolling.
+- Improves mobile navigation so all four destinations are visible instead of being cut off.
+- Bumps asset versions to `v=6` so GitHub Pages and browsers load the corrected files.
 
-```text
-File → Make a copy
-```
+## Install
 
-## 2. Update GitHub Pages
+1. Download and extract the v6 update ZIP.
+2. In the GitHub repository, upload the files from the extracted folder and replace the matching files.
+3. Keep the existing `assets/config.js`. The update package does not include it.
+4. Commit the changes to `main`.
+5. Wait for **Actions → pages build and deployment** to show a green check.
+6. Open the live site and press **Command + Shift + R**.
 
-Upload/replace the files from the v5 update ZIP.
+## No Apps Script work is required
 
-**Do not replace `assets/config.js`.** The update ZIP intentionally excludes it, preserving your working Apps Script `/exec` URL.
+Do not replace `Code.gs`, run a Sheet migration, or redeploy Apps Script for this update. Your tasks, teams, funding opportunities, comments, and sponsor records are unchanged.
 
-Commit to `main`, then wait for **Actions → pages build and deployment** to finish.
+## Quick verification
 
-## 3. Replace Apps Script
+Open the Project Planner and confirm:
 
-Open:
-
-```text
-Google Sheet → Extensions → Apps Script
-```
-
-Replace all of `Code.gs` with `apps-script/Code.gs`. `Admin.html` may also be replaced, although its sponsor-review workflow is unchanged.
-
-## 4. Run the migration
-
-Reload the Sheet and choose:
-
-```text
-SponsorFlow → Upgrade to v5 + team planner & funding calendar
-```
-
-The migration:
-
-- Preserves sponsor requests, contacts, comments, revisions, planner comments, and activity
-- Renames the original default workspaces into the requested teams
-- Adds **Kart Setup** and **Software** teams
-- Creates/updates timelines for Mechanical Design, Kart Setup, Wiring Harness, Battery, Software, Manufacturing Lead, Finance & Sponsorship, and Club-wide work
-- Adds funding metadata columns to Planner Tasks
-- Seeds the Purdue Funding & Sponsorship Calendar
-- Refreshes system-seeded research metadata without resetting user status, owners, progress, or comments
-
-## 5. Redeploy Apps Script
-
-Saving does not update the live deployment:
-
-```text
-Deploy → Manage deployments → pencil icon → New version → Deploy
-```
-
-Keep the same `/exec` URL.
-
-## 6. Hard refresh the site
-
-After GitHub Pages finishes:
-
-```text
-Command + Shift + R
-```
-
-Open **Project planner**, choose **Finance & Sponsorship**, and select **Purdue Funding & Sponsorship Calendar**.
-
-## 7. Test checklist
-
-1. Confirm the requested teams appear.
-2. Open the Finance timeline and verify the seeded opportunity tasks.
-3. Open a funding task and confirm amount, campus, source confidence, source URL, and requirements appear.
-4. Open **Insights** and switch between Current timeline and All teams.
-5. Confirm the status donut, priority bars, workload, due-week chart, funding pipeline, and parts pipeline render.
-6. Create a new funding opportunity and save it.
-7. Create a purchase task and verify the parts pipeline updates.
-8. Drag a task on the board and confirm the larger controls work on laptop and phone.
-
-## Accuracy note
-
-Several programs do not yet publish 2026–27 deadlines. SponsorFlow marks them clearly and uses internal preparation targets rather than presenting invented deadlines. Review `PURDUE-FUNDING-RESEARCH.md` for the source and confidence of each seeded opportunity.
+- The four summary cards appear as equal cards with no giant overlay.
+- The timeline heading is fully visible.
+- At narrower browser widths, the action buttons move beneath the heading rather than covering it.
+- The Board scrolls inside its own area instead of widening the whole webpage.
+- On a phone, the top navigation appears as a two-column grid.
