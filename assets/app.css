@@ -4409,3 +4409,209 @@ html[data-theme="dark"] .is-pass { color: #7fe0a9; }
     padding-left: 16px;
   }
 }
+
+/* SponsorFlow 1.5 — containment, mobile reliability, and calendar simplification */
+
+/* Prevent oversized display type from touching or clipping against dark hero edges. */
+.home-hero {
+  position: relative;
+  padding: clamp(30px, 4.2vw, 68px);
+  overflow: clip;
+  border: 1px solid rgba(255,255,255,.09);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 16% 16%, rgba(207,185,145,.14), transparent 34rem),
+    linear-gradient(135deg, #11140f 0%, #121717 100%);
+}
+.home-hero-copy { min-width: 0; }
+.home-hero-copy h1 {
+  max-width: 11.5ch;
+  margin-top: 12px;
+  overflow-wrap: normal;
+  text-wrap: balance;
+}
+.home-hero-visual { min-width: 0; }
+
+/* A failed cold start should be actionable instead of leaving a dead error panel. */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.connection-banner > span { min-width: 0; }
+.connection-retry { flex: 0 0 auto; }
+
+/* Calendar command hierarchy: one primary action and one compact overflow menu. */
+.calendar-app-header { max-width: 920px; }
+.calendar-control-bar { margin-top: 6px; }
+.calendar-command-controls { position: relative; }
+.calendar-command-actions { flex-wrap: nowrap; }
+.calendar-more-actions { position: relative; }
+.calendar-more-actions > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.calendar-more-actions > summary::-webkit-details-marker { display: none; }
+.calendar-more-menu {
+  position: absolute;
+  z-index: 45;
+  top: calc(100% + 8px);
+  right: 0;
+  display: grid;
+  width: min(310px, calc(100vw - 28px));
+  padding: 7px;
+  color: var(--sf-text);
+  background: color-mix(in srgb, var(--sf-surface) 96%, transparent);
+  border: 1px solid var(--sf-border-strong);
+  border-radius: 15px;
+  box-shadow: 0 18px 55px rgba(0,0,0,.2);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.calendar-menu-action {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 12px;
+  color: var(--sf-text);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: 11px;
+  cursor: pointer;
+}
+.calendar-menu-action:hover,
+.calendar-menu-action:focus-visible { background: var(--sf-control-hover); }
+.calendar-menu-action strong { font-size: 13px; }
+.calendar-menu-action span { color: var(--sf-muted); font-size: 10px; line-height: 1.35; }
+
+/* Make the top planner hierarchy less repetitive now that Calendar is a first-class page. */
+.board-primary-actions > a[href="calendar.html"] { display: none; }
+
+/* Keep key controls optically aligned across planner and calendar. */
+.calendar-control-bar,
+.planner-control-deck { align-items: end; }
+.calendar-control-bar .button,
+.planner-control-deck .button,
+.calendar-command-bar .button { min-height: 42px; }
+.calendar-scope-stack { grid-template-columns: minmax(0, 1fr) auto; }
+.calendar-manage-inline { align-self: end; width: auto; white-space: nowrap; }
+.calendar-command-bar { border-bottom: 0; }
+.calendar-month-nav { flex: 0 0 auto; }
+
+/* Important-club-event copy is deliberately non-financial. */
+.calendar-scope-summary span { max-width: 850px; }
+
+@media (max-width: 980px) {
+  .home-hero { padding: clamp(26px, 5vw, 48px); }
+  .home-hero-copy h1 { max-width: 13ch; }
+  .calendar-app-header { max-width: none; }
+}
+
+@media (max-width: 720px) {
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+
+  .home-main { padding-top: 12px; }
+  .home-hero {
+    gap: 24px;
+    padding: 24px 18px 18px;
+    border-radius: 22px;
+  }
+  .home-hero-copy h1 {
+    max-width: 100%;
+    margin-top: 10px;
+    font-size: clamp(39px, 12vw, 54px);
+    line-height: .98;
+    letter-spacing: -.045em;
+  }
+  .home-hero-copy > p:not(.eyebrow) { font-size: 15px; }
+  .home-hero-actions { grid-template-columns: 1fr; }
+  .home-hero-visual,
+  .home-hero-visual img { min-height: 270px; }
+  .home-hero-stat { left: 18px; right: 18px; bottom: 17px; }
+  .home-hero-stat strong { font-size: 34px; }
+  .home-hero-stat span { max-width: 132px; font-size: 11px; }
+
+  .site-header {
+    min-height: 56px;
+    padding-top: max(7px, env(safe-area-inset-top));
+    padding-bottom: 7px;
+  }
+  .site-header .brand-mark { width: 52px; min-width: 52px; height: 38px; }
+  .theme-toggle { width: 42px; min-width: 42px; height: 42px; min-height: 42px; }
+
+  .mobile-app-nav {
+    right: max(7px, env(safe-area-inset-right));
+    bottom: max(7px, env(safe-area-inset-bottom));
+    left: max(7px, env(safe-area-inset-left));
+    min-height: 60px;
+    padding: 5px;
+    border-radius: 21px;
+  }
+  .mobile-app-link { min-height: 48px; border-radius: 16px; }
+  .mobile-app-link svg { width: 18px; height: 18px; }
+  .mobile-app-link span { font-size: 8px; }
+
+  .calendar-app-shell { padding-top: 6px; }
+  .calendar-app-header { padding: 15px 2px 10px; }
+  .calendar-app-header h1 { font-size: clamp(38px, 11.8vw, 51px); line-height: 1; }
+  .calendar-control-bar { margin-top: 4px; }
+  .calendar-identity-control {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .calendar-identity-control > .button { width: auto; min-width: 104px; }
+  .calendar-scope-stack {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+  .calendar-manage-inline {
+    width: auto;
+    min-width: 92px;
+    padding-inline: 11px;
+  }
+
+  .calendar-command-bar { padding-top: 18px; }
+  .calendar-command-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+  .calendar-month-nav { width: 100%; min-width: 0; }
+  .calendar-command-actions {
+    display: flex;
+    width: auto;
+    gap: 7px;
+  }
+  .calendar-command-actions .button { width: auto; min-width: 76px; }
+  .calendar-more-menu { position: fixed; top: auto; right: max(12px, env(safe-area-inset-right)); bottom: calc(76px + env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); width: auto; }
+
+  .connection-banner {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 13px;
+    font-size: 13px;
+  }
+  .connection-retry { width: 100%; }
+
+  /* Agenda remains useful even when the month grid is dense on a phone. */
+  .standalone-calendar-layout { gap: 12px; }
+  .standalone-agenda-panel { margin-bottom: 10px; }
+}
+
+@media (max-width: 430px) {
+  .calendar-identity-control,
+  .calendar-scope-stack { grid-template-columns: 1fr; }
+  .calendar-identity-control > .button,
+  .calendar-manage-inline { width: 100%; }
+  .calendar-command-controls { grid-template-columns: 1fr; }
+  .calendar-command-actions { display: grid; grid-template-columns: 1fr auto; width: 100%; }
+  .calendar-command-actions > .button { width: 100%; }
+  .calendar-more-actions > summary { min-width: 78px; }
+}

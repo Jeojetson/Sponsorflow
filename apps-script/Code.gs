@@ -1,11 +1,11 @@
 /**
  * ASME Indy SponsorFlow — Google Apps Script backend
- * Version 1.1: sponsor outreach, collaborative project planning, reliable date-only storage,
- * and live iCalendar subscription feeds for teams and important dates.
+ * Version 1.5: sponsor outreach, collaborative project planning, custom shared calendars,
+ * reliable mobile data loading, date-only storage, and live iCalendar subscription feeds.
  */
 
 const SF = Object.freeze({
-  VERSION: '1.1.0',
+  VERSION: '1.5.0',
   RESEARCH_VALIDATED_AT: '2026-07-29',
   SESSION_SECONDS: 3600,
   SHEETS: {
@@ -18,7 +18,8 @@ const SF = Object.freeze({
     PLANNER_BOARDS: 'Planner Boards',
     PLANNER_TASKS: 'Planner Tasks',
     PLANNER_COMMENTS: 'Planner Comments',
-    PLANNER_ACTIVITY: 'Planner Activity'
+    PLANNER_ACTIVITY: 'Planner Activity',
+    PLANNER_CALENDARS: 'Planner Calendars'
   },
   HEADERS: {
     Contacts: [
@@ -48,7 +49,8 @@ const SF = Object.freeze({
       'createdAt', 'updatedAt', 'completedAt', 'archived'
     ],
     'Planner Comments': ['id', 'taskId', 'authorName', 'body', 'createdAt'],
-    'Planner Activity': ['id', 'taskId', 'boardId', 'action', 'actor', 'details', 'createdAt']
+    'Planner Activity': ['id', 'taskId', 'boardId', 'action', 'actor', 'details', 'createdAt'],
+    'Planner Calendars': ['id', 'name', 'description', 'teamIds', 'includeGeneral', 'importantOnly', 'color', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt']
   }
 });
 
@@ -919,7 +921,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('SponsorFlow')
     .addItem('Initial setup', 'showInitialSetup')
-    .addItem('Upgrade to SponsorFlow 1.1', 'upgradeSponsorFlowV11')
+    .addItem('Upgrade to SponsorFlow 1.5', 'upgradeSponsorFlowV15')
     .addItem('Import or refresh validated sponsors', 'seedValidatedSponsors')
     .addItem('Refresh polished templates', 'refreshPolishedTemplates')
     .addItem('Change admin password', 'showChangeAdminPassword')
@@ -954,6 +956,31 @@ function showInitialSetup() {
   ui.alert('SponsorFlow setup is complete. Sponsor opportunities, team workspaces, analytics, and the Purdue funding calendar were added. Next, deploy this script as a web app.');
 }
 
+
+
+function upgradeSponsorFlowV15() {
+  setupSponsorFlow_();
+  const normalized = normalizePlannerDateStorage_();
+  const plannerResult = ensureDefaultPlannerStructureSafe_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow 1.5 is ready. ${normalized} planner date cells were normalized where needed. ` +
+    `Mobile-safe data loading and cleaner Important Club Events filtering are enabled. ` +
+    `Existing sponsors, requests, teams, timelines, tasks, dates, comments, funding research, calendars, and live subscriptions were preserved. ` +
+    `${plannerResult.teamsCreated} missing teams, ${plannerResult.boardsCreated} missing timelines, and ${plannerResult.tasksCreated} missing starter items were added.`
+  );
+}
+
+function upgradeSponsorFlowV13() {
+  setupSponsorFlow_();
+  const normalized = normalizePlannerDateStorage_();
+  const plannerResult = ensureDefaultPlannerStructureSafe_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow 1.3 is ready. ${normalized} planner date cells were normalized where needed. ` +
+    `A shared Planner Calendars sheet was added for member-created calendar views and live subscriptions. ` +
+    `Existing sponsors, requests, teams, timelines, tasks, dates, comments, funding research, and calendar feeds were preserved. ` +
+    `${plannerResult.teamsCreated} missing teams, ${plannerResult.boardsCreated} missing timelines, and ${plannerResult.tasksCreated} missing starter items were added.`
+  );
+}
 
 function upgradeSponsorFlowV11() {
   setupSponsorFlow_();
@@ -1069,6 +1096,9 @@ function openAdminDashboard() {
 
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  if (p.action && p.callback) {
+    return jsonpReadResponse_(p);
+  }
   if (p.view === 'admin') {
     return HtmlService.createHtmlOutputFromFile('Admin')
       .setTitle('ASME Indy SponsorFlow Admin')
@@ -1087,6 +1117,31 @@ function doGet(e) {
     }
   }
   return ContentService.createTextOutput('ASME Indy SponsorFlow data service is running.');
+}
+
+function jsonpReadResponse_(p) {
+  const callback = String(p.callback || '').trim();
+  const origin = String(p.origin || '');
+  if (!/^[A-Za-z_$][0-9A-Za-z_$]*$/.test(callback)) {
+    return ContentService.createTextOutput('/* Invalid callback. */').setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  let payload;
+  try {
+    validateFrontendOrigin_(origin);
+    ensureConfigured_();
+    let data;
+    switch (String(p.action || '')) {
+      case 'bootstrap': data = publicBootstrap_(); break;
+      case 'plannerBootstrap': data = plannerBootstrap_(); break;
+      default: throw new Error('This read action is unavailable.');
+    }
+    payload = { ok: true, data: data };
+  } catch (error) {
+    payload = { ok: false, error: cleanError_(error) };
+  }
+  return ContentService
+    .createTextOutput(callback + '(' + JSON.stringify(payload) + ');')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
 function doPost(e) {
@@ -1112,6 +1167,8 @@ function doPost(e) {
       case 'archivePlannerTask': data = archivePlannerTask_(p); break;
       case 'getPlannerTaskDetail': data = getPlannerTaskDetail_(p); break;
       case 'addPlannerComment': data = addPlannerComment_(p); break;
+      case 'savePlannerCalendar': data = savePlannerCalendar_(p); break;
+      case 'archivePlannerCalendar': data = archivePlannerCalendar_(p); break;
       default: throw new Error('Unknown SponsorFlow action.');
     }
     return bridgeResponse_(origin, callId, { ok: true, data: data });
@@ -2036,7 +2093,12 @@ function plannerBootstrap_() {
     .map(row => plannerTaskPublic_(row, commentCounts[row.id] || Number(row.commentCount || 0)))
     .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || a.title.localeCompare(b.title));
 
-  return { teams: teams, boards: boards, tasks: tasks, version: SF.VERSION, calendarFeedBaseUrl: ScriptApp.getService().getUrl() || '' };
+  const calendars = readObjects_(SF.SHEETS.PLANNER_CALENDARS)
+    .filter(row => toBool_(row.active))
+    .map(plannerCalendarPublic_)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return { teams: teams, boards: boards, tasks: tasks, calendars: calendars, version: SF.VERSION, calendarFeedBaseUrl: ScriptApp.getService().getUrl() || '' };
 }
 
 function savePlannerTeam_(p) {
@@ -2270,6 +2332,80 @@ function addPlannerComment_(p) {
   });
 }
 
+function savePlannerCalendar_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const existingId = optionalText_(p.id, 80);
+    const existing = existingId ? findObjectById_(SF.SHEETS.PLANNER_CALENDARS, existingId) : null;
+    if (existingId && !existing) throw new Error('Calendar not found. Refresh the page and try again.');
+
+    const id = existingId || makePlannerId_('CAL', SF.SHEETS.PLANNER_CALENDARS);
+    const name = requireText_(p.name, 'Calendar name', 2, 80);
+    const teamIds = parsePlannerIdList_(p.teamIds, 80);
+    const activeTeams = readObjects_(SF.SHEETS.PLANNER_TEAMS).filter(row => toBool_(row.active));
+    const activeTeamIds = new Set(activeTeams.map(row => row.id));
+    teamIds.forEach(teamId => {
+      if (!activeTeamIds.has(teamId)) throw new Error('One of the selected teams is no longer available.');
+    });
+    const includeGeneral = toBool_(p.includeGeneral);
+    const importantOnly = toBool_(p.importantOnly);
+    if (!teamIds.length && !includeGeneral) throw new Error('Choose at least one subteam or include the general timeline.');
+
+    const duplicate = readObjects_(SF.SHEETS.PLANNER_CALENDARS).find(row =>
+      row.id !== id && toBool_(row.active) && normalizeNameKey_(row.name) === normalizeNameKey_(name)
+    );
+    if (duplicate) throw new Error('A custom calendar with that name already exists.');
+
+    const color = requirePlannerChoice_(p.color || 'GOLD', ['GOLD', 'BLUE', 'GREEN', 'PURPLE', 'RED', 'SLATE'], 'calendar color');
+    const now = nowIso_();
+    const record = {
+      id: id,
+      name: name,
+      description: optionalText_(p.description, 320),
+      teamIds: JSON.stringify(teamIds),
+      includeGeneral: String(includeGeneral),
+      importantOnly: String(importantOnly),
+      color: color,
+      active: 'true',
+      updatedBy: actor,
+      updatedAt: now
+    };
+    if (existing) updateObjectById_(SF.SHEETS.PLANNER_CALENDARS, id, record);
+    else appendObject_(SF.SHEETS.PLANNER_CALENDARS, Object.assign({}, record, { createdBy: actor, createdAt: now }));
+    appendPlannerActivity_('', '', existing ? 'CALENDAR_UPDATED' : 'CALENDAR_CREATED', actor, name);
+    return plannerCalendarPublic_(findObjectById_(SF.SHEETS.PLANNER_CALENDARS, id));
+  });
+}
+
+function archivePlannerCalendar_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const id = requireText_(p.id, 'Calendar', 2, 80);
+    const existing = findObjectById_(SF.SHEETS.PLANNER_CALENDARS, id);
+    if (!existing || !toBool_(existing.active)) throw new Error('Calendar not found.');
+    updateObjectById_(SF.SHEETS.PLANNER_CALENDARS, id, { active: 'false', updatedBy: actor, updatedAt: nowIso_() });
+    appendPlannerActivity_('', '', 'CALENDAR_ARCHIVED', actor, existing.name || id);
+    return { id: id, archived: true };
+  });
+}
+
+function plannerCalendarPublic_(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    teamIds: parsePlannerIdList_(row.teamIds, 80),
+    includeGeneral: toBool_(row.includeGeneral),
+    importantOnly: toBool_(row.importantOnly),
+    color: row.color || 'GOLD',
+    active: toBool_(row.active),
+    createdBy: row.createdBy || '',
+    updatedBy: row.updatedBy || '',
+    createdAt: row.createdAt || '',
+    updatedAt: row.updatedAt || ''
+  };
+}
+
 function plannerTeamPublic_(row) {
   return {
     id: row.id,
@@ -2501,14 +2637,25 @@ function buildPlannerCalendarFeed_(p) {
   const boardById = {};
   boards.forEach(board => boardById[board.id] = board);
 
-  let calendarName = 'ASME Indy · Club-wide';
+  const customCalendars = readObjects_(SF.SHEETS.PLANNER_CALENDARS).filter(row => toBool_(row.active));
+  const generalTeamId = 'TEAM-CLUB';
+  let calendarName = 'ASME Indy · All Calendars';
   let calendarDescription = 'All dated work across Purdue Indianapolis ASME, including Finance & Sponsorship.';
   let allowedBoardIds = new Set(boards.map(board => board.id));
   let importantOnly = false;
 
-  if (scope === 'important') {
+  if (scope === 'custom') {
+    const calendar = customCalendars.find(row => row.id === scopeId);
+    if (!calendar) throw new Error('The requested custom calendar is unavailable.');
+    const selectedTeamIds = new Set(parsePlannerIdList_(calendar.teamIds, 80));
+    if (toBool_(calendar.includeGeneral)) selectedTeamIds.add(generalTeamId);
+    calendarName = `ASME Indy · ${calendar.name}`;
+    calendarDescription = calendar.description || `Custom SponsorFlow calendar: ${calendar.name}.`;
+    allowedBoardIds = new Set(boards.filter(board => selectedTeamIds.has(board.teamId)).map(board => board.id));
+    importantOnly = toBool_(calendar.importantOnly);
+  } else if (scope === 'important') {
     calendarName = 'ASME Indy · Important Dates';
-    calendarDescription = 'Milestones, critical deadlines, meetings, competitions, and funding opportunities across the club.';
+    calendarDescription = 'Races, competitions, meetings, milestones, inspections, and critical club deadlines. Finance and sponsorship opportunities are excluded.';
     importantOnly = true;
   } else if (scope === 'team') {
     const team = teamById[scopeId];
@@ -2631,9 +2778,11 @@ function buildPlannerCalendarErrorFeed_(message) {
 }
 
 function isImportantPlannerTask_(task) {
+  const taskType = String(task.taskType || '').toUpperCase();
+  if (taskType === 'FUNDING') return false;
   const tags = String(task.tags || '').toLowerCase();
   return toBool_(task.importantDate) || toBool_(task.isMilestone) || String(task.priority || '').toUpperCase() === 'CRITICAL' ||
-    ['FUNDING', 'MEETING'].indexOf(String(task.taskType || '').toUpperCase()) !== -1 ||
+    taskType === 'MEETING' ||
     /(^|[,;\s])(important|deadline|competition|race|event|inspection|presentation)([,;\s]|$)/i.test(tags);
 }
 

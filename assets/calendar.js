@@ -67,10 +67,10 @@
       localStorage.setItem("asmeCalendarMonth", state.month);
       renderCalendar();
     });
-    $("#calendarNewEventTop").addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
-    $("#calendarSubscribe").addEventListener("click", openSubscriptions);
-    $("#calendarSnapshot").addEventListener("click", downloadCurrentCalendar);
-    [$("#calendarManage"), $("#calendarManageTop")].forEach(button => button.addEventListener("click", openCalendarManager));
+    $("#calendarNewEventTop")?.addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
+    $("#calendarSubscribe").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); openSubscriptions(); });
+    $("#calendarSnapshot").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); downloadCurrentCalendar(); });
+    [$("#calendarManage"), $("#calendarManageTop")].filter(Boolean).forEach(button => button.addEventListener("click", openCalendarManager));
     $("#calendarManagerNew").addEventListener("click", resetCalendarManagerForm);
     $("#customCalendarReset").addEventListener("click", resetCalendarManagerForm);
     $("#calendarManagerForm").addEventListener("submit", saveCustomCalendar);
@@ -240,7 +240,7 @@
     if (state.scope === "important") {
       return {
         name: "Important club events",
-        description: "Races, milestones, meetings, critical deadlines, and dates explicitly marked important."
+        description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded."
       };
     }
     if (state.scope === "general") {
@@ -295,7 +295,8 @@
   }
 
   function isImportantTask(task) {
-    return task.importantDate || task.isMilestone || task.priority === "CRITICAL" || task.taskType === "FUNDING" || task.taskType === "MEETING";
+    if (task.taskType === "FUNDING") return false;
+    return task.importantDate || task.isMilestone || task.priority === "CRITICAL" || task.taskType === "MEETING";
   }
 
   function renderCalendar() {
@@ -604,7 +605,7 @@
     if (!state.calendarFeedBaseUrl) return setPageMessage("The live calendar backend is unavailable. Redeploy the current Apps Script version.", "error");
     const feeds = [
       { name: "All calendars", description: "Every dated item across the entire workspace.", url: feedUrl("club") },
-      { name: "Important club events", description: "Milestones, meetings, races, critical deadlines, and important dates.", url: feedUrl("important") },
+      { name: "Important club events", description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded.", url: feedUrl("important") },
       { name: "General timeline", description: "Shared club-level planning and cross-team milestones.", url: feedUrl("team", GENERAL_TEAM_ID) },
       ...calendarTeams().map(team => ({ name: team.name, description: team.description || "This subteam's dated work.", url: feedUrl("team", team.id) })),
       ...state.calendars.map(calendar => ({ name: calendar.name, description: calendar.description || "Member-created calendar.", url: feedUrl("custom", calendar.id), custom: true, color: calendar.color }))
@@ -889,7 +890,20 @@
 
   function showDialog(dialog) { document.body.classList.add("dialog-open"); dialog.showModal(); }
   function setLoading(active) { $("#calendarLoading").classList.toggle("is-hidden", !active); }
-  function showConnectionError(message) { const host = $("#calendarConnectionBanner"); host.textContent = message || ""; host.classList.toggle("is-hidden", !message); }
+  function showConnectionError(message) {
+    const host = $("#calendarConnectionBanner");
+    host.replaceChildren();
+    host.classList.toggle("is-hidden", !message);
+    if (!message) return;
+    const text = document.createElement("span");
+    text.textContent = message;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "button button-secondary button-small connection-retry";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", loadCalendar, { once: true });
+    host.append(text, retry);
+  }
   function setPageMessage(message, tone = "") { const host = $("#calendarMessage"); host.textContent = message || ""; host.className = `form-status calendar-page-message${tone ? ` is-${tone}` : ""}`; }
   function setEventStatus(message, tone = "") { const host = $("#calendarEventFormStatus"); host.textContent = message || ""; host.className = `form-status event-form-status${tone ? ` is-${tone}` : ""}`; }
   function setSubscriptionStatus(message, tone = "") { const host = $("#calendarSubscriptionStatus"); host.textContent = message || ""; host.className = `form-status${tone ? ` is-${tone}` : ""}`; }

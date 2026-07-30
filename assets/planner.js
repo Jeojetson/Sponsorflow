@@ -1751,7 +1751,7 @@
         id: "",
         name: "Important Dates",
         badge: "Recommended",
-        description: "Milestones, critical priorities, funding deadlines, meetings, competitions, inspections, and events."
+        description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded."
       },
       ...state.teams.filter(team => team.id !== CLUB_TEAM_ID).map(team => ({
         key: `team-${team.id}`,

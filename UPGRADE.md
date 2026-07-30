@@ -1,56 +1,68 @@
-# Upgrade to SponsorFlow 1.4
+# SponsorFlow 1.5 upgrade
 
-SponsorFlow 1.4 is a frontend-only UI finalization release. It does not change Google Sheets, `Code.gs`, the Apps Script `Admin.html`, or live calendar feed behavior.
+SponsorFlow 1.5 fixes the remaining calendar/mobile reliability issues and simplifies the calendar interface.
 
-## 1. Update the GitHub Pages files
+## What changes
 
-Extract the 1.4 update ZIP and upload its contents to the root of the existing GitHub repository, replacing matching files.
+- Mobile and Safari bootstrap requests now use a cross-origin script response instead of relying only on a hidden iframe.
+- Bootstrap requests retry once and allow up to 60 seconds for an Apps Script cold start.
+- Failed calendar loads include a visible **Retry** button.
+- Important Club Events no longer includes any Funding task, even when that task is critical, a milestone, or manually marked important.
+- The calendar page now exposes one primary **+ Event** action and one **More** menu for subscription/download actions.
+- Duplicate calendar links were removed from the planner board header.
+- Home-page hero content now has proper internal padding and cannot clip against its dark panel.
+- Phone navigation, calendar controls, and action menus are more compact and better contained.
 
-Replace:
+## 1. Back up the Sheet
 
-- `index.html`
-- `outreach.html`
-- `planner.html`
-- `calendar.html`
-- `admin.html`
-- `assets/app.css`
-- `assets/theme.js`
+In Google Sheets, use **File → Make a copy**.
+
+## 2. Update GitHub Pages
+
+Upload the contents of the 1.5 update ZIP to the root of the existing repository and replace matching files.
 
 Do not replace or delete:
 
 - `assets/config.js`
 - `assets/img/`
 
-Commit the changes to `main` and wait for the GitHub Pages deployment workflow to show a green check.
+Commit to `main` and wait for the GitHub Pages deployment action to complete.
 
-## 2. Refresh the website
+## 3. Replace Google Apps Script `Code.gs`
 
-Open the live site and use:
+Open:
 
-`Command + Shift + R`
+**Google Sheet → Extensions → Apps Script → Code.gs**
 
-The HTML files now request the version 14 stylesheet and theme script, so browsers should not reuse the older theme files.
+Replace all of `Code.gs` with the supplied SponsorFlow 1.5 version and save.
 
-## No Google changes
+The Google Apps Script `Admin.html` file does not change.
 
-For this release, do not:
+## 4. Run the safe upgrade
 
-- Replace `Code.gs`
-- Replace the Google Apps Script `Admin.html`
-- Run a Sheet migration
-- Create or update an Apps Script deployment
+Reload the Google Sheet and choose:
 
-All existing tasks, events, calendars, sponsors, requests, comments, funding opportunities, subscriptions, and Sheet data remain unchanged.
+**SponsorFlow → Upgrade to SponsorFlow 1.5**
 
-## Acceptance test
+There are no new columns or replacement sheets in this release. The upgrade checks the existing structure and normalizes date cells without deleting or rewriting club data.
 
-1. Open each public page in light mode and dark mode.
-2. Confirm text, inputs, buttons, cards, and badges remain readable in both themes.
-3. On a phone, confirm the header stays on one row and does not create a large blank area.
-4. Scroll down on a phone and confirm the bottom navigation moves out of the way; scroll upward to bring it back.
-5. Open Calendar and confirm the month grid fits the phone width without horizontal page scrolling.
-6. Confirm **Subscribe** and **Download .ics** sit next to each other on phones.
-7. Open a calendar event editor on a phone and confirm the title and eyebrow are not clipped.
-8. Open a planner task editor on a phone and confirm all four task sections are visible in a two-by-two tab grid.
-9. Open Board, Timeline, Table, and Insights at desktop and phone widths.
-10. Confirm there is no page-level horizontal scrollbar. The Kanban board and Gantt view may scroll inside their own contained areas by design.
+## 5. Redeploy the web app
+
+In Apps Script:
+
+**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**
+
+Update the existing deployment so the `/exec` URL stays unchanged.
+
+## 6. Refresh the site
+
+After GitHub Pages deploys, hard-refresh with **Command + Shift + R**.
+
+## Verification checklist
+
+1. Open Calendar on an iPhone or Safari private tab.
+2. Confirm data loads without the 30-second iframe timeout.
+3. Select Important Club Events and confirm finance/funding applications are absent.
+4. Confirm race, competition, meeting, inspection, milestone, and critical non-funding dates remain.
+5. Open **More → Subscribe** and **More → Download .ics**.
+6. Open the home page and confirm the hero heading has padding on every edge.
