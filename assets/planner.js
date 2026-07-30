@@ -54,7 +54,8 @@
     loading: false,
     taskDetail: null,
     draggedTaskId: "",
-    insightsScope: "board"
+    insightsScope: "board",
+    calendarMonth: `${todayText().slice(0, 7)}-01`
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -102,6 +103,11 @@
     $("#editBoardButton").addEventListener("click", editCurrentBoard);
     $("#shareBoardButton").addEventListener("click", shareBoard);
     $("#exportBoardButton").addEventListener("click", exportBoardCsv);
+    $("#exportCalendarButton").addEventListener("click", downloadBoardCalendar);
+    $("#downloadCalendarButton").addEventListener("click", downloadBoardCalendar);
+    $("#calendarPreviousButton").addEventListener("click", () => moveCalendarMonth(-1));
+    $("#calendarTodayButton").addEventListener("click", () => { state.calendarMonth = `${todayText().slice(0, 7)}-01`; renderCalendar(); });
+    $("#calendarNextButton").addEventListener("click", () => moveCalendarMonth(1));
 
     ["taskSearch", "statusFilter", "priorityFilter", "ownerFilter", "partsOnlyFilter", "hideDoneFilter"].forEach(id => {
       $("#" + id).addEventListener(id.endsWith("Filter") && !["taskSearch"].includes(id) ? "change" : "input", renderCurrentBoard);
@@ -118,15 +124,27 @@
 
     $("#taskForm").addEventListener("submit", saveTask);
     $("#archiveTaskButton").addEventListener("click", archiveTask);
+    $("#downloadTaskCalendarButton").addEventListener("click", downloadTaskCalendarFromForm);
     $("#addTaskCommentButton").addEventListener("click", addTaskComment);
     ["taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone", "taskSourceConfidence"].forEach(id => {
-      $("#" + id).addEventListener("change", () => { updateFundingEditor(); updateTaskHealthPreview(); });
+      $("#" + id).addEventListener("change", () => { updateFundingEditor(); updateTaskHealthPreview(); updateTaskCalendarButton(); });
+    });
+    ["taskTitle", "taskDescription", "taskOwners", "taskTags", "taskRequirements", "taskSourceUrl"].forEach(id => {
+      $("#" + id).addEventListener("input", updateTaskCalendarButton);
     });
 
     $$('[data-close-dialog]').forEach(button => button.addEventListener("click", () => {
       const dialog = document.getElementById(button.dataset.closeDialog);
       if (dialog?.open) dialog.close();
     }));
+    $$("dialog.modal").forEach(dialog => {
+      dialog.addEventListener("click", event => {
+        if (event.target === dialog) dialog.close();
+      });
+      dialog.addEventListener("close", () => {
+        if (!document.querySelector("dialog[open]")) document.body.classList.remove("dialog-open");
+      });
+    });
   }
 
   function restoreIdentity() {
@@ -136,7 +154,7 @@
     updateIdentityUi();
     if (!state.actorName) {
       window.setTimeout(() => {
-        if (!$("#identityDialog").open) $("#identityDialog").showModal();
+        if (!$("#identityDialog").open) showPlannerDialog($("#identityDialog"));
         $("#identityDialogName").focus();
       }, 250);
     }
@@ -174,7 +192,7 @@
   function requireActor() {
     if (state.actorName) return true;
     $("#identityDialogStatus").textContent = "Enter your name before making changes.";
-    $("#identityDialog").showModal();
+    showPlannerDialog($("#identityDialog"));
     $("#identityDialogName").focus();
     return false;
   }
@@ -302,6 +320,7 @@
     renderKanban();
     renderGantt();
     renderTaskTable();
+    renderCalendar();
     renderInsights();
   }
 
@@ -330,7 +349,7 @@
       ? { label: "Funding tracked", value: knownFunding ? formatCurrency(knownFunding) : funding.length, detail: `${funding.length} opportunities${variableFunding ? ` · ${variableFunding} variable` : ""}`, tone: "funding" }
       : { label: "Parts to source", value: awaitingOrder, detail: `${formatCurrency(estimatedCost)} estimated total`, tone: awaitingOrder ? "parts" : "neutral" };
     const metrics = [
-      { label: "Overall progress", value: `${completion}%`, detail: `${done} of ${tasks.length} tasks done`, tone: "progress" },
+      { label: "Overall progress", value: `${completion}%`, detail: `${done} of ${tasks.length} tasks done`, tone: "completion" },
       { label: "Needs attention", value: overdue + blocked, detail: `${overdue} overdue · ${blocked} blocked`, tone: overdue + blocked ? "danger" : "good" },
       { label: "Due in 7 days", value: dueSoon, detail: "Upcoming commitments", tone: dueSoon ? "warning" : "neutral" },
       fourth
@@ -340,7 +359,7 @@
         <span>${escapeHtml(metric.label)}</span>
         <strong>${escapeHtml(String(metric.value))}</strong>
         <small>${escapeHtml(metric.detail)}</small>
-        ${metric.tone === "progress" ? `<div class="planner-progress-track"><i style="width:${completion}%"></i></div>` : ""}
+        ${metric.tone === "completion" ? `<div class="planner-progress-track"><i style="width:${completion}%"></i></div>` : ""}
       </article>`).join("");
   }
 
@@ -506,11 +525,133 @@
     tbody.querySelectorAll("[data-table-task]").forEach(row => row.addEventListener("click", () => openTaskDialog(row.dataset.tableTask)));
   }
 
+
+  function moveCalendarMonth(offset) {
+    const current = parseDate(state.calendarMonth || `${todayText().slice(0, 7)}-01`);
+    current.setMonth(current.getMonth() + offset, 1);
+    state.calendarMonth = dateText(current);
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const grid = $("#plannerCalendarGrid");
+    const agenda = $("#calendarAgenda");
+    if (!grid || !agenda || !currentBoard()) return;
+
+    const monthStart = parseDate(state.calendarMonth || `${todayText().slice(0, 7)}-01`);
+    monthStart.setDate(1);
+    state.calendarMonth = dateText(monthStart);
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+    const monthStartText = dateText(monthStart);
+    const monthEndText = dateText(monthEnd);
+    const gridStart = new Date(monthStart);
+    gridStart.setDate(gridStart.getDate() - gridStart.getDay());
+    const tasks = filteredTasks().filter(task => task.startDate || task.dueDate).sort((a, b) => (a.startDate || a.dueDate || "").localeCompare(b.startDate || b.dueDate || "") || taskSort(a, b));
+
+    $("#calendarMonthTitle").textContent = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+    const cells = [];
+    for (let index = 0; index < 42; index += 1) {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      const value = dateText(date);
+      const dayTasks = tasks.filter(task => calendarTaskTouchesDate(task, value));
+      const shown = dayTasks.slice(0, 3);
+      const isOutside = date.getMonth() !== monthStart.getMonth();
+      const isToday = value === todayText();
+      cells.push(`<section class="calendar-day${isOutside ? " is-outside" : ""}${isToday ? " is-today" : ""}" data-calendar-date="${value}">
+        <header><time datetime="${value}">${date.getDate()}</time>${isToday ? "<span>Today</span>" : ""}</header>
+        <div class="calendar-day-events">
+          ${shown.map(task => renderCalendarEvent(task, value)).join("")}
+          ${dayTasks.length > shown.length ? `<button class="calendar-more-button" type="button" data-calendar-date-focus="${value}">+${dayTasks.length - shown.length} more</button>` : ""}
+        </div>
+      </section>`);
+    }
+    grid.innerHTML = cells.join("");
+    grid.querySelectorAll("[data-calendar-task]").forEach(button => button.addEventListener("click", () => openTaskDialog(button.dataset.calendarTask)));
+    grid.querySelectorAll("[data-calendar-date-focus]").forEach(button => button.addEventListener("click", () => focusCalendarAgendaDate(button.dataset.calendarDateFocus)));
+
+    const monthTasks = tasks.filter(task => calendarTaskIntersectsRange(task, monthStartText, monthEndText));
+    $("#calendarAgendaCount").textContent = String(monthTasks.length);
+    agenda.innerHTML = monthTasks.length
+      ? monthTasks.map(task => renderCalendarAgendaItem(task)).join("")
+      : `<div class="calendar-empty"><span>◇</span><strong>No dated work this month</strong><p>Add dates to a task or move to another month.</p></div>`;
+    agenda.querySelectorAll("[data-calendar-agenda-task]").forEach(button => button.addEventListener("click", () => openTaskDialog(button.dataset.calendarAgendaTask)));
+    agenda.querySelectorAll("[data-calendar-agenda-download]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      const task = state.tasks.find(item => item.id === button.dataset.calendarAgendaDownload);
+      if (task) downloadTasksCalendar([task], task.title);
+    }));
+  }
+
+  function renderCalendarEvent(task, dateValue) {
+    const label = calendarEventLabel(task, dateValue);
+    return `<button class="calendar-event calendar-status-${task.status}" type="button" data-calendar-task="${escapeHtml(task.id)}" title="${escapeHtml(task.title)}">
+      <span class="priority-dot priority-bg-${task.priority}"></span>
+      <span>${escapeHtml(label)}</span>
+    </button>`;
+  }
+
+  function renderCalendarAgendaItem(task) {
+    const start = task.startDate || task.dueDate;
+    const end = task.dueDate || task.startDate;
+    const dateLabel = start === end ? formatShortDate(start) : `${formatShortDate(start)} – ${formatShortDate(end)}`;
+    return `<article class="calendar-agenda-item" data-agenda-date="${escapeHtml(start)}" data-agenda-task-id="${escapeHtml(task.id)}">
+      <button class="calendar-agenda-main" type="button" data-calendar-agenda-task="${escapeHtml(task.id)}">
+        <span class="calendar-agenda-date">${escapeHtml(dateLabel)}</span>
+        <span class="calendar-agenda-copy">
+          <strong>${escapeHtml(task.title)}</strong>
+          <small>${escapeHtml(statusLabel(task.status))} · ${escapeHtml(priorityLabel(task.priority))}${task.ownerNames ? ` · ${escapeHtml(task.ownerNames)}` : ""}</small>
+        </span>
+      </button>
+      <button class="calendar-agenda-download" type="button" data-calendar-agenda-download="${escapeHtml(task.id)}" aria-label="Download ${escapeHtml(task.title)} as an iCalendar event">.ics</button>
+    </article>`;
+  }
+
+  function focusCalendarAgendaDate(value) {
+    const task = filteredTasks().find(item => (item.startDate || item.dueDate) && calendarTaskTouchesDate(item, value));
+    const item = task ? $("#calendarAgenda")?.querySelector(`[data-agenda-task-id="${CSS.escape(task.id)}"]`) : null;
+    if (!item) return;
+    item.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    item.classList.add("is-highlighted");
+    window.setTimeout(() => item.classList.remove("is-highlighted"), 1500);
+  }
+
+  function calendarTaskBounds(task) {
+    let start = task.startDate || task.dueDate || "";
+    let end = task.dueDate || task.startDate || "";
+    if (start && end && end < start) [start, end] = [end, start];
+    return { start, end };
+  }
+
+  function calendarTaskTouchesDate(task, value) {
+    const { start, end } = calendarTaskBounds(task);
+    if (!start || !end) return false;
+    const span = daysBetween(start, end);
+    if (span <= 7) return value >= start && value <= end;
+    return value === start || value === end;
+  }
+
+  function calendarTaskIntersectsRange(task, rangeStart, rangeEnd) {
+    const { start, end } = calendarTaskBounds(task);
+    return Boolean(start && end && start <= rangeEnd && end >= rangeStart);
+  }
+
+  function calendarEventLabel(task, value) {
+    const { start, end } = calendarTaskBounds(task);
+    if (start !== end && daysBetween(start, end) > 7) {
+      if (value === start) return `Starts · ${task.title}`;
+      if (value === end) return `Due · ${task.title}`;
+    }
+    return task.title;
+  }
+
   function setPlannerView(view) {
-    state.view = ["board", "timeline", "table", "insights"].includes(view) ? view : "board";
+    state.view = ["board", "timeline", "calendar", "table", "insights"].includes(view) ? view : "board";
     $$("[data-planner-view]").forEach(button => button.classList.toggle("is-active", button.dataset.plannerView === state.view));
     $$("[data-planner-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.plannerPanel !== state.view));
     if (state.view === "timeline") renderGantt();
+    if (state.view === "calendar") renderCalendar();
     if (state.view === "insights") renderInsights();
   }
 
@@ -555,7 +696,7 @@
     resetBoardForm();
     renderWorkspaceDirectory();
     $("#workspaceDialogStatus").textContent = "";
-    $("#workspaceDialog").showModal();
+    showPlannerDialog($("#workspaceDialog"));
   }
 
   function editCurrentBoard() {
@@ -690,7 +831,8 @@
       renderDependencyPicker("");
       updateFundingEditor();
       updateTaskHealthPreview();
-      dialog.showModal();
+      updateTaskCalendarButton();
+      showPlannerDialog(dialog);
       $("#taskTitle").focus();
       return;
     }
@@ -698,7 +840,7 @@
     const task = state.tasks.find(item => item.id === taskId);
     if (!task) return;
     fillTaskForm(task);
-    dialog.showModal();
+    showPlannerDialog(dialog);
     setTaskStatus("Loading comments and activity…");
     try {
       const detail = await API.post("getPlannerTaskDetail", { taskId });
@@ -717,6 +859,7 @@
     $("#taskExpectedUpdatedAt").value = "";
     $("#taskUpdatedMeta").textContent = "";
     $("#archiveTaskButton").classList.add("is-hidden");
+    $("#downloadTaskCalendarButton").classList.add("is-hidden");
     $("#taskConversation").classList.add("is-hidden");
     $("#taskActivitySection").classList.add("is-hidden");
     $("#taskComments").innerHTML = "";
@@ -759,6 +902,7 @@
     renderDependencyPicker(task.id, splitList(task.dependencyIds));
     updateFundingEditor();
     updateTaskHealthPreview();
+    updateTaskCalendarButton();
   }
 
   function renderDependencyPicker(currentTaskId, selectedIds = []) {
@@ -892,6 +1036,141 @@
   function replaceTask(saved) {
     const index = state.tasks.findIndex(item => item.id === saved.id);
     if (index >= 0) state.tasks[index] = saved; else state.tasks.push(saved);
+  }
+
+
+  function showPlannerDialog(dialog) {
+    if (!dialog || dialog.open) return;
+    document.body.classList.add("dialog-open");
+    dialog.showModal();
+    const card = dialog.querySelector(".modal-card");
+    if (card) card.scrollTop = 0;
+  }
+
+  function updateTaskCalendarButton() {
+    const button = $("#downloadTaskCalendarButton");
+    if (!button) return;
+    const hasTitle = $("#taskTitle").value.trim().length >= 2;
+    const hasDate = Boolean($("#taskStartDate").value || $("#taskDueDate").value);
+    button.classList.toggle("is-hidden", !(hasTitle && hasDate));
+  }
+
+  function taskFromFormForCalendar() {
+    return {
+      id: $("#taskId").value || `draft-${Date.now()}`,
+      title: $("#taskTitle").value.trim() || "ASME task",
+      description: $("#taskDescription").value,
+      taskType: $("#taskType").value,
+      status: $("#taskStatus").value,
+      priority: $("#taskPriority").value,
+      ownerNames: $("#taskOwners").value,
+      startDate: $("#taskStartDate").value,
+      dueDate: $("#taskDueDate").value,
+      tags: $("#taskTags").value,
+      campus: $("#taskCampus").value,
+      fundingAmountLabel: $("#taskFundingAmountLabel").value,
+      sourceUrl: $("#taskSourceUrl").value,
+      requirements: $("#taskRequirements").value,
+      partName: $("#taskPartName").value,
+      vendor: $("#taskVendor").value,
+      isMilestone: $("#taskIsMilestone").checked
+    };
+  }
+
+  function downloadTaskCalendarFromForm() {
+    const task = taskFromFormForCalendar();
+    if (!task.startDate && !task.dueDate) {
+      setTaskStatus("Add a start date or due date before downloading a calendar event.", "error");
+      return;
+    }
+    downloadTasksCalendar([task], task.title);
+    setTaskStatus("Calendar event downloaded.", "success");
+  }
+
+  function downloadBoardCalendar() {
+    const board = currentBoard();
+    if (!board) return;
+    const tasks = boardTasks().filter(task => task.startDate || task.dueDate);
+    if (!tasks.length) {
+      setPlannerMessage("This timeline has no dated tasks to add to a calendar.", "error");
+      return;
+    }
+    downloadTasksCalendar(tasks, `${board.name} calendar`);
+    setPlannerMessage(`${tasks.length} dated ${tasks.length === 1 ? "task" : "tasks"} exported as an .ics calendar.`, "success");
+  }
+
+  function downloadTasksCalendar(tasks, name) {
+    const board = currentBoard();
+    const team = currentTeam();
+    const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+    const events = tasks.filter(task => task.startDate || task.dueDate).map(task => {
+      const { start, end } = calendarTaskBounds(task);
+      const exclusiveEnd = addDaysText(end, 1);
+      const description = [
+        task.description,
+        `Team: ${team?.name || "ASME"}`,
+        `Timeline: ${board?.name || "Project planner"}`,
+        `Status: ${statusLabel(task.status)}`,
+        `Priority: ${priorityLabel(task.priority)}`,
+        task.ownerNames ? `Owners: ${task.ownerNames}` : "",
+        task.fundingAmountLabel ? `Funding: ${task.fundingAmountLabel}` : "",
+        task.partName ? `Part / material: ${task.partName}` : "",
+        task.vendor ? `Vendor: ${task.vendor}` : "",
+        task.requirements ? `Requirements / next action: ${task.requirements}` : "",
+        task.sourceUrl ? `Official source: ${task.sourceUrl}` : ""
+      ].filter(Boolean).join("\n");
+      const uidBase = String(task.id || `${task.title}-${start}`).replace(/[^a-zA-Z0-9._-]/g, "-");
+      return [
+        "BEGIN:VEVENT",
+        `UID:${uidBase}@asmeindy.purdue.edu`,
+        `DTSTAMP:${now}`,
+        `DTSTART;VALUE=DATE:${icsDate(start)}`,
+        `DTEND;VALUE=DATE:${icsDate(exclusiveEnd)}`,
+        `SUMMARY:${icsEscape(task.title || "ASME task")}`,
+        `DESCRIPTION:${icsEscape(description)}`,
+        `CATEGORIES:${icsEscape([team?.name, taskTypeLabel(task.taskType), priorityLabel(task.priority)].filter(Boolean).join(","))}`,
+        task.sourceUrl ? `URL:${icsEscape(task.sourceUrl)}` : "",
+        "TRANSP:TRANSPARENT",
+        "END:VEVENT"
+      ].filter(Boolean).join("\r\n");
+    }).join("\r\n");
+
+    const calendar = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//Purdue Indianapolis ASME//SponsorFlow Project Planner//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      `X-WR-CALNAME:${icsEscape(name || board?.name || "ASME Project Planner")}`,
+      events,
+      "END:VCALENDAR",
+      ""
+    ].join("\r\n");
+    downloadTextFile(`${slugify(name || board?.name || "asme-project-calendar")}.ics`, calendar, "text/calendar;charset=utf-8");
+  }
+
+  function downloadTextFile(filename, contents, type) {
+    const blob = new Blob([contents], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function icsDate(value) {
+    return String(value || "").replace(/-/g, "");
+  }
+
+  function icsEscape(value) {
+    return String(value || "")
+      .replace(/\\/g, "\\\\")
+      .replace(/\r?\n/g, "\\n")
+      .replace(/,/g, "\\,")
+      .replace(/;/g, "\\;");
   }
 
   function shareBoard() {
