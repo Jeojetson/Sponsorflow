@@ -1,74 +1,107 @@
-# SponsorFlow v8 upgrade
+# Upgrade SponsorFlow to 1.0
 
-Version 8 adds live calendar subscriptions, editable calendar events, separate team calendars, an Important Dates feed, and a club-wide portfolio that includes Finance & Sponsorship.
+SponsorFlow 1.0 is a stability and usability release for the Project Planner. It preserves the existing sponsor directory, requests, teams, timelines, tasks, comments, funding opportunities, and activity history.
 
-## Back up first
+## Before upgrading
 
-In the SponsorFlow Google Sheet, choose **File → Make a copy**.
+1. Open the SponsorFlow Google Sheet.
+2. Choose **File → Make a copy**.
+3. Keep that copy until you have completed the tests below.
 
-## 1. Update GitHub Pages
+## 1. Update the GitHub Pages files
 
-Upload the contents of `asme-sponsorflow-v8-update.zip` to the root of the GitHub repository and replace matching files.
+Extract `asme-sponsorflow-1.0-update.zip` and upload its contents to the root of the existing GitHub repository, replacing matching files.
 
-The update intentionally does **not** include `assets/config.js`, so the working Apps Script URL will not be overwritten.
+The update intentionally does **not** contain `assets/config.js`. Do not delete or replace your working config file.
 
-Important frontend files:
+The principal changed files are:
 
-- `planner.html`
-- `index.html`
-- `admin.html`
-- `assets/app.css`
-- `assets/planner.js`
+```text
+planner.html
+index.html
+admin.html
+assets/app.css
+assets/planner.js
+apps-script/Code.gs
+```
 
-Commit to `main`, then wait for **Actions → pages build and deployment** to finish.
+Commit the files to `main`, then wait for **Actions → pages build and deployment** to complete.
 
-## 2. Replace Code.gs
+## 2. Replace the Apps Script backend
 
-Open the SponsorFlow Google Sheet and choose:
+Open:
 
-**Extensions → Apps Script**
+```text
+Google Sheet → Extensions → Apps Script → Code.gs
+```
 
-Replace all content in `Code.gs` with the v8 source from:
+Replace the entire contents of `Code.gs` with the SponsorFlow 1.0 version and save it.
 
-- `apps-script/Code.gs`, or
-- `SponsorFlow-v8-Code.txt`
+A plain-text copy is also supplied as `SponsorFlow-1.0-Code.txt`.
 
-Save the project.
+## 3. Run the schema upgrade
 
-`Admin.html` does not need to change for this upgrade.
+Reload the Google Sheet, then choose:
 
-## 3. Run the v8 migration
+```text
+SponsorFlow → Upgrade to SponsorFlow 1.0
+```
 
-Reload the Google Sheet. Choose:
+This adds these planner columns when they do not already exist:
 
-**SponsorFlow → Upgrade to v8 + live calendar subscriptions**
+```text
+allDay
+startTime
+endTime
+location
+```
 
-This safely adds the new `importantDate` planner field and preserves existing contacts, requests, teams, timelines, tasks, comments, and activity history.
+Existing rows are preserved. The 1.0 upgrade is additive-only: it creates missing columns and missing starter records, but it does not rewrite existing sponsors, templates, teams, timelines, tasks, dates, owners, progress, comments, or funding research. Existing dated tasks default to all-day items unless times are added.
 
-## 4. Redeploy Apps Script
+## 4. Redeploy the Apps Script web app
 
-In Apps Script choose:
+Saving Code.gs does not update the public deployment by itself.
 
-**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**
+Open:
 
-Keep the same deployment and the same `/exec` URL. No change to `assets/config.js` is required.
+```text
+Deploy → Manage deployments → pencil icon
+```
 
-## 5. Refresh the website
+Choose **New version**, enter a description such as `SponsorFlow 1.0`, and deploy the existing web-app deployment. Keep the same `/exec` URL.
 
-After the GitHub Pages deployment is complete, reload the planner. A hard refresh on macOS is:
+## 5. Refresh GitHub Pages
 
-`Command + Shift + R`
+Open the live planner and press:
 
-## First test
+```text
+Command + Shift + R
+```
 
-1. Open **Project planner → Club-wide → Club-wide portfolio · all teams**.
-2. Confirm Finance & Sponsorship tasks appear with the other teams.
-3. Open **Calendar** and click a date to create an event.
-4. Mark it **Important date**, save it, and reopen it to confirm editing works.
-5. Select **Live subscriptions**.
-6. Copy the Important Dates URL and open it in a browser. It should display iCalendar text beginning with `BEGIN:VCALENDAR`.
-7. Subscribe using Apple Calendar, Outlook, or Google Calendar.
+The page now requests the `v=10` frontend assets, which should also prevent older cached layouts from returning.
 
-## Important limitation
+## Acceptance test
 
-Live calendar subscriptions are read-only in external calendar apps. Edit the event in SponsorFlow; the calendar app will retrieve the updated feed on its own refresh schedule. Refresh timing is controlled by Apple, Google, Microsoft, or the user's calendar client and is not instant.
+1. Open **Calendar**.
+2. Click a day or choose **+ Event**.
+3. Create a one-day all-day event and save it.
+4. Reopen the event and confirm its title, date, owner, and location remain intact.
+5. Create a timed event by clearing **All-day event** and entering start/end times.
+6. Open a regular task and check the **Schedule** tab. Its health card should reflect the visible due date.
+7. Edit a task, close without saving, and confirm the discard warning appears.
+8. Begin another edit, refresh the page before saving, reopen the same task, and confirm the browser offers to restore the unsaved draft.
+9. Open **Subscribe** and verify the live calendar links still load.
+
+## What changed
+
+- Dedicated quick calendar-event editor
+- Reliable single-day and multi-day events
+- Optional event times and locations
+- Server-confirmed saves before the UI reports success
+- Local draft recovery for unsaved task and event edits
+- Unsaved-change warnings
+- Task editor split into Overview, Schedule, Details, and Comments & History
+- Corrected task-health date preview
+- Compact planner header and simpler action menus
+- Responsive layouts with no page-level or modal horizontal overflow
+- Timed events supported by downloaded and subscribed `.ics` calendars

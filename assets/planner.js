@@ -59,7 +59,14 @@
     insightsScope: "board",
     calendarMonth: `${todayText().slice(0, 7)}-01`,
     calendarFeedBaseUrl: "",
-    pendingTaskId: ""
+    pendingTaskId: "",
+    taskDirty: false,
+    eventDirty: false,
+    suppressDirty: false,
+    taskDraftTimer: 0,
+    eventDraftTimer: 0,
+    savingTask: false,
+    savingEvent: false
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -68,6 +75,8 @@
     populateStaticOptions();
     bindEvents();
     restoreIdentity();
+    state.view = localStorage.getItem("asmePlannerView") || "board";
+    state.calendarMonth = localStorage.getItem("asmePlannerCalendarMonth") || state.calendarMonth;
     if (!API || !API.configured()) {
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
       return;
@@ -83,6 +92,7 @@
     $("#taskPriority").innerHTML = PRIORITY.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#taskOrderStatus").innerHTML = ORDER_STATUS.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#taskSourceConfidence").innerHTML = SOURCE_CONFIDENCE.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
+    $("#eventPriority").innerHTML = PRIORITY.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
   }
 
   function bindEvents() {
@@ -102,6 +112,8 @@
     $$("[data-planner-view]").forEach(button => button.addEventListener("click", () => setPlannerView(button.dataset.plannerView)));
     $("#newTaskButton").addEventListener("click", () => openTaskDialog());
     $("#newTaskTopButton").addEventListener("click", () => openTaskDialog());
+    $("#newEventTopButton").addEventListener("click", () => openEventDialog());
+    $("#newEventButton").addEventListener("click", () => openEventDialog());
     $("#manageWorkspaceButton").addEventListener("click", openWorkspaceDialog);
     $$("[data-open-workspace]").forEach(button => button.addEventListener("click", openWorkspaceDialog));
     $("#editBoardButton").addEventListener("click", editCurrentBoard);
@@ -111,7 +123,7 @@
     $("#downloadCalendarButton").addEventListener("click", downloadBoardCalendar);
     $("#calendarSubscriptionsButton").addEventListener("click", openCalendarSubscriptions);
     $("#openCalendarSubscriptionsButton").addEventListener("click", openCalendarSubscriptions);
-    $("#addCalendarEventButton").addEventListener("click", () => openTaskDialog("", { taskType: "MEETING", startDate: todayText(), dueDate: todayText(), importantDate: true }));
+    $("#addCalendarEventButton").addEventListener("click", () => openEventDialog("", { startDate: todayText(), endDate: todayText() }));
     $("#calendarPreviousButton").addEventListener("click", () => moveCalendarMonth(-1));
     $("#calendarTodayButton").addEventListener("click", () => { state.calendarMonth = `${todayText().slice(0, 7)}-01`; renderCalendar(); });
     $("#calendarNextButton").addEventListener("click", () => moveCalendarMonth(1));
@@ -137,17 +149,41 @@
     ["taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone", "taskImportantDate", "taskSourceConfidence"].forEach(id => {
       $("#" + id).addEventListener("change", () => { updateFundingEditor(); updateTaskHealthPreview(); updateTaskCalendarButton(); });
     });
-    ["taskTitle", "taskDescription", "taskOwners", "taskTags", "taskRequirements", "taskSourceUrl"].forEach(id => {
-      $("#" + id).addEventListener("input", updateTaskCalendarButton);
+    ["taskTitle", "taskDescription", "taskOwners", "taskTags", "taskRequirements", "taskSourceUrl", "taskStartTime", "taskEndTime", "taskLocation"].forEach(id => {
+      $("#" + id).addEventListener("input", () => { updateTaskCalendarButton(); markTaskDirty(); });
     });
+    ["taskBoardId", "taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskAllDay", "taskIsMilestone", "taskImportantDate", "taskOrderStatus", "taskSourceConfidence"].forEach(id => {
+      $("#" + id).addEventListener("change", () => { markTaskDirty(); updateTaskTimeFields(); });
+    });
+    $("#taskForm").addEventListener("input", markTaskDirty);
+    $("#taskCancelButton").addEventListener("click", () => requestDialogClose("taskDialog"));
+    $$("[data-task-tab]").forEach(button => button.addEventListener("click", () => setTaskTab(button.dataset.taskTab)));
+
+    $("#eventForm").addEventListener("submit", saveCalendarEvent);
+    $("#eventCancelButton").addEventListener("click", () => requestDialogClose("eventDialog"));
+    $("#eventArchiveButton").addEventListener("click", archiveCalendarEvent);
+    $("#eventOpenFullTaskButton").addEventListener("click", openEventInFullEditor);
+    $("#eventAllDay").addEventListener("change", () => { updateEventTimeFields(); markEventDirty(); });
+    $("#eventStartDate").addEventListener("change", () => {
+      if (!$("#eventEndDate").value || $("#eventEndDate").value < $("#eventStartDate").value) $("#eventEndDate").value = $("#eventStartDate").value;
+      markEventDirty();
+    });
+    $("#eventBoardId").addEventListener("change", markEventDirty);
+    $("#eventForm").addEventListener("input", markEventDirty);
+    $("#eventForm").addEventListener("change", markEventDirty);
 
     $$('[data-close-dialog]').forEach(button => button.addEventListener("click", () => {
-      const dialog = document.getElementById(button.dataset.closeDialog);
-      if (dialog?.open) dialog.close();
+      requestDialogClose(button.dataset.closeDialog);
     }));
     $$("dialog.modal").forEach(dialog => {
       dialog.addEventListener("click", event => {
-        if (event.target === dialog) dialog.close();
+        if (event.target === dialog) requestDialogClose(dialog.id);
+      });
+      dialog.addEventListener("cancel", event => {
+        if ((dialog.id === "taskDialog" && state.taskDirty) || (dialog.id === "eventDialog" && state.eventDirty)) {
+          event.preventDefault();
+          requestDialogClose(dialog.id);
+        }
       });
       dialog.addEventListener("close", () => {
         if (!document.querySelector("dialog[open]")) document.body.classList.remove("dialog-open");
@@ -212,15 +248,16 @@
 
   async function loadPlanner(options = {}) {
     const requestedTask = new URLSearchParams(window.location.search).get("task") || "";
+    const previousBoardId = options.boardId || state.currentBoardId || "";
+    const previousView = state.view;
+    const previousMonth = state.calendarMonth;
     setLoading(true);
     try {
       const data = await API.post("plannerBootstrap");
-      state.teams = Array.isArray(data.teams) ? data.teams : [];
-      state.boards = Array.isArray(data.boards) ? data.boards : [];
-      state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
-      state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
-      renderContextOptions();
-      chooseInitialBoard(options.boardId);
+      applyPlannerBootstrap(data, previousBoardId);
+      state.view = options.preserveView === false ? "board" : previousView;
+      state.calendarMonth = previousMonth || state.calendarMonth;
+      setPlannerView(state.view);
       renderCurrentBoard();
       hideConnectionError();
       if (requestedTask) {
@@ -235,6 +272,15 @@
     } finally {
       setLoading(false);
     }
+  }
+
+  function applyPlannerBootstrap(data, preferredBoardId = "") {
+    state.teams = Array.isArray(data.teams) ? data.teams : [];
+    state.boards = Array.isArray(data.boards) ? data.boards : [];
+    state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
+    renderContextOptions();
+    chooseInitialBoard(preferredBoardId);
   }
 
   function chooseInitialBoard(preferredId = "") {
@@ -264,6 +310,7 @@
       ? state.teams.map(team => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join("")
       : '<option value="">Create a team first</option>';
     populateTaskBoardOptions();
+    populateEventBoardOptions();
     renderBoardOptions();
     renderWorkspaceDirectory();
   }
@@ -276,6 +323,17 @@
     }).join("");
     $("#taskBoardId").innerHTML = grouped || '<option value="">Create a timeline first</option>';
     if (selectedId && state.boards.some(board => board.id === selectedId)) $("#taskBoardId").value = selectedId;
+  }
+
+  function populateEventBoardOptions(selectedId = "") {
+    const grouped = state.teams.map(team => {
+      const boards = state.boards.filter(board => board.teamId === team.id);
+      if (!boards.length) return "";
+      return `<optgroup label="${escapeHtml(team.name)}">${boards.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")}</optgroup>`;
+    }).join("");
+    $("#eventBoardId").innerHTML = grouped || '<option value="">Create a timeline first</option>';
+    const candidate = selectedId && state.boards.some(board => board.id === selectedId) ? selectedId : defaultTaskBoardId();
+    if (candidate) $("#eventBoardId").value = candidate;
   }
 
   function renderBoardOptions() {
@@ -380,8 +438,9 @@
     $("#boardTitle").textContent = board.name;
     $("#boardDescription").textContent = board.description || "Shared team timeline.";
     $("#boardDateRange").textContent = formatBoardDateRange(board);
-    $("#editBoardButton").disabled = isAggregateBoard(board);
-    $("#editBoardButton").title = isAggregateBoard(board) ? "The club-wide portfolio is generated from all team timelines." : "Edit this timeline";
+    $("#editBoardButton").classList.toggle("is-hidden", isAggregateBoard(board));
+    $("#editBoardButton").disabled = false;
+    $("#editBoardButton").title = "Edit this timeline";
     renderOwnerFilter();
     renderMetrics();
     renderKanban();
@@ -599,6 +658,7 @@
     const current = parseDate(state.calendarMonth || `${todayText().slice(0, 7)}-01`);
     current.setMonth(current.getMonth() + offset, 1);
     state.calendarMonth = dateText(current);
+    localStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
     renderCalendar();
   }
 
@@ -637,10 +697,13 @@
       </section>`);
     }
     grid.innerHTML = cells.join("");
-    grid.querySelectorAll("[data-calendar-task]").forEach(button => button.addEventListener("click", () => openTaskDialog(button.dataset.calendarTask)));
+    grid.querySelectorAll("[data-calendar-task]").forEach(button => button.addEventListener("click", () => {
+      const task = state.tasks.find(item => item.id === button.dataset.calendarTask);
+      if (task?.taskType === "MEETING") openEventDialog(task.id); else openTaskDialog(button.dataset.calendarTask);
+    }));
     grid.querySelectorAll("[data-calendar-add]").forEach(button => button.addEventListener("click", event => {
       event.stopPropagation();
-      openTaskDialog("", { taskType: "MEETING", startDate: button.dataset.calendarAdd, dueDate: button.dataset.calendarAdd, importantDate: false });
+      openEventDialog("", { startDate: button.dataset.calendarAdd, endDate: button.dataset.calendarAdd });
     }));
     grid.querySelectorAll("[data-calendar-date-focus]").forEach(button => button.addEventListener("click", () => focusCalendarAgendaDate(button.dataset.calendarDateFocus)));
 
@@ -649,7 +712,10 @@
     agenda.innerHTML = monthTasks.length
       ? monthTasks.map(task => renderCalendarAgendaItem(task)).join("")
       : `<div class="calendar-empty"><span>◇</span><strong>No dated work this month</strong><p>Add dates to a task or move to another month.</p></div>`;
-    agenda.querySelectorAll("[data-calendar-agenda-task]").forEach(button => button.addEventListener("click", () => openTaskDialog(button.dataset.calendarAgendaTask)));
+    agenda.querySelectorAll("[data-calendar-agenda-task]").forEach(button => button.addEventListener("click", () => {
+      const task = state.tasks.find(item => item.id === button.dataset.calendarAgendaTask);
+      if (task?.taskType === "MEETING") openEventDialog(task.id); else openTaskDialog(button.dataset.calendarAgendaTask);
+    }));
     agenda.querySelectorAll("[data-calendar-agenda-download]").forEach(button => button.addEventListener("click", event => {
       event.stopPropagation();
       const task = state.tasks.find(item => item.id === button.dataset.calendarAgendaDownload);
@@ -659,9 +725,10 @@
 
   function renderCalendarEvent(task, dateValue) {
     const label = calendarEventLabel(task, dateValue);
+    const time = task.allDay === false && task.startTime ? formatClock(task.startTime) : "";
     return `<button class="calendar-event calendar-status-${task.status}" type="button" data-calendar-task="${escapeHtml(task.id)}" title="${escapeHtml(task.title)}">
       <span class="priority-dot priority-bg-${task.priority}"></span>
-      <span>${escapeHtml(label)}</span>
+      <span>${time ? `<b>${escapeHtml(time)}</b> ` : ""}${escapeHtml(label)}</span>
       ${isAggregateBoard() ? `<small>${escapeHtml(teamForTask(task)?.icon || teamForTask(task)?.name || "TEAM")}</small>` : ""}
     </button>`;
   }
@@ -722,6 +789,7 @@
 
   function setPlannerView(view) {
     state.view = ["board", "timeline", "calendar", "table", "insights"].includes(view) ? view : "board";
+    localStorage.setItem("asmePlannerView", state.view);
     $$("[data-planner-view]").forEach(button => button.classList.toggle("is-active", button.dataset.plannerView === state.view));
     $$("[data-planner-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.plannerPanel !== state.view));
     if (state.view === "timeline") renderGantt();
@@ -891,11 +959,13 @@
   async function openTaskDialog(taskId = "", defaults = {}) {
     if (!requireActor()) return;
     if (!currentBoard()) { openWorkspaceDialog(); return; }
+    state.suppressDirty = true;
     resetTaskForm();
     const dialog = $("#taskDialog");
+    setTaskTab("overview");
     if (!taskId) {
       $("#taskDialogEyebrow").textContent = "New task";
-      $("#taskDialogTitle").textContent = "Add work to the timeline";
+      $("#taskDialogTitle").textContent = "Create a task";
       $("#taskType").value = defaults.taskType || "WORK";
       $("#taskStatus").value = defaults.status || "PLANNED";
       $("#taskPriority").value = defaults.priority || "MEDIUM";
@@ -903,19 +973,24 @@
       $("#taskOrderStatus").value = defaults.taskType === "PURCHASE" ? "NEEDS_SPEC" : "NOT_NEEDED";
       $("#taskSourceConfidence").value = "TEAM_ENTERED";
       $("#taskOwners").value = state.actorName;
+      $("#taskAllDay").checked = true;
       const boardId = defaults.boardId || defaultTaskBoardId();
       populateTaskBoardOptions(boardId);
       $("#taskBoardId").disabled = false;
-      const board = state.boards.find(item => item.id === boardId) || null;
-      $("#taskStartDate").value = defaults.startDate || board?.targetStart || todayText();
-      $("#taskDueDate").value = defaults.dueDate || (board?.targetEnd && board.targetEnd >= todayText() ? board.targetEnd : "");
+      $("#taskStartDate").value = defaults.startDate || "";
+      $("#taskDueDate").value = defaults.dueDate || "";
       $("#taskImportantDate").checked = Boolean(defaults.importantDate);
       renderDependencyPicker("");
       updateFundingEditor();
+      updateTaskTimeFields();
       updateTaskHealthPreview();
       updateTaskCalendarButton();
+      $("#taskCollaborationEmpty").classList.remove("is-hidden");
       showPlannerDialog(dialog);
-      $("#taskTitle").focus();
+      state.suppressDirty = false;
+      state.taskDirty = false;
+      restoreTaskDraft();
+      window.setTimeout(() => { updateTaskHealthPreview(); $("#taskTitle").focus(); }, 0);
       return;
     }
 
@@ -923,20 +998,26 @@
     if (!task) return;
     fillTaskForm(task);
     showPlannerDialog(dialog);
+    state.suppressDirty = false;
+    state.taskDirty = false;
+    restoreTaskDraft(task);
     setTaskStatus("Loading comments and activity…");
     try {
       const detail = await API.post("getPlannerTaskDetail", { taskId });
       state.taskDetail = detail;
       renderTaskConversation(detail);
+      $("#taskCollaborationEmpty").classList.add("is-hidden");
       setTaskStatus("");
     } catch (error) {
       setTaskStatus(error.message, "error");
     }
+    window.setTimeout(updateTaskHealthPreview, 0);
   }
 
   function resetTaskForm() {
     $("#taskForm").reset();
     state.taskDetail = null;
+    state.taskDirty = false;
     $("#taskId").value = "";
     $("#taskExpectedUpdatedAt").value = "";
     $("#taskUpdatedMeta").textContent = "";
@@ -949,10 +1030,16 @@
     $("#taskFundingSection").classList.add("is-hidden");
     $("#taskBoardId").disabled = false;
     $("#taskImportantDate").checked = false;
+    $("#taskAllDay").checked = true;
+    $("#taskStartTime").value = "";
+    $("#taskEndTime").value = "";
+    $("#taskLocation").value = "";
+    $("#taskCollaborationEmpty").classList.remove("is-hidden");
     setTaskStatus("");
   }
 
   function fillTaskForm(task) {
+    state.suppressDirty = true;
     $("#taskDialogEyebrow").textContent = `${teamForTask(task)?.name || "Team"} · ${statusLabel(task.status)}`;
     $("#taskDialogTitle").textContent = "Edit task";
     populateTaskBoardOptions(task.boardId);
@@ -975,8 +1062,12 @@
     $("#taskSourceUrl").value = task.sourceUrl || "";
     $("#taskSourceConfidence").value = task.sourceConfidence || "TEAM_ENTERED";
     $("#taskRequirements").value = task.requirements || "";
-    $("#taskStartDate").value = task.startDate || "";
-    $("#taskDueDate").value = task.dueDate || "";
+    $("#taskStartDate").value = normalizeDateInput(task.startDate);
+    $("#taskDueDate").value = normalizeDateInput(task.dueDate);
+    $("#taskAllDay").checked = task.allDay !== false;
+    $("#taskStartTime").value = normalizeTimeInput(task.startTime);
+    $("#taskEndTime").value = normalizeTimeInput(task.endTime);
+    $("#taskLocation").value = task.location || "";
     $("#taskIsMilestone").checked = Boolean(task.isMilestone);
     $("#taskImportantDate").checked = Boolean(task.importantDate);
     $("#taskPartName").value = task.partName || "";
@@ -989,8 +1080,27 @@
     $("#archiveTaskButton").classList.remove("is-hidden");
     renderDependencyPicker(task.id, splitList(task.dependencyIds));
     updateFundingEditor();
+    updateTaskTimeFields();
     updateTaskHealthPreview();
     updateTaskCalendarButton();
+    state.suppressDirty = false;
+    state.taskDirty = false;
+  }
+
+  function setTaskTab(tab) {
+    const selected = ["overview", "schedule", "details", "collaboration"].includes(tab) ? tab : "overview";
+    $$("[data-task-tab]").forEach(button => button.classList.toggle("is-active", button.dataset.taskTab === selected));
+    $$("[data-task-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.taskPanel !== selected));
+  }
+
+  function updateTaskTimeFields() {
+    const isEvent = $("#taskType").value === "MEETING";
+    const allDay = $("#taskAllDay").checked;
+    $("#taskTimeFields").classList.toggle("is-hidden", !isEvent);
+    $("#taskTimeFields").classList.toggle("is-all-day", allDay);
+    $("#taskStartTime").disabled = !isEvent || allDay;
+    $("#taskEndTime").disabled = !isEvent || allDay;
+    $("#taskLocation").disabled = !isEvent;
   }
 
   function renderDependencyPicker(currentTaskId, selectedIds = []) {
@@ -1010,22 +1120,54 @@
 
   async function saveTask(event) {
     event.preventDefault();
-    if (!requireActor()) return;
-    const title = $("#taskTitle").value.trim();
-    if (title.length < 2) { setTaskStatus("Give the task a clear title.", "error"); $("#taskTitle").focus(); return; }
-    setTaskStatus("Saving to the shared timeline…");
-    const payload = {
+    if (!requireActor() || state.savingTask) return;
+    const payload = buildTaskPayload();
+    if (payload.title.length < 2) { setTaskStatus("Give the task a clear title.", "error"); setTaskTab("overview"); $("#taskTitle").focus(); return; }
+    if (payload.startDate && payload.dueDate && payload.dueDate < payload.startDate) { setTaskStatus("The end date must be on or after the start date.", "error"); setTaskTab("schedule"); return; }
+    if (payload.taskType === "MEETING" && !payload.allDay && payload.startDate === payload.dueDate && payload.startTime && payload.endTime && payload.endTime <= payload.startTime) {
+      setTaskStatus("For a same-day event, the end time must be after the start time.", "error"); setTaskTab("schedule"); return;
+    }
+    state.savingTask = true;
+    setButtonBusy($("#taskSaveButton"), true, "Saving…");
+    setTaskStatus("Saving to the shared planner…");
+    try {
+      const saved = await API.post("savePlannerTask", payload);
+      replaceTask(saved);
+      clearTaskDraft(payload.id || "new", payload.boardId);
+      const data = await API.post("plannerBootstrap");
+      applyPlannerBootstrap(data, state.currentBoardId || saved.boardId);
+      state.taskDirty = false;
+      $("#taskDialog").close();
+      renderCurrentBoard();
+      setPlannerMessage(`${saved.title} saved and verified in the shared planner.`, "success");
+    } catch (error) {
+      setTaskStatus(error.message, "error");
+      if (/someone else|refresh/i.test(error.message)) {
+        setTaskStatus(`${error.message} Your unsaved draft is still stored in this browser.`, "error");
+      }
+    } finally {
+      state.savingTask = false;
+      setButtonBusy($("#taskSaveButton"), false, "Save task");
+    }
+  }
+
+  function buildTaskPayload() {
+    return {
       id: $("#taskId").value,
       expectedUpdatedAt: $("#taskExpectedUpdatedAt").value,
       boardId: $("#taskBoardId").value || defaultTaskBoardId(),
-      title,
+      title: $("#taskTitle").value.trim(),
       description: $("#taskDescription").value,
       taskType: $("#taskType").value,
       status: $("#taskStatus").value,
       priority: $("#taskPriority").value,
       ownerNames: $("#taskOwners").value,
-      startDate: $("#taskStartDate").value,
-      dueDate: $("#taskDueDate").value,
+      startDate: normalizeDateInput($("#taskStartDate").value),
+      dueDate: normalizeDateInput($("#taskDueDate").value),
+      allDay: $("#taskAllDay").checked,
+      startTime: normalizeTimeInput($("#taskStartTime").value),
+      endTime: normalizeTimeInput($("#taskEndTime").value),
+      location: $("#taskLocation").value,
       progress: $("#taskProgress").value,
       isMilestone: $("#taskIsMilestone").checked,
       importantDate: $("#taskImportantDate").checked,
@@ -1046,18 +1188,6 @@
       dependencyIds: JSON.stringify(selectedDependencies()),
       actorName: state.actorName
     };
-    try {
-      const saved = await API.post("savePlannerTask", payload);
-      replaceTask(saved);
-      $("#taskDialog").close();
-      renderCurrentBoard();
-      setPlannerMessage(`${saved.title} saved.`, "success");
-    } catch (error) {
-      setTaskStatus(error.message, "error");
-      if (/someone else|refresh/i.test(error.message)) {
-        window.setTimeout(() => loadPlanner({ boardId: state.currentBoardId }), 600);
-      }
-    }
   }
 
   async function archiveTask() {
@@ -1106,13 +1236,18 @@
   }
 
   function updateTaskHealthPreview() {
+    const host = $("#taskHealthCard");
+    if (!host) return;
     const task = {
       taskType: $("#taskType").value,
       status: $("#taskStatus").value,
       priority: $("#taskPriority").value,
       progress: Number($("#taskProgress").value || 0),
-      startDate: $("#taskStartDate").value,
-      dueDate: $("#taskDueDate").value,
+      startDate: normalizeDateInput($("#taskStartDate").value),
+      dueDate: normalizeDateInput($("#taskDueDate").value),
+      allDay: $("#taskAllDay").checked,
+      startTime: normalizeTimeInput($("#taskStartTime").value),
+      endTime: normalizeTimeInput($("#taskEndTime").value),
       orderStatus: $("#taskOrderStatus").value,
       sourceConfidence: $("#taskSourceConfidence").value,
       fundingAmountLabel: $("#taskFundingAmountLabel").value,
@@ -1121,8 +1256,8 @@
       boardId: $("#taskBoardId").value || defaultTaskBoardId()
     };
     const health = taskHealth(task);
-    $("#taskHealthCard").className = `task-health-card health-${health.tone}`;
-    $("#taskHealthCard").innerHTML = `<span>${escapeHtml(health.label)}</span><strong>${escapeHtml(health.title)}</strong><p>${escapeHtml(health.detail)}</p>`;
+    host.className = `task-health-card health-${health.tone}`;
+    host.innerHTML = `<span>${escapeHtml(health.label)}</span><strong>${escapeHtml(health.title)}</strong><p>${escapeHtml(health.detail)}</p>`;
   }
 
   function replaceTask(saved) {
@@ -1130,6 +1265,295 @@
     if (index >= 0) state.tasks[index] = saved; else state.tasks.push(saved);
   }
 
+
+  function openEventDialog(taskId = "", defaults = {}) {
+    if (!requireActor()) return;
+    if (!currentBoard()) { openWorkspaceDialog(); return; }
+    state.suppressDirty = true;
+    resetEventForm();
+    populateEventBoardOptions(defaults.boardId || defaultTaskBoardId());
+    const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
+    if (task) {
+      $("#eventId").value = task.id;
+      $("#eventExpectedUpdatedAt").value = task.updatedAt || "";
+      $("#eventDialogTitle").textContent = "Edit event";
+      $("#eventTitle").value = task.title || "";
+      populateEventBoardOptions(task.boardId);
+      $("#eventBoardId").value = task.boardId;
+      $("#eventStartDate").value = normalizeDateInput(task.startDate || task.dueDate);
+      $("#eventEndDate").value = normalizeDateInput(task.dueDate || task.startDate);
+      $("#eventAllDay").checked = task.allDay !== false;
+      $("#eventStartTime").value = normalizeTimeInput(task.startTime);
+      $("#eventEndTime").value = normalizeTimeInput(task.endTime);
+      $("#eventLocation").value = task.location || "";
+      $("#eventOwners").value = task.ownerNames || "";
+      $("#eventPriority").value = task.priority || "MEDIUM";
+      $("#eventDescription").value = task.description || "";
+      $("#eventImportantDate").checked = Boolean(task.importantDate);
+      $("#eventUpdatedMeta").textContent = `Last updated ${relativeTime(task.updatedAt)} by ${task.updatedBy || "unknown"}`;
+      $("#eventArchiveButton").classList.remove("is-hidden");
+      $("#eventOpenFullTaskButton").classList.remove("is-hidden");
+    } else {
+      $("#eventDialogTitle").textContent = "Add calendar event";
+      $("#eventStartDate").value = defaults.startDate || todayText();
+      $("#eventEndDate").value = defaults.endDate || defaults.startDate || todayText();
+      $("#eventOwners").value = state.actorName;
+      $("#eventPriority").value = "MEDIUM";
+    }
+    updateEventTimeFields();
+    showPlannerDialog($("#eventDialog"));
+    state.suppressDirty = false;
+    state.eventDirty = false;
+    restoreEventDraft(task);
+    window.setTimeout(() => $("#eventTitle").focus(), 0);
+  }
+
+  function resetEventForm() {
+    $("#eventForm").reset();
+    state.eventDirty = false;
+    $("#eventId").value = "";
+    $("#eventExpectedUpdatedAt").value = "";
+    $("#eventUpdatedMeta").textContent = "";
+    $("#eventAllDay").checked = true;
+    $("#eventStartTime").value = "";
+    $("#eventEndTime").value = "";
+    $("#eventArchiveButton").classList.add("is-hidden");
+    $("#eventOpenFullTaskButton").classList.add("is-hidden");
+    setEventStatus("");
+  }
+
+  function updateEventTimeFields() {
+    const allDay = $("#eventAllDay").checked;
+    $("#eventTimeFields").classList.toggle("is-hidden", allDay);
+    $("#eventStartTime").disabled = allDay;
+    $("#eventEndTime").disabled = allDay;
+  }
+
+  async function saveCalendarEvent(event) {
+    event.preventDefault();
+    if (!requireActor() || state.savingEvent) return;
+    const startDate = normalizeDateInput($("#eventStartDate").value);
+    const endDate = normalizeDateInput($("#eventEndDate").value || startDate);
+    const allDay = $("#eventAllDay").checked;
+    const startTime = normalizeTimeInput($("#eventStartTime").value);
+    const endTime = normalizeTimeInput($("#eventEndTime").value);
+    const title = $("#eventTitle").value.trim();
+    if (title.length < 2) { setEventStatus("Give the event a clear title.", "error"); return; }
+    if (!startDate) { setEventStatus("Choose a date.", "error"); return; }
+    if (endDate < startDate) { setEventStatus("The end date must be on or after the start date.", "error"); return; }
+    if (!allDay && startDate === endDate && startTime && endTime && endTime <= startTime) { setEventStatus("The end time must be after the start time.", "error"); return; }
+    const existing = state.tasks.find(item => item.id === $("#eventId").value);
+    const payload = {
+      id: $("#eventId").value,
+      expectedUpdatedAt: $("#eventExpectedUpdatedAt").value,
+      boardId: $("#eventBoardId").value || defaultTaskBoardId(),
+      title,
+      description: $("#eventDescription").value,
+      taskType: "MEETING",
+      status: existing?.status || "PLANNED",
+      priority: $("#eventPriority").value || "MEDIUM",
+      ownerNames: $("#eventOwners").value,
+      startDate,
+      dueDate: endDate,
+      allDay,
+      startTime,
+      endTime,
+      location: $("#eventLocation").value,
+      progress: existing?.progress || 0,
+      isMilestone: true,
+      importantDate: $("#eventImportantDate").checked,
+      tags: existing?.tags || "event",
+      campus: existing?.campus || "",
+      fundingMin: existing?.fundingMin ?? "",
+      fundingMax: existing?.fundingMax ?? "",
+      fundingAmountLabel: existing?.fundingAmountLabel || "",
+      sourceUrl: existing?.sourceUrl || "",
+      sourceConfidence: existing?.sourceConfidence || "TEAM_ENTERED",
+      requirements: existing?.requirements || "",
+      partName: existing?.partName || "",
+      partNumber: existing?.partNumber || "",
+      vendor: existing?.vendor || "",
+      quantity: existing?.quantity ?? "",
+      estimatedCost: existing?.estimatedCost ?? "",
+      orderStatus: existing?.orderStatus || "NOT_NEEDED",
+      dependencyIds: JSON.stringify(splitList(existing?.dependencyIds || [])),
+      actorName: state.actorName
+    };
+    state.savingEvent = true;
+    setButtonBusy($("#eventSaveButton"), true, "Saving…");
+    setEventStatus("Saving to the shared calendar…");
+    try {
+      const saved = await API.post("savePlannerTask", payload);
+      replaceTask(saved);
+      clearEventDraft(payload.id || "new", payload.boardId);
+      const data = await API.post("plannerBootstrap");
+      applyPlannerBootstrap(data, state.currentBoardId || saved.boardId);
+      state.eventDirty = false;
+      $("#eventDialog").close();
+      renderCurrentBoard();
+      setPlannerView("calendar");
+      state.calendarMonth = `${saved.startDate.slice(0, 7)}-01`;
+      localStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
+      renderCalendar();
+      setPlannerMessage(`${saved.title} saved to the shared calendar.`, "success");
+    } catch (error) {
+      setEventStatus(`${error.message} Your unsaved event is still stored in this browser.`, "error");
+    } finally {
+      state.savingEvent = false;
+      setButtonBusy($("#eventSaveButton"), false, "Save event");
+    }
+  }
+
+  async function archiveCalendarEvent() {
+    const id = $("#eventId").value;
+    const task = state.tasks.find(item => item.id === id);
+    if (!task || !window.confirm(`Archive “${task.title}”?`)) return;
+    setEventStatus("Archiving…");
+    try {
+      await API.post("archivePlannerTask", { taskId: id, actorName: state.actorName, expectedUpdatedAt: task.updatedAt || "" });
+      state.tasks = state.tasks.filter(item => item.id !== id);
+      clearEventDraft(id, task.boardId);
+      state.eventDirty = false;
+      $("#eventDialog").close();
+      renderCurrentBoard();
+      setPlannerMessage("Event archived.", "success");
+    } catch (error) { setEventStatus(error.message, "error"); }
+  }
+
+  function openEventInFullEditor() {
+    const id = $("#eventId").value;
+    state.eventDirty = false;
+    $("#eventDialog").close();
+    if (id) openTaskDialog(id);
+  }
+
+  function setEventStatus(message, tone = "") {
+    const host = $("#eventFormStatus");
+    host.textContent = message || "";
+    host.className = `form-status${tone ? ` is-${tone}` : ""}`;
+  }
+
+  function requestDialogClose(dialogId) {
+    const dialog = document.getElementById(dialogId);
+    if (!dialog?.open) return;
+    const dirty = dialogId === "taskDialog" ? state.taskDirty : dialogId === "eventDialog" ? state.eventDirty : false;
+    if (dirty && !window.confirm("Discard unsaved changes? A local draft will remain available on this browser.")) return;
+    dialog.close();
+  }
+
+  function markTaskDirty() {
+    if (state.suppressDirty || !$("#taskDialog")?.open) return;
+    state.taskDirty = true;
+    window.clearTimeout(state.taskDraftTimer);
+    state.taskDraftTimer = window.setTimeout(saveTaskDraft, 350);
+  }
+
+  function markEventDirty() {
+    if (state.suppressDirty || !$("#eventDialog")?.open) return;
+    state.eventDirty = true;
+    window.clearTimeout(state.eventDraftTimer);
+    state.eventDraftTimer = window.setTimeout(saveEventDraft, 350);
+  }
+
+  function taskDraftKey(id = $("#taskId").value || "new", boardId = $("#taskBoardId").value || defaultTaskBoardId()) {
+    return `asmePlannerTaskDraft:${id}:${boardId}`;
+  }
+
+  function eventDraftKey(id = $("#eventId").value || "new", boardId = $("#eventBoardId").value || defaultTaskBoardId()) {
+    return `asmePlannerEventDraft:${id}:${boardId}`;
+  }
+
+  function saveTaskDraft() {
+    try { localStorage.setItem(taskDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: buildTaskPayload() })); } catch (_) {}
+  }
+
+  function saveEventDraft() {
+    try {
+      localStorage.setItem(eventDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: {
+        title: $("#eventTitle").value, boardId: $("#eventBoardId").value, startDate: $("#eventStartDate").value,
+        endDate: $("#eventEndDate").value, allDay: $("#eventAllDay").checked, startTime: $("#eventStartTime").value,
+        endTime: $("#eventEndTime").value, location: $("#eventLocation").value, ownerNames: $("#eventOwners").value,
+        priority: $("#eventPriority").value, description: $("#eventDescription").value, importantDate: $("#eventImportantDate").checked
+      } }));
+    } catch (_) {}
+  }
+
+  function restoreTaskDraft(task = null) {
+    try {
+      const raw = localStorage.getItem(taskDraftKey(task?.id || "new", task?.boardId || $("#taskBoardId").value));
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const serverTime = task?.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+      if (!draft?.payload || Number(draft.savedAt || 0) <= serverTime) return;
+      if (!window.confirm("Restore your unsaved task draft from this browser?")) return;
+      applyTaskDraft(draft.payload);
+      state.taskDirty = true;
+      setTaskStatus("Unsaved draft restored. Save to publish it to the shared planner.", "success");
+    } catch (_) {}
+  }
+
+  function applyTaskDraft(draft) {
+    state.suppressDirty = true;
+    const map = { title:"taskTitle", description:"taskDescription", taskType:"taskType", status:"taskStatus", priority:"taskPriority", ownerNames:"taskOwners", startDate:"taskStartDate", dueDate:"taskDueDate", startTime:"taskStartTime", endTime:"taskEndTime", location:"taskLocation", progress:"taskProgress", tags:"taskTags", campus:"taskCampus", fundingMin:"taskFundingMin", fundingMax:"taskFundingMax", fundingAmountLabel:"taskFundingAmountLabel", sourceUrl:"taskSourceUrl", sourceConfidence:"taskSourceConfidence", requirements:"taskRequirements", partName:"taskPartName", partNumber:"taskPartNumber", vendor:"taskVendor", quantity:"taskQuantity", estimatedCost:"taskEstimatedCost", orderStatus:"taskOrderStatus" };
+    Object.entries(map).forEach(([key,id]) => { if (draft[key] != null) $("#"+id).value = draft[key]; });
+    if (draft.boardId) { populateTaskBoardOptions(draft.boardId); $("#taskBoardId").value = draft.boardId; }
+    $("#taskAllDay").checked = draft.allDay !== false;
+    $("#taskIsMilestone").checked = Boolean(draft.isMilestone);
+    $("#taskImportantDate").checked = Boolean(draft.importantDate);
+    updateFundingEditor(); updateTaskTimeFields(); updateTaskHealthPreview(); updateTaskCalendarButton();
+    state.suppressDirty = false;
+  }
+
+  function restoreEventDraft(task = null) {
+    try {
+      const raw = localStorage.getItem(eventDraftKey(task?.id || "new", task?.boardId || $("#eventBoardId").value));
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const serverTime = task?.updatedAt ? new Date(task.updatedAt).getTime() : 0;
+      if (!draft?.payload || Number(draft.savedAt || 0) <= serverTime) return;
+      if (!window.confirm("Restore your unsaved calendar event draft?")) return;
+      const d = draft.payload;
+      state.suppressDirty = true;
+      if (d.boardId) { populateEventBoardOptions(d.boardId); $("#eventBoardId").value = d.boardId; }
+      $("#eventTitle").value=d.title||""; $("#eventStartDate").value=d.startDate||""; $("#eventEndDate").value=d.endDate||d.startDate||"";
+      $("#eventAllDay").checked=d.allDay!==false; $("#eventStartTime").value=d.startTime||""; $("#eventEndTime").value=d.endTime||"";
+      $("#eventLocation").value=d.location||""; $("#eventOwners").value=d.ownerNames||""; $("#eventPriority").value=d.priority||"MEDIUM";
+      $("#eventDescription").value=d.description||""; $("#eventImportantDate").checked=Boolean(d.importantDate);
+      updateEventTimeFields(); state.suppressDirty=false; state.eventDirty=true;
+      setEventStatus("Unsaved event draft restored. Save to publish it.", "success");
+    } catch (_) {}
+  }
+
+  function clearTaskDraft(id, boardId) { try { localStorage.removeItem(taskDraftKey(id, boardId)); } catch (_) {} }
+  function clearEventDraft(id, boardId) { try { localStorage.removeItem(eventDraftKey(id, boardId)); } catch (_) {} }
+
+  function setButtonBusy(button, busy, label) {
+    if (!button) return;
+    button.disabled = Boolean(busy);
+    button.textContent = label;
+  }
+
+  function normalizeDateInput(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    const match = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const parsed = new Date(text);
+    return Number.isNaN(parsed.getTime()) ? "" : dateText(parsed);
+  }
+
+  function normalizeTimeInput(value) {
+    const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})/);
+    if (!match) return "";
+    return `${String(Math.min(23, Number(match[1]))).padStart(2,"0")}:${match[2]}`;
+  }
+
+  function formatClock(value) {
+    const clean = normalizeTimeInput(value);
+    if (!clean) return "";
+    const [hour, minute] = clean.split(":").map(Number);
+    return new Date(2000,0,1,hour,minute).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  }
 
   function showPlannerDialog(dialog) {
     if (!dialog || dialog.open) return;
@@ -1156,8 +1580,12 @@
       status: $("#taskStatus").value,
       priority: $("#taskPriority").value,
       ownerNames: $("#taskOwners").value,
-      startDate: $("#taskStartDate").value,
-      dueDate: $("#taskDueDate").value,
+      startDate: normalizeDateInput($("#taskStartDate").value),
+      dueDate: normalizeDateInput($("#taskDueDate").value),
+      allDay: $("#taskAllDay").checked,
+      startTime: normalizeTimeInput($("#taskStartTime").value),
+      endTime: normalizeTimeInput($("#taskEndTime").value),
+      location: $("#taskLocation").value,
       tags: $("#taskTags").value,
       campus: $("#taskCampus").value,
       fundingAmountLabel: $("#taskFundingAmountLabel").value,
@@ -1220,11 +1648,16 @@
         "BEGIN:VEVENT",
         `UID:${uidBase}@asmeindy.purdue.edu`,
         `DTSTAMP:${now}`,
-        `DTSTART;VALUE=DATE:${icsDate(start)}`,
-        `DTEND;VALUE=DATE:${icsDate(exclusiveEnd)}`,
+        task.allDay === false && task.startTime
+          ? `DTSTART;TZID=America/Indiana/Indianapolis:${icsDateTime(start, task.startTime)}`
+          : `DTSTART;VALUE=DATE:${icsDate(start)}`,
+        task.allDay === false && task.startTime
+          ? `DTEND;TZID=America/Indiana/Indianapolis:${icsDateTime(end, task.endTime || addMinutesTime(task.startTime, 60))}`
+          : `DTEND;VALUE=DATE:${icsDate(exclusiveEnd)}`,
         `SUMMARY:${icsEscape(task.title || "ASME task")}`,
         `DESCRIPTION:${icsEscape(description)}`,
         `CATEGORIES:${icsEscape([taskTeam?.name, taskBoard?.name, taskTypeLabel(task.taskType), priorityLabel(task.priority)].filter(Boolean).join(","))}`,
+        task.location ? `LOCATION:${icsEscape(task.location)}` : "",
         task.sourceUrl ? `URL:${icsEscape(task.sourceUrl)}` : "",
         "TRANSP:TRANSPARENT",
         "END:VEVENT"
@@ -1255,6 +1688,17 @@
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function icsDateTime(dateValue, timeValue) {
+    return `${icsDate(dateValue)}T${normalizeTimeInput(timeValue).replace(":", "")}00`;
+  }
+
+  function addMinutesTime(value, minutes) {
+    const clean = normalizeTimeInput(value) || "09:00";
+    const [hour, minute] = clean.split(":").map(Number);
+    const total = (hour * 60 + minute + minutes) % 1440;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
   }
 
   function icsDate(value) {

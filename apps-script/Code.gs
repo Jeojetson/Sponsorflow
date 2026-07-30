@@ -1,11 +1,11 @@
 /**
  * ASME Indy SponsorFlow — Google Apps Script backend
- * Version 8: sponsor outreach, collaborative timelines, editable calendar views,
- * and live read-only iCalendar subscription feeds for teams and important dates.
+ * Version 1.0: sponsor outreach, collaborative project planning, reliable calendar events,
+ * and live iCalendar subscription feeds for teams and important dates.
  */
 
 const SF = Object.freeze({
-  VERSION: '8.0.0',
+  VERSION: '1.0.0',
   RESEARCH_VALIDATED_AT: '2026-07-29',
   SESSION_SECONDS: 3600,
   SHEETS: {
@@ -41,7 +41,7 @@ const SF = Object.freeze({
     'Planner Boards': ['id', 'teamId', 'name', 'description', 'targetStart', 'targetEnd', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt'],
     'Planner Tasks': [
       'id', 'boardId', 'title', 'description', 'status', 'priority', 'ownerNames',
-      'startDate', 'dueDate', 'progress', 'isMilestone', 'importantDate', 'tags', 'taskType',
+      'startDate', 'dueDate', 'allDay', 'startTime', 'endTime', 'location', 'progress', 'isMilestone', 'importantDate', 'tags', 'taskType',
       'campus', 'fundingMin', 'fundingMax', 'fundingAmountLabel', 'sourceUrl',
       'sourceConfidence', 'requirements', 'partName', 'partNumber', 'vendor', 'quantity', 'estimatedCost', 'orderStatus',
       'dependencyIds', 'sortOrder', 'commentCount', 'createdBy', 'updatedBy',
@@ -919,8 +919,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('SponsorFlow')
     .addItem('Initial setup', 'showInitialSetup')
-    .addItem('Upgrade to v8 + live calendar subscriptions', 'upgradeSponsorFlowV8')
-    .addItem('Upgrade to v5 + team planner & funding calendar', 'upgradeSponsorFlowV5')
+    .addItem('Upgrade to SponsorFlow 1.0', 'upgradeSponsorFlowV10')
     .addItem('Import or refresh validated sponsors', 'seedValidatedSponsors')
     .addItem('Refresh polished templates', 'refreshPolishedTemplates')
     .addItem('Change admin password', 'showChangeAdminPassword')
@@ -955,6 +954,16 @@ function showInitialSetup() {
   ui.alert('SponsorFlow setup is complete. Sponsor opportunities, team workspaces, analytics, and the Purdue funding calendar were added. Next, deploy this script as a web app.');
 }
 
+
+function upgradeSponsorFlowV10() {
+  setupSponsorFlow_();
+  const plannerResult = ensureDefaultPlannerStructureSafe_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow 1.0 is ready. Existing sponsors, templates, teams, timelines, tasks, dates, owners, progress, comments, and funding research were left unchanged. ` +
+    `Calendar events now support single-day dates, multi-day ranges, optional times, locations, local draft recovery, and live team subscriptions. ` +
+    `${plannerResult.teamsCreated} missing teams, ${plannerResult.boardsCreated} missing timelines, and ${plannerResult.tasksCreated} missing starter funding items were added.`
+  );
+}
 
 function upgradeSponsorFlowV8() {
   setupSponsorFlow_();
@@ -1858,6 +1867,68 @@ function markRequestsVerifiedByEmail_(email, contactId) {
 
 // -------------------------- Collaborative project planner --------------------------
 
+
+function ensureDefaultPlannerStructureSafe_() {
+  // SponsorFlow 1.0 migrations are additive only. Existing rows are never
+  // rewritten, so an officer's edits cannot be reset by running an upgrade.
+  ensureSchema_();
+  const now = nowIso_();
+  let teamsCreated = 0;
+  let boardsCreated = 0;
+  let tasksCreated = 0;
+
+  DEFAULT_PLANNER_TEAMS.forEach(team => {
+    if (findObjectById_(SF.SHEETS.PLANNER_TEAMS, team.id)) return;
+    appendObject_(SF.SHEETS.PLANNER_TEAMS, Object.assign({}, team, {
+      active: 'true',
+      createdBy: 'SponsorFlow 1.0 setup',
+      updatedBy: 'SponsorFlow 1.0 setup',
+      createdAt: now,
+      updatedAt: now
+    }));
+    teamsCreated += 1;
+  });
+
+  DEFAULT_PLANNER_BOARDS.forEach(board => {
+    if (findObjectById_(SF.SHEETS.PLANNER_BOARDS, board.id)) return;
+    appendObject_(SF.SHEETS.PLANNER_BOARDS, Object.assign({}, board, {
+      targetStart: board.targetStart || '',
+      targetEnd: board.targetEnd || '',
+      active: 'true',
+      createdBy: 'SponsorFlow 1.0 setup',
+      updatedBy: 'SponsorFlow 1.0 setup',
+      createdAt: now,
+      updatedAt: now
+    }));
+    boardsCreated += 1;
+  });
+
+  DEFAULT_FUNDING_TASKS.forEach(task => {
+    if (findObjectById_(SF.SHEETS.PLANNER_TASKS, task.id)) return;
+    appendObject_(SF.SHEETS.PLANNER_TASKS, Object.assign({}, task, {
+      sortOrder: String(Date.now() + tasksCreated),
+      commentCount: '0',
+      createdBy: 'SponsorFlow 1.0 setup',
+      updatedBy: 'SponsorFlow 1.0 setup',
+      createdAt: now,
+      updatedAt: now,
+      completedAt: '',
+      archived: 'false'
+    }));
+    appendPlannerActivity_(
+      task.id,
+      task.boardId,
+      'TASK_CREATED',
+      'SponsorFlow 1.0 setup',
+      `${task.title} · missing starter item restored`
+    );
+    tasksCreated += 1;
+  });
+
+  PropertiesService.getScriptProperties().setProperty('PLANNER_SCHEMA_VERSION', SF.VERSION);
+  return { teamsCreated: teamsCreated, boardsCreated: boardsCreated, tasksCreated: tasksCreated };
+}
+
 function seedDefaultPlannerStructure_() {
   ensureSchema_();
   const now = nowIso_();
@@ -1929,7 +2000,7 @@ function seedDefaultPlannerStructure_() {
 
 function plannerBootstrap_() {
   if (readObjects_(SF.SHEETS.PLANNER_TEAMS).length === 0) {
-    withWriteLock_(function () { seedDefaultPlannerStructure_(); });
+    withWriteLock_(function () { ensureDefaultPlannerStructureSafe_(); });
   }
 
   const teams = readObjects_(SF.SHEETS.PLANNER_TEAMS)
@@ -2044,6 +2115,16 @@ function savePlannerTask_(p) {
     const startDate = optionalIsoDate_(p.startDate, 'Start date');
     const dueDate = optionalIsoDate_(p.dueDate, 'Due date');
     if (startDate && dueDate && dueDate < startDate) throw new Error('Due date must be on or after the start date.');
+    const allDay = p.allDay === undefined || p.allDay === null || String(p.allDay) === ''
+      ? (existing ? toBool_(existing.allDay) : true)
+      : toBool_(p.allDay);
+    const startTime = allDay ? '' : optionalTime_(p.startTime, 'Start time');
+    const endTime = allDay ? '' : optionalTime_(p.endTime, 'End time');
+    const location = optionalText_(p.location, 240);
+    if (!allDay && taskType === 'MEETING' && !startDate) throw new Error('Timed calendar events require a start date.');
+    if (!allDay && startDate && dueDate && startDate === dueDate && startTime && endTime && endTime <= startTime) {
+      throw new Error('For a same-day event, the end time must be after the start time.');
+    }
     const fundingMinValue = String(p.fundingMin == null ? '' : p.fundingMin).trim() === '' ? null : Number(p.fundingMin);
     const fundingMaxValue = String(p.fundingMax == null ? '' : p.fundingMax).trim() === '' ? null : Number(p.fundingMax);
     if (fundingMinValue != null && fundingMaxValue != null && fundingMaxValue < fundingMinValue) throw new Error('Funding maximum must be at least the funding minimum.');
@@ -2066,6 +2147,10 @@ function savePlannerTask_(p) {
       ownerNames: normalizePlannerList_(p.ownerNames, 300),
       startDate: startDate,
       dueDate: dueDate,
+      allDay: String(allDay),
+      startTime: startTime,
+      endTime: endTime,
+      location: location,
       progress: String(progress),
       isMilestone: String(toBool_(p.isMilestone)),
       importantDate: String(toBool_(p.importantDate)),
@@ -2215,6 +2300,10 @@ function plannerTaskPublic_(row, commentCount) {
     ownerNames: row.ownerNames || '',
     startDate: row.startDate || '',
     dueDate: row.dueDate || '',
+    allDay: row.allDay === '' || row.allDay == null ? true : toBool_(row.allDay),
+    startTime: row.startTime || '',
+    endTime: row.endTime || '',
+    location: row.location || '',
     progress: Number(row.progress || 0),
     isMilestone: toBool_(row.isMilestone),
     importantDate: toBool_(row.importantDate),
@@ -2279,7 +2368,7 @@ function requireFreshPlannerRecord_(existing, expectedUpdatedAt) {
 function summarizeTaskChanges_(before, after) {
   const labels = {
     title: 'title', description: 'description', status: 'status', priority: 'priority', ownerNames: 'owners',
-    startDate: 'start date', dueDate: 'due date', progress: 'progress', isMilestone: 'milestone', importantDate: 'important calendar date', tags: 'tags',
+    startDate: 'start date', dueDate: 'due date', allDay: 'all-day setting', startTime: 'start time', endTime: 'end time', location: 'location', progress: 'progress', isMilestone: 'milestone', importantDate: 'important calendar date', tags: 'tags',
     taskType: 'task type', campus: 'campus', fundingMin: 'funding minimum', fundingMax: 'funding maximum',
     fundingAmountLabel: 'funding label', sourceUrl: 'source URL', sourceConfidence: 'source confidence', requirements: 'requirements',
     partName: 'part', partNumber: 'part number', vendor: 'vendor', quantity: 'quantity', estimatedCost: 'estimated cost',
@@ -2316,6 +2405,17 @@ function optionalIsoDate_(value, label) {
   if (!clean) return '';
   if (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || isNaN(new Date(clean + 'T00:00:00').getTime())) throw new Error(`${label} must be a valid date.`);
   return clean;
+}
+
+function optionalTime_(value, label) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const match = clean.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) throw new Error(`${label} must be a valid time.`);
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) throw new Error(`${label} must be a valid time.`);
+  return String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0');
 }
 
 function plannerInteger_(value, label, min, max, fallback) {
@@ -2425,7 +2525,7 @@ function buildPlannerCalendarFeed_(p) {
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Purdue Indianapolis ASME//SponsorFlow Live Calendar v8//EN',
+    'PRODID:-//Purdue Indianapolis ASME//SponsorFlow Live Calendar 1.0//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${icsEscapeServer_(calendarName)}`,
@@ -2469,17 +2569,32 @@ function plannerTaskIcsEvent_(task, boardById, teamById, appUrl) {
     `DTSTAMP:${icsTimestampServer_(new Date().toISOString())}`,
     `LAST-MODIFIED:${updated}`,
     `SEQUENCE:${sequence}`,
-    `DTSTART;VALUE=DATE:${icsDateServer_(start)}`,
-    `DTEND;VALUE=DATE:${icsDateServer_(exclusiveEnd)}`,
+    toBool_(task.allDay) === false && task.startTime
+      ? `DTSTART;TZID=America/Indiana/Indianapolis:${icsDateTimeServer_(start, task.startTime)}`
+      : `DTSTART;VALUE=DATE:${icsDateServer_(start)}`,
+    toBool_(task.allDay) === false && task.startTime
+      ? `DTEND;TZID=America/Indiana/Indianapolis:${icsDateTimeServer_(end, task.endTime || addMinutesTimeServer_(task.startTime, 60))}`
+      : `DTEND;VALUE=DATE:${icsDateServer_(exclusiveEnd)}`,
     `SUMMARY:${icsEscapeServer_(task.title || 'ASME task')}`,
     `DESCRIPTION:${icsEscapeServer_(description)}`,
-    task.campus ? `LOCATION:${icsEscapeServer_(task.campus)}` : '',
+    task.location ? `LOCATION:${icsEscapeServer_(task.location)}` : (task.campus ? `LOCATION:${icsEscapeServer_(task.campus)}` : ''),
     categories ? `CATEGORIES:${icsEscapeServer_(categories)}` : '',
     taskUrl ? `URL:${icsEscapeServer_(taskUrl)}` : '',
     'STATUS:CONFIRMED',
     'TRANSP:TRANSPARENT',
     'END:VEVENT'
   ].filter(Boolean).join('\r\n');
+}
+
+function icsDateTimeServer_(dateValue, timeValue) {
+  return icsDateServer_(dateValue) + 'T' + optionalTime_(timeValue, 'Time').replace(':', '') + '00';
+}
+
+function addMinutesTimeServer_(value, minutes) {
+  const clean = optionalTime_(value, 'Time') || '09:00';
+  const pieces = clean.split(':').map(Number);
+  const total = (pieces[0] * 60 + pieces[1] + Number(minutes || 0) + 1440) % 1440;
+  return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
 }
 
 function buildPlannerCalendarErrorFeed_(message) {
