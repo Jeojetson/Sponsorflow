@@ -21,6 +21,7 @@
     teams: [],
     boards: [],
     tasks: [],
+    calendars: [],
     calendarFeedBaseUrl: "",
     month: `${todayText().slice(0, 7)}-01`,
     scope: "all",
@@ -66,9 +67,15 @@
       localStorage.setItem("asmeCalendarMonth", state.month);
       renderCalendar();
     });
-    $("#calendarNewEvent").addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
+    $("#calendarNewEventTop").addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
     $("#calendarSubscribe").addEventListener("click", openSubscriptions);
     $("#calendarSnapshot").addEventListener("click", downloadCurrentCalendar);
+    [$("#calendarManage"), $("#calendarManageTop")].forEach(button => button.addEventListener("click", openCalendarManager));
+    $("#calendarManagerNew").addEventListener("click", resetCalendarManagerForm);
+    $("#customCalendarReset").addEventListener("click", resetCalendarManagerForm);
+    $("#calendarManagerForm").addEventListener("submit", saveCustomCalendar);
+    $("#customCalendarDelete").addEventListener("click", archiveCustomCalendar);
+    $$('[data-calendar-manager-close]').forEach(button => button.addEventListener("click", () => $("#calendarManagerDialog").close()));
 
     $("#calendarEventForm").addEventListener("submit", saveEvent);
     $("#calendarEventAllDay").addEventListener("change", () => { updateTimeFields(); markDirty(); });
@@ -92,7 +99,7 @@
     });
     $$('[data-calendar-close]').forEach(button => button.addEventListener("click", closeEventDialog));
     $$('[data-subscription-close]').forEach(button => button.addEventListener("click", () => $("#calendarSubscriptionsDialog").close()));
-    [$("#calendarIdentityDialog"), $("#calendarEventDialog"), $("#calendarSubscriptionsDialog")].forEach(dialog => {
+    [$("#calendarIdentityDialog"), $("#calendarEventDialog"), $("#calendarSubscriptionsDialog"), $("#calendarManagerDialog")].forEach(dialog => {
       dialog.addEventListener("click", event => {
         if (event.target !== dialog) return;
         if (dialog.id === "calendarEventDialog") closeEventDialog(); else dialog.close();
@@ -113,6 +120,7 @@
       state.teams = Array.isArray(data.teams) ? data.teams : [];
       state.boards = Array.isArray(data.boards) ? data.boards : [];
       state.tasks = (Array.isArray(data.tasks) ? data.tasks : []).map(normalizeTask);
+      state.calendars = Array.isArray(data.calendars) ? data.calendars : [];
       state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
       const query = new URLSearchParams(window.location.search);
       const queryBoard = query.get("board") || "";
@@ -150,13 +158,18 @@
 
   function renderScopeOptions() {
     const teams = calendarTeams();
-    const options = [
+    const builtIns = [
       '<option value="all">All calendars</option>',
       '<option value="important">Important club events</option>',
-      '<option value="general">General timeline</option>',
-      ...teams.map(team => `<option value="team:${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`)
-    ];
-    $("#calendarScopeSelect").innerHTML = options.join("");
+      '<option value="general">General timeline</option>'
+    ].join("");
+    const teamOptions = teams.length
+      ? `<optgroup label="Subteam calendars">${teams.map(team => `<option value="team:${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join("")}</optgroup>`
+      : "";
+    const customOptions = state.calendars.length
+      ? `<optgroup label="Custom calendars">${state.calendars.map(calendar => `<option value="custom:${escapeHtml(calendar.id)}">${escapeHtml(calendar.name)}</option>`).join("")}</optgroup>`
+      : "";
+    $("#calendarScopeSelect").innerHTML = builtIns + teamOptions + customOptions;
     state.scope = normalizeScopeAgainstData(state.scope);
     $("#calendarScopeSelect").value = state.scope;
   }
@@ -192,6 +205,9 @@
       if (teamId === GENERAL_TEAM_ID) return "general";
       return calendarTeams().some(team => team.id === teamId) ? scope : "all";
     }
+    if (scope.startsWith("custom:")) {
+      return state.calendars.some(calendar => calendar.id === scope.slice(7)) ? scope : "all";
+    }
     return "all";
   }
 
@@ -211,6 +227,11 @@
     }
     if (state.scope.startsWith("team:")) {
       return state.boards.find(board => board.teamId === state.scope.slice(5))?.id || state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
+    }
+    if (state.scope.startsWith("custom:")) {
+      const calendar = state.calendars.find(item => item.id === state.scope.slice(7));
+      const firstTeamId = calendar?.teamIds?.[0] || (calendar?.includeGeneral ? GENERAL_TEAM_ID : "");
+      return state.boards.find(board => board.teamId === firstTeamId)?.id || state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
     }
     return state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards.find(board => board.teamId === GENERAL_TEAM_ID)?.id || state.boards[0]?.id || "";
   }
@@ -236,6 +257,14 @@
         description: team?.description || "Every dated item owned by this subteam."
       };
     }
+    if (state.scope.startsWith("custom:")) {
+      const calendar = state.calendars.find(item => item.id === state.scope.slice(7));
+      return {
+        name: calendar?.name || "Custom calendar",
+        description: calendar?.description || "A member-created combination of team calendars.",
+        color: calendar?.color || "GOLD"
+      };
+    }
     return {
       name: "All calendars",
       description: "Every dated task and event across all subteams, the general timeline, and Finance & Sponsorship."
@@ -252,6 +281,15 @@
     if (state.scope.startsWith("team:")) {
       const boardIds = new Set(state.boards.filter(board => board.teamId === state.scope.slice(5)).map(board => board.id));
       return tasks.filter(task => boardIds.has(task.boardId));
+    }
+    if (state.scope.startsWith("custom:")) {
+      const calendar = state.calendars.find(item => item.id === state.scope.slice(7));
+      if (!calendar) return [];
+      const teamIds = new Set(calendar.teamIds || []);
+      if (calendar.includeGeneral) teamIds.add(GENERAL_TEAM_ID);
+      const boardIds = new Set(state.boards.filter(board => teamIds.has(board.teamId)).map(board => board.id));
+      const selected = tasks.filter(task => boardIds.has(task.boardId));
+      return calendar.importantOnly ? selected.filter(isImportantTask) : selected;
     }
     return tasks;
   }
@@ -563,52 +601,21 @@
   }
 
   function openSubscriptions() {
-    if (!state.calendarFeedBaseUrl) return setPageMessage("Redeploy the current Apps Script backend before creating live subscriptions.", "error");
-    const generalTeam = state.teams.find(team => team.id === GENERAL_TEAM_ID);
-    const items = [
-      {
-        name: "All calendars",
-        description: "Every dated item across every subteam, the general timeline, and Finance & Sponsorship.",
-        scope: "club",
-        id: "",
-        badge: "Combined"
-      },
-      {
-        name: "Important club events",
-        description: "Races, milestones, meetings, critical deadlines, and dates explicitly marked important.",
-        scope: "important",
-        id: "",
-        badge: "Key dates"
-      },
-      {
-        name: "General timeline",
-        description: generalTeam?.description || "Shared club-level milestones and cross-team work.",
-        scope: "team",
-        id: GENERAL_TEAM_ID,
-        badge: "General"
-      },
-      ...calendarTeams().map(team => ({
-        name: team.name,
-        description: team.description || "All dated work for this subteam.",
-        scope: "team",
-        id: team.id,
-        badge: "Subteam"
-      }))
+    if (!state.calendarFeedBaseUrl) return setPageMessage("The live calendar backend is unavailable. Redeploy the current Apps Script version.", "error");
+    const feeds = [
+      { name: "All calendars", description: "Every dated item across the entire workspace.", url: feedUrl("club") },
+      { name: "Important club events", description: "Milestones, meetings, races, critical deadlines, and important dates.", url: feedUrl("important") },
+      { name: "General timeline", description: "Shared club-level planning and cross-team milestones.", url: feedUrl("team", GENERAL_TEAM_ID) },
+      ...calendarTeams().map(team => ({ name: team.name, description: team.description || "This subteam's dated work.", url: feedUrl("team", team.id) })),
+      ...state.calendars.map(calendar => ({ name: calendar.name, description: calendar.description || "Member-created calendar.", url: feedUrl("custom", calendar.id), custom: true, color: calendar.color }))
     ];
-    $("#calendarSubscriptionList").innerHTML = items.map(item => {
-      const url = feedUrl(item.scope, item.id);
-      return `<article class="calendar-subscription-card">
-        <div class="calendar-subscription-copy">
-          <span class="verification-badge research">${escapeHtml(item.badge)}</span>
-          <strong>${escapeHtml(item.name)}</strong>
-          <p>${escapeHtml(item.description)}</p>
-        </div>
-        <div class="calendar-subscription-actions">
-          <button class="button button-secondary button-small" type="button" data-copy-feed="${escapeHtml(url)}">Copy URL</button>
-          <a class="button button-ghost button-small" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open feed</a>
-        </div>
-      </article>`;
-    }).join("");
+    $("#calendarSubscriptionList").innerHTML = feeds.map(feed => `<article class="calendar-subscription-card${feed.custom ? " is-custom" : ""}">
+      <div class="calendar-subscription-copy"><span class="calendar-feed-kind${feed.custom ? ` calendar-color-${escapeHtml(feed.color || "GOLD")}` : ""}">${feed.custom ? "Custom" : "Live"}</span><strong>${escapeHtml(feed.name)}</strong><p>${escapeHtml(feed.description)}</p></div>
+      <div class="calendar-subscription-actions">
+        <button class="button button-secondary button-small" type="button" data-copy-feed="${escapeHtml(feed.url)}">Copy URL</button>
+        <a class="button button-ghost button-small" href="${escapeHtml(feed.url)}" target="_blank" rel="noreferrer">Open feed</a>
+      </div>
+    </article>`).join("");
     $("#calendarSubscriptionList").querySelectorAll("[data-copy-feed]").forEach(button => button.addEventListener("click", () => copyText(button.dataset.copyFeed)));
     setSubscriptionStatus("");
     showDialog($("#calendarSubscriptionsDialog"));
@@ -641,7 +648,7 @@
 
   function downloadIcs(tasks, name) {
     const events = tasks.filter(task => task.startDate || task.dueDate).map(taskIcs).join("\r\n");
-    const body = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Purdue Indianapolis ASME//ASME Indy Workspace 1.1//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsEscape(name || "ASME Indy Calendar")}`, events, "END:VCALENDAR", ""].join("\r\n");
+    const body = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Purdue Indianapolis ASME//ASME Indy Workspace 1.3//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH", `X-WR-CALNAME:${icsEscape(name || "ASME Indy Calendar")}`, events, "END:VCALENDAR", ""].join("\r\n");
     downloadFile(`${slugify(name || "asme-indy-calendar")}.ics`, body, "text/calendar;charset=utf-8");
   }
 
@@ -662,6 +669,123 @@
     if (task.location) lines.push(`LOCATION:${icsEscape(task.location)}`);
     lines.push("STATUS:CONFIRMED", "TRANSP:TRANSPARENT", "END:VEVENT");
     return lines.join("\r\n");
+  }
+
+  function openCalendarManager() {
+    if (!requireActor()) return;
+    renderCalendarManagerTeams();
+    renderCustomCalendarList();
+    resetCalendarManagerForm();
+    showDialog($("#calendarManagerDialog"));
+  }
+
+  function renderCalendarManagerTeams() {
+    $("#customCalendarTeams").innerHTML = calendarTeams().map(team => `<label class="calendar-team-option"><input type="checkbox" value="${escapeHtml(team.id)}"><span><b>${escapeHtml(team.name)}</b><small>${escapeHtml(team.description || "Include this team's dated work")}</small></span></label>`).join("") || '<p class="calendar-manager-empty">No active subteams are available.</p>';
+  }
+
+  function renderCustomCalendarList() {
+    $("#customCalendarCount").textContent = String(state.calendars.length);
+    $("#customCalendarList").innerHTML = state.calendars.length ? state.calendars.map(calendar => {
+      const teamNames = (calendar.teamIds || []).map(id => state.teams.find(team => team.id === id)?.name).filter(Boolean);
+      if (calendar.includeGeneral) teamNames.unshift("General timeline");
+      return `<button class="custom-calendar-card calendar-color-${escapeHtml(calendar.color || "GOLD")}" type="button" data-edit-calendar="${escapeHtml(calendar.id)}">
+        <span class="custom-calendar-swatch"></span><span><strong>${escapeHtml(calendar.name)}</strong><small>${escapeHtml(calendar.description || teamNames.join(" · ") || "Custom calendar")}</small><em>${escapeHtml(teamNames.join(" · ") || "No sources")}${calendar.importantOnly ? " · Important only" : ""}</em></span><b aria-hidden="true">→</b>
+      </button>`;
+    }).join("") : '<div class="calendar-manager-empty"><span>⌁</span><strong>No custom calendars yet</strong><p>Create one to combine the subteams and dates that matter to a specific group.</p></div>';
+    $("#customCalendarList").querySelectorAll("[data-edit-calendar]").forEach(button => button.addEventListener("click", () => editCustomCalendar(button.dataset.editCalendar)));
+  }
+
+  function resetCalendarManagerForm() {
+    $("#calendarManagerForm").reset();
+    $("#customCalendarId").value = "";
+    $("#customCalendarFormTitle").textContent = "Create a calendar";
+    $("#customCalendarDelete").classList.add("is-hidden");
+    $("#customCalendarColor").value = "GOLD";
+    setCalendarManagerStatus("");
+  }
+
+  function editCustomCalendar(id) {
+    const calendar = state.calendars.find(item => item.id === id);
+    if (!calendar) return;
+    $("#customCalendarId").value = calendar.id;
+    $("#customCalendarName").value = calendar.name || "";
+    $("#customCalendarDescription").value = calendar.description || "";
+    $("#customCalendarGeneral").checked = Boolean(calendar.includeGeneral);
+    $("#customCalendarImportant").checked = Boolean(calendar.importantOnly);
+    $("#customCalendarColor").value = calendar.color || "GOLD";
+    const selected = new Set(calendar.teamIds || []);
+    $("#customCalendarTeams").querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = selected.has(input.value); });
+    $("#customCalendarFormTitle").textContent = "Edit calendar";
+    $("#customCalendarDelete").classList.remove("is-hidden");
+    setCalendarManagerStatus("");
+    $("#customCalendarName").focus();
+  }
+
+  async function saveCustomCalendar(event) {
+    event.preventDefault();
+    if (!requireActor()) return;
+    const button = $("#customCalendarSave");
+    const teamIds = $("#customCalendarTeams").querySelectorAll('input[type="checkbox"]:checked');
+    const payload = {
+      id: $("#customCalendarId").value,
+      actorName: state.actorName,
+      name: $("#customCalendarName").value,
+      description: $("#customCalendarDescription").value,
+      teamIds: JSON.stringify(Array.from(teamIds, input => input.value)),
+      includeGeneral: $("#customCalendarGeneral").checked,
+      importantOnly: $("#customCalendarImportant").checked,
+      color: $("#customCalendarColor").value
+    };
+    setButtonBusy(button, true, "Saving…");
+    setCalendarManagerStatus("");
+    try {
+      const saved = await API.post("savePlannerCalendar", payload);
+      const index = state.calendars.findIndex(item => item.id === saved.id);
+      if (index === -1) state.calendars.push(saved); else state.calendars[index] = saved;
+      state.calendars.sort((a, b) => a.name.localeCompare(b.name));
+      state.scope = `custom:${saved.id}`;
+      localStorage.setItem("asmeCalendarScope", state.scope);
+      renderScopeOptions();
+      renderCalendar();
+      renderCustomCalendarList();
+      editCustomCalendar(saved.id);
+      setCalendarManagerStatus(`${saved.name} is ready to view and subscribe to.`, "success");
+      setPageMessage(`${saved.name} saved.`, "success");
+    } catch (error) {
+      setCalendarManagerStatus(error.message, "error");
+    } finally {
+      setButtonBusy(button, false, "Save calendar");
+    }
+  }
+
+  async function archiveCustomCalendar() {
+    const id = $("#customCalendarId").value;
+    const calendar = state.calendars.find(item => item.id === id);
+    if (!calendar || !requireActor()) return;
+    if (!window.confirm(`Remove “${calendar.name}”? Tasks and events will stay in their original team timelines.`)) return;
+    const button = $("#customCalendarDelete");
+    setButtonBusy(button, true, "Removing…");
+    try {
+      await API.post("archivePlannerCalendar", { id, actorName: state.actorName });
+      state.calendars = state.calendars.filter(item => item.id !== id);
+      if (state.scope === `custom:${id}`) state.scope = "all";
+      localStorage.setItem("asmeCalendarScope", state.scope);
+      renderScopeOptions();
+      renderCalendar();
+      renderCustomCalendarList();
+      resetCalendarManagerForm();
+      setCalendarManagerStatus("Calendar removed. Its tasks and events were not changed.", "success");
+    } catch (error) {
+      setCalendarManagerStatus(error.message, "error");
+    } finally {
+      setButtonBusy(button, false, "Remove calendar");
+    }
+  }
+
+  function setCalendarManagerStatus(message, tone = "") {
+    const host = $("#calendarManagerStatus");
+    host.textContent = message || "";
+    host.className = `form-status${tone ? ` is-${tone}` : ""}`;
   }
 
   function restoreIdentity() {
