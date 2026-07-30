@@ -1,11 +1,11 @@
 /**
  * ASME Indy SponsorFlow — Google Apps Script backend
- * Version 3: duplicate-outreach protection, official sponsor programs,
- * outreach-route support, name-based request access, and club statistics.
+ * Version 4: sponsor outreach plus collaborative team timelines, task boards,
+ * parts tracking, dependencies, comments, and activity history.
  */
 
 const SF = Object.freeze({
-  VERSION: '3.0.0',
+  VERSION: '4.0.0',
   RESEARCH_VALIDATED_AT: '2026-07-27',
   SESSION_SECONDS: 3600,
   SHEETS: {
@@ -13,7 +13,12 @@ const SF = Object.freeze({
     TEMPLATES: 'Templates',
     REQUESTS: 'Requests',
     REVISIONS: 'Revisions',
-    AUDIT: 'Audit'
+    AUDIT: 'Audit',
+    PLANNER_TEAMS: 'Planner Teams',
+    PLANNER_BOARDS: 'Planner Boards',
+    PLANNER_TASKS: 'Planner Tasks',
+    PLANNER_COMMENTS: 'Planner Comments',
+    PLANNER_ACTIVITY: 'Planner Activity'
   },
   HEADERS: {
     Contacts: [
@@ -31,7 +36,18 @@ const SF = Object.freeze({
       'revisionNumber', 'createdAt', 'updatedAt', 'submittedAt', 'sentAt'
     ],
     Revisions: ['id', 'requestId', 'revisionNumber', 'actorType', 'actorName', 'subject', 'body', 'comment', 'status', 'createdAt'],
-    Audit: ['id', 'requestId', 'action', 'actor', 'details', 'createdAt']
+    Audit: ['id', 'requestId', 'action', 'actor', 'details', 'createdAt'],
+    'Planner Teams': ['id', 'name', 'description', 'icon', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt'],
+    'Planner Boards': ['id', 'teamId', 'name', 'description', 'targetStart', 'targetEnd', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt'],
+    'Planner Tasks': [
+      'id', 'boardId', 'title', 'description', 'status', 'priority', 'ownerNames',
+      'startDate', 'dueDate', 'progress', 'isMilestone', 'tags', 'partName',
+      'partNumber', 'vendor', 'quantity', 'estimatedCost', 'orderStatus',
+      'dependencyIds', 'sortOrder', 'commentCount', 'createdBy', 'updatedBy',
+      'createdAt', 'updatedAt', 'completedAt', 'archived'
+    ],
+    'Planner Comments': ['id', 'taskId', 'authorName', 'body', 'createdAt'],
+    'Planner Activity': ['id', 'taskId', 'boardId', 'action', 'actor', 'details', 'createdAt']
   }
 });
 
@@ -496,11 +512,29 @@ const VALIDATED_SPONSORS = [
   }
 ];
 
+const DEFAULT_PLANNER_TEAMS = [
+  { id: 'TEAM-CLUB', name: 'Club-wide', description: 'Shared milestones, events, race deadlines, and cross-team commitments.', icon: 'ASME' },
+  { id: 'TEAM-MECH', name: 'Mechanical', description: 'Chassis, steering, brakes, packaging, mounts, structures, and mechanical validation.', icon: 'MECH' },
+  { id: 'TEAM-ELEC', name: 'Electrical & Controls', description: 'Wiring, controls, instrumentation, safety circuits, data, and electrical integration.', icon: 'ELEC' },
+  { id: 'TEAM-BATT', name: 'Battery Systems', description: 'Cell architecture, containment, busbars, BMS, thermal work, testing, and pack integration.', icon: 'BATT' },
+  { id: 'TEAM-MFG', name: 'Manufacturing & Parts', description: 'Drawings, sourcing, quotes, purchasing readiness, fabrication, and incoming parts.', icon: 'MFG' },
+  { id: 'TEAM-OPS', name: 'Operations & Sponsorship', description: 'Sponsorship, budgeting, documentation, travel, events, media, and team operations.', icon: 'OPS' }
+];
+
+const DEFAULT_PLANNER_BOARDS = [
+  { id: 'BOARD-CLUB-MASTER', teamId: 'TEAM-CLUB', name: 'Club-wide Milestones', description: 'The master view for major deliverables, race dates, design reviews, testing windows, and handoffs between teams.' },
+  { id: 'BOARD-MECH-ROADMAP', teamId: 'TEAM-MECH', name: 'Mechanical Roadmap', description: 'Plan mechanical design, fabrication, assembly, fit checks, and validation work.' },
+  { id: 'BOARD-ELEC-ROADMAP', teamId: 'TEAM-ELEC', name: 'Electrical & Controls Roadmap', description: 'Coordinate wiring, controls, safety circuits, sensors, testing, and vehicle integration.' },
+  { id: 'BOARD-BATT-ROADMAP', teamId: 'TEAM-BATT', name: 'Battery Systems Roadmap', description: 'Track battery design, procurement, fabrication, BMS integration, safety review, and testing.' },
+  { id: 'BOARD-MFG-PARTS', teamId: 'TEAM-MFG', name: 'Parts & Manufacturing Pipeline', description: 'See which parts need specifications, quotes, purchase approval, fabrication, shipping, and receipt.' },
+  { id: 'BOARD-OPS-ROADMAP', teamId: 'TEAM-OPS', name: 'Operations & Sponsorship Roadmap', description: 'Coordinate fundraising, sponsor fulfillment, budgets, travel, events, and team communications.' }
+];
+
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('SponsorFlow')
     .addItem('Initial setup', 'showInitialSetup')
-    .addItem('Upgrade to v3 + import sponsor research', 'upgradeSponsorFlowV3')
+    .addItem('Upgrade to v4 + project planner', 'upgradeSponsorFlowV4')
     .addItem('Import or refresh validated sponsors', 'seedValidatedSponsors')
     .addItem('Refresh polished templates', 'refreshPolishedTemplates')
     .addItem('Change admin password', 'showChangeAdminPassword')
@@ -531,7 +565,20 @@ function showInitialSetup() {
   setFrontendOrigin_(originPrompt.getResponseText());
   refreshDefaultTemplates_();
   seedValidatedSponsors_();
-  ui.alert('SponsorFlow setup is complete. Validated sponsor opportunities were added. Next, deploy this script as a web app.');
+  seedDefaultPlannerStructure_();
+  ui.alert('SponsorFlow setup is complete. Sponsor opportunities and the collaborative project planner were added. Next, deploy this script as a web app.');
+}
+
+function upgradeSponsorFlowV4() {
+  setupSponsorFlow_();
+  refreshDefaultTemplates_();
+  const sponsorResult = seedValidatedSponsors_();
+  const plannerResult = seedDefaultPlannerStructure_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow was upgraded to version 4. Existing sponsor data was preserved. ` +
+    `${sponsorResult.created} sponsor opportunities were added, ${sponsorResult.updated} were refreshed, ` +
+    `and ${plannerResult.teamsCreated} teams / ${plannerResult.boardsCreated} timelines were created where missing.`
+  );
 }
 
 function upgradeSponsorFlowV3() {
@@ -610,6 +657,14 @@ function doPost(e) {
       case 'getRequestsByName': data = getRequestsByName_(p); break;
       case 'getRequestByName': data = getRequestByName_(p); break;
       case 'reviseRequest': data = reviseRequest_(p); break;
+      case 'plannerBootstrap': data = plannerBootstrap_(); break;
+      case 'savePlannerTeam': data = savePlannerTeam_(p); break;
+      case 'savePlannerBoard': data = savePlannerBoard_(p); break;
+      case 'savePlannerTask': data = savePlannerTask_(p); break;
+      case 'movePlannerTask': data = movePlannerTask_(p); break;
+      case 'archivePlannerTask': data = archivePlannerTask_(p); break;
+      case 'getPlannerTaskDetail': data = getPlannerTaskDetail_(p); break;
+      case 'addPlannerComment': data = addPlannerComment_(p); break;
       default: throw new Error('Unknown SponsorFlow action.');
     }
     return bridgeResponse_(origin, callId, { ok: true, data: data });
@@ -1373,6 +1428,461 @@ function markRequestsVerifiedByEmail_(email, contactId) {
   }
   if (changed) sheet.getRange(1, 1, values.length, headers.length).setValues(values);
 }
+
+// -------------------------- Collaborative project planner --------------------------
+
+function seedDefaultPlannerStructure_() {
+  ensureSchema_();
+  const now = nowIso_();
+  let teamsCreated = 0;
+  let boardsCreated = 0;
+
+  DEFAULT_PLANNER_TEAMS.forEach(team => {
+    if (findObjectById_(SF.SHEETS.PLANNER_TEAMS, team.id)) return;
+    appendObject_(SF.SHEETS.PLANNER_TEAMS, Object.assign({}, team, {
+      active: 'true', createdBy: 'SponsorFlow setup', updatedBy: 'SponsorFlow setup',
+      createdAt: now, updatedAt: now
+    }));
+    teamsCreated += 1;
+  });
+
+  DEFAULT_PLANNER_BOARDS.forEach(board => {
+    if (findObjectById_(SF.SHEETS.PLANNER_BOARDS, board.id)) return;
+    appendObject_(SF.SHEETS.PLANNER_BOARDS, Object.assign({}, board, {
+      targetStart: '', targetEnd: '', active: 'true',
+      createdBy: 'SponsorFlow setup', updatedBy: 'SponsorFlow setup',
+      createdAt: now, updatedAt: now
+    }));
+    boardsCreated += 1;
+  });
+
+  PropertiesService.getScriptProperties().setProperty('PLANNER_SCHEMA_VERSION', SF.VERSION);
+  return { teamsCreated: teamsCreated, boardsCreated: boardsCreated };
+}
+
+function plannerBootstrap_() {
+  if (readObjects_(SF.SHEETS.PLANNER_TEAMS).length === 0) {
+    withWriteLock_(function () { seedDefaultPlannerStructure_(); });
+  }
+
+  const teams = readObjects_(SF.SHEETS.PLANNER_TEAMS)
+    .filter(row => toBool_(row.active))
+    .map(plannerTeamPublic_)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const teamIds = new Set(teams.map(team => team.id));
+
+  const boards = readObjects_(SF.SHEETS.PLANNER_BOARDS)
+    .filter(row => toBool_(row.active) && teamIds.has(row.teamId))
+    .map(plannerBoardPublic_)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const boardIds = new Set(boards.map(board => board.id));
+
+  const commentCounts = {};
+  readObjects_(SF.SHEETS.PLANNER_COMMENTS).forEach(comment => {
+    commentCounts[comment.taskId] = (commentCounts[comment.taskId] || 0) + 1;
+  });
+
+  const tasks = readObjects_(SF.SHEETS.PLANNER_TASKS)
+    .filter(row => boardIds.has(row.boardId) && !toBool_(row.archived))
+    .map(row => plannerTaskPublic_(row, commentCounts[row.id] || Number(row.commentCount || 0)))
+    .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || a.title.localeCompare(b.title));
+
+  return { teams: teams, boards: boards, tasks: tasks, version: SF.VERSION };
+}
+
+function savePlannerTeam_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const existingId = optionalText_(p.id, 80);
+    const existing = existingId ? findObjectById_(SF.SHEETS.PLANNER_TEAMS, existingId) : null;
+    if (existingId && !existing) throw new Error('Team not found. Refresh the planner and try again.');
+    const id = existingId || makePlannerId_('TEAM', SF.SHEETS.PLANNER_TEAMS);
+    const now = nowIso_();
+    const name = requireText_(p.name, 'Team name', 2, 100);
+    const duplicate = readObjects_(SF.SHEETS.PLANNER_TEAMS).find(row => row.id !== id && toBool_(row.active) && normalizeNameKey_(row.name) === normalizeNameKey_(name));
+    if (duplicate) throw new Error('A team with that name already exists.');
+
+    const record = {
+      id: id,
+      name: name,
+      description: optionalText_(p.description, 600),
+      icon: optionalText_(p.icon, 8).toUpperCase(),
+      active: 'true',
+      updatedBy: actor,
+      updatedAt: now
+    };
+    if (existing) updateObjectById_(SF.SHEETS.PLANNER_TEAMS, id, record);
+    else appendObject_(SF.SHEETS.PLANNER_TEAMS, Object.assign({}, record, { createdBy: actor, createdAt: now }));
+    appendPlannerActivity_('', '', existing ? 'TEAM_UPDATED' : 'TEAM_CREATED', actor, name);
+    return plannerTeamPublic_(findObjectById_(SF.SHEETS.PLANNER_TEAMS, id));
+  });
+}
+
+function savePlannerBoard_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const teamId = requireText_(p.teamId, 'Team', 2, 80);
+    const team = findObjectById_(SF.SHEETS.PLANNER_TEAMS, teamId);
+    if (!team || !toBool_(team.active)) throw new Error('Choose an active planner team.');
+
+    const existingId = optionalText_(p.id, 80);
+    const existing = existingId ? findObjectById_(SF.SHEETS.PLANNER_BOARDS, existingId) : null;
+    if (existingId && !existing) throw new Error('Timeline not found. Refresh the planner and try again.');
+    const id = existingId || makePlannerId_('BOARD', SF.SHEETS.PLANNER_BOARDS);
+    const name = requireText_(p.name, 'Timeline name', 2, 140);
+    const targetStart = optionalIsoDate_(p.targetStart, 'Target start');
+    const targetEnd = optionalIsoDate_(p.targetEnd, 'Target finish');
+    if (targetStart && targetEnd && targetEnd < targetStart) throw new Error('Target finish must be on or after target start.');
+    const duplicate = readObjects_(SF.SHEETS.PLANNER_BOARDS).find(row => row.id !== id && row.teamId === teamId && toBool_(row.active) && normalizeNameKey_(row.name) === normalizeNameKey_(name));
+    if (duplicate) throw new Error('That team already has a timeline with this name.');
+
+    const now = nowIso_();
+    const record = {
+      id: id,
+      teamId: teamId,
+      name: name,
+      description: optionalText_(p.description, 800),
+      targetStart: targetStart,
+      targetEnd: targetEnd,
+      active: 'true',
+      updatedBy: actor,
+      updatedAt: now
+    };
+    if (existing) updateObjectById_(SF.SHEETS.PLANNER_BOARDS, id, record);
+    else appendObject_(SF.SHEETS.PLANNER_BOARDS, Object.assign({}, record, { createdBy: actor, createdAt: now }));
+    appendPlannerActivity_('', id, existing ? 'BOARD_UPDATED' : 'BOARD_CREATED', actor, name);
+    return plannerBoardPublic_(findObjectById_(SF.SHEETS.PLANNER_BOARDS, id));
+  });
+}
+
+function savePlannerTask_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const boardId = requireText_(p.boardId, 'Timeline', 2, 80);
+    const board = findObjectById_(SF.SHEETS.PLANNER_BOARDS, boardId);
+    if (!board || !toBool_(board.active)) throw new Error('Choose an active timeline.');
+
+    const existingId = optionalText_(p.id, 80);
+    const existing = existingId ? findObjectById_(SF.SHEETS.PLANNER_TASKS, existingId) : null;
+    if (existingId && !existing) throw new Error('Task not found. Refresh the planner and try again.');
+    if (existing && existing.boardId !== boardId) throw new Error('A task cannot be moved between timelines from this editor.');
+    requireFreshPlannerRecord_(existing, p.expectedUpdatedAt);
+
+    const id = existingId || makePlannerId_('TASK', SF.SHEETS.PLANNER_TASKS);
+    const status = requirePlannerChoice_(p.status, ['BACKLOG', 'PLANNED', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE'], 'task status');
+    const priority = requirePlannerChoice_(p.priority, ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], 'priority');
+    const orderStatus = requirePlannerChoice_(p.orderStatus || 'NOT_NEEDED', ['NOT_NEEDED', 'NEEDS_SPEC', 'NEEDS_QUOTE', 'READY_TO_ORDER', 'ORDERED', 'SHIPPED', 'RECEIVED'], 'order status');
+    const startDate = optionalIsoDate_(p.startDate, 'Start date');
+    const dueDate = optionalIsoDate_(p.dueDate, 'Due date');
+    if (startDate && dueDate && dueDate < startDate) throw new Error('Due date must be on or after the start date.');
+
+    const dependencies = parsePlannerIdList_(p.dependencyIds, 80);
+    if (dependencies.indexOf(id) !== -1) throw new Error('A task cannot depend on itself.');
+    validatePlannerDependencies_(boardId, id, dependencies);
+
+    let progress = plannerInteger_(p.progress, 'Progress', 0, 100, 0);
+    if (status === 'DONE') progress = 100;
+    const now = nowIso_();
+    const completedAt = status === 'DONE' ? (existing && existing.status === 'DONE' && existing.completedAt ? existing.completedAt : now) : '';
+    const record = {
+      id: id,
+      boardId: boardId,
+      title: requireText_(p.title, 'Task title', 2, 180),
+      description: optionalText_(p.description, 4000),
+      status: status,
+      priority: priority,
+      ownerNames: normalizePlannerList_(p.ownerNames, 300),
+      startDate: startDate,
+      dueDate: dueDate,
+      progress: String(progress),
+      isMilestone: String(toBool_(p.isMilestone)),
+      tags: normalizePlannerList_(p.tags, 300),
+      partName: optionalText_(p.partName, 180),
+      partNumber: optionalText_(p.partNumber, 120),
+      vendor: optionalText_(p.vendor, 160),
+      quantity: plannerOptionalNumber_(p.quantity, 'Quantity', 0, 100000, true),
+      estimatedCost: plannerOptionalNumber_(p.estimatedCost, 'Estimated cost', 0, 1000000, false),
+      orderStatus: orderStatus,
+      dependencyIds: JSON.stringify(dependencies),
+      sortOrder: existing && existing.sortOrder ? existing.sortOrder : String(Date.now()),
+      commentCount: existing && existing.commentCount ? existing.commentCount : '0',
+      updatedBy: actor,
+      updatedAt: now,
+      completedAt: completedAt,
+      archived: 'false'
+    };
+
+    if (existing) {
+      updateObjectById_(SF.SHEETS.PLANNER_TASKS, id, record);
+      appendPlannerActivity_(id, boardId, 'TASK_UPDATED', actor, summarizeTaskChanges_(existing, record));
+    } else {
+      appendObject_(SF.SHEETS.PLANNER_TASKS, Object.assign({}, record, { createdBy: actor, createdAt: now }));
+      appendPlannerActivity_(id, boardId, 'TASK_CREATED', actor, `${record.title} · ${priority} priority · ${status}`);
+    }
+    return plannerTaskPublic_(findObjectById_(SF.SHEETS.PLANNER_TASKS, id));
+  });
+}
+
+function movePlannerTask_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const taskId = requireText_(p.taskId, 'Task', 2, 80);
+    const task = findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId);
+    if (!task || toBool_(task.archived)) throw new Error('Task not found. Refresh the planner and try again.');
+    requireFreshPlannerRecord_(task, p.expectedUpdatedAt);
+    const status = requirePlannerChoice_(p.status, ['BACKLOG', 'PLANNED', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE'], 'task status');
+    const now = nowIso_();
+    const previous = task.status;
+    const updates = {
+      status: status,
+      progress: status === 'DONE' ? '100' : task.progress,
+      completedAt: status === 'DONE' ? (task.completedAt || now) : '',
+      updatedBy: actor,
+      updatedAt: now
+    };
+    updateObjectById_(SF.SHEETS.PLANNER_TASKS, taskId, updates);
+    appendPlannerActivity_(taskId, task.boardId, 'STATUS_CHANGED', actor, `${previous} → ${status}`);
+    return plannerTaskPublic_(findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId));
+  });
+}
+
+function archivePlannerTask_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const taskId = requireText_(p.taskId, 'Task', 2, 80);
+    const task = findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId);
+    if (!task || toBool_(task.archived)) throw new Error('Task not found.');
+    requireFreshPlannerRecord_(task, p.expectedUpdatedAt);
+    const now = nowIso_();
+    updateObjectById_(SF.SHEETS.PLANNER_TASKS, taskId, { archived: 'true', updatedBy: actor, updatedAt: now });
+    appendPlannerActivity_(taskId, task.boardId, 'TASK_ARCHIVED', actor, task.title);
+    return { id: taskId, archived: true };
+  });
+}
+
+function getPlannerTaskDetail_(p) {
+  const taskId = requireText_(p.taskId, 'Task', 2, 80);
+  const task = findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId);
+  if (!task || toBool_(task.archived)) throw new Error('Task not found.');
+  const comments = readObjects_(SF.SHEETS.PLANNER_COMMENTS)
+    .filter(row => row.taskId === taskId)
+    .map(row => ({ id: row.id, taskId: row.taskId, authorName: row.authorName, body: row.body, createdAt: row.createdAt }))
+    .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+  const activity = readObjects_(SF.SHEETS.PLANNER_ACTIVITY)
+    .filter(row => row.taskId === taskId)
+    .map(row => ({ id: row.id, action: row.action, actor: row.actor, details: row.details, createdAt: row.createdAt }))
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 100);
+  return { task: plannerTaskPublic_(task, comments.length), comments: comments, activity: activity };
+}
+
+function addPlannerComment_(p) {
+  return withWriteLock_(function () {
+    const actor = plannerActor_(p.actorName);
+    const taskId = requireText_(p.taskId, 'Task', 2, 80);
+    const task = findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId);
+    if (!task || toBool_(task.archived)) throw new Error('Task not found.');
+    const body = requireText_(p.body, 'Comment', 2, 1500);
+    const now = nowIso_();
+    appendObject_(SF.SHEETS.PLANNER_COMMENTS, { id: makePlannerId_('COMMENT', SF.SHEETS.PLANNER_COMMENTS), taskId: taskId, authorName: actor, body: body, createdAt: now });
+    const count = readObjects_(SF.SHEETS.PLANNER_COMMENTS).filter(row => row.taskId === taskId).length;
+    updateObjectById_(SF.SHEETS.PLANNER_TASKS, taskId, { commentCount: String(count) });
+    appendPlannerActivity_(taskId, task.boardId, 'COMMENT_ADDED', actor, body.length > 120 ? body.slice(0, 117) + '…' : body);
+    return getPlannerTaskDetail_({ taskId: taskId });
+  });
+}
+
+function plannerTeamPublic_(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description || '',
+    icon: row.icon || '',
+    active: toBool_(row.active),
+    createdBy: row.createdBy || '',
+    updatedBy: row.updatedBy || '',
+    createdAt: row.createdAt || '',
+    updatedAt: row.updatedAt || ''
+  };
+}
+
+function plannerBoardPublic_(row) {
+  return {
+    id: row.id,
+    teamId: row.teamId,
+    name: row.name,
+    description: row.description || '',
+    targetStart: row.targetStart || '',
+    targetEnd: row.targetEnd || '',
+    active: toBool_(row.active),
+    createdBy: row.createdBy || '',
+    updatedBy: row.updatedBy || '',
+    createdAt: row.createdAt || '',
+    updatedAt: row.updatedAt || ''
+  };
+}
+
+function plannerTaskPublic_(row, commentCount) {
+  return {
+    id: row.id,
+    boardId: row.boardId,
+    title: row.title,
+    description: row.description || '',
+    status: row.status || 'PLANNED',
+    priority: row.priority || 'MEDIUM',
+    ownerNames: row.ownerNames || '',
+    startDate: row.startDate || '',
+    dueDate: row.dueDate || '',
+    progress: Number(row.progress || 0),
+    isMilestone: toBool_(row.isMilestone),
+    tags: row.tags || '',
+    partName: row.partName || '',
+    partNumber: row.partNumber || '',
+    vendor: row.vendor || '',
+    quantity: row.quantity === '' ? '' : Number(row.quantity),
+    estimatedCost: row.estimatedCost === '' ? '' : Number(row.estimatedCost),
+    orderStatus: row.orderStatus || 'NOT_NEEDED',
+    dependencyIds: parsePlannerIdList_(row.dependencyIds, 80),
+    sortOrder: Number(row.sortOrder || 0),
+    commentCount: Number(commentCount == null ? row.commentCount || 0 : commentCount),
+    createdBy: row.createdBy || '',
+    updatedBy: row.updatedBy || '',
+    createdAt: row.createdAt || '',
+    updatedAt: row.updatedAt || '',
+    completedAt: row.completedAt || '',
+    archived: toBool_(row.archived)
+  };
+}
+
+function validatePlannerDependencies_(boardId, taskId, dependencies) {
+  const boardTasks = readObjects_(SF.SHEETS.PLANNER_TASKS).filter(row => row.boardId === boardId && !toBool_(row.archived));
+  const available = new Set(boardTasks.map(row => row.id));
+  dependencies.forEach(id => {
+    if (!available.has(id)) throw new Error('One of the selected dependencies is no longer available on this timeline.');
+  });
+
+  const graph = {};
+  boardTasks.forEach(row => graph[row.id] = parsePlannerIdList_(row.dependencyIds, 80));
+  graph[taskId] = dependencies.slice();
+  const visiting = {};
+  const visited = {};
+  function visit(id) {
+    if (visiting[id]) throw new Error('These dependencies create a circular chain. Remove one of the links.');
+    if (visited[id]) return;
+    visiting[id] = true;
+    (graph[id] || []).forEach(visit);
+    visiting[id] = false;
+    visited[id] = true;
+  }
+  Object.keys(graph).forEach(visit);
+}
+
+function requireFreshPlannerRecord_(existing, expectedUpdatedAt) {
+  if (!existing) return;
+  const expected = String(expectedUpdatedAt || '').trim();
+  if (expected && String(existing.updatedAt || '') !== expected) {
+    throw new Error('Someone else updated this task while you were editing. Refresh the planner, review their changes, and try again.');
+  }
+}
+
+function summarizeTaskChanges_(before, after) {
+  const labels = {
+    title: 'title', description: 'description', status: 'status', priority: 'priority', ownerNames: 'owners',
+    startDate: 'start date', dueDate: 'due date', progress: 'progress', isMilestone: 'milestone', tags: 'tags',
+    partName: 'part', partNumber: 'part number', vendor: 'vendor', quantity: 'quantity', estimatedCost: 'estimated cost',
+    orderStatus: 'order status', dependencyIds: 'dependencies'
+  };
+  const changed = Object.keys(labels).filter(key => String(before[key] || '') !== String(after[key] || '')).map(key => labels[key]);
+  return changed.length ? `Updated ${changed.join(', ')}` : 'Saved without field changes';
+}
+
+function appendPlannerActivity_(taskId, boardId, action, actor, details) {
+  appendObject_(SF.SHEETS.PLANNER_ACTIVITY, {
+    id: makePlannerId_('ACT', SF.SHEETS.PLANNER_ACTIVITY),
+    taskId: taskId || '',
+    boardId: boardId || '',
+    action: action,
+    actor: actor,
+    details: details || '',
+    createdAt: nowIso_()
+  });
+}
+
+function plannerActor_(value) {
+  return requireText_(String(value || '').trim().replace(/\s+/g, ' '), 'Your name', 2, 80);
+}
+
+function requirePlannerChoice_(value, choices, label) {
+  const clean = String(value || '').trim().toUpperCase();
+  if (choices.indexOf(clean) === -1) throw new Error(`Choose a valid ${label}.`);
+  return clean;
+}
+
+function optionalIsoDate_(value, label) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(clean) || isNaN(new Date(clean + 'T00:00:00').getTime())) throw new Error(`${label} must be a valid date.`);
+  return clean;
+}
+
+function plannerInteger_(value, label, min, max, fallback) {
+  if (String(value || '').trim() === '') return fallback;
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < min || number > max) throw new Error(`${label} must be a whole number between ${min} and ${max}.`);
+  return number;
+}
+
+function plannerOptionalNumber_(value, label, min, max, integerOnly) {
+  const clean = String(value == null ? '' : value).trim();
+  if (!clean) return '';
+  const number = Number(clean);
+  if (!isFinite(number) || number < min || number > max || (integerOnly && !Number.isInteger(number))) {
+    throw new Error(`${label} must be ${integerOnly ? 'a whole number' : 'a number'} between ${min} and ${max}.`);
+  }
+  return String(integerOnly ? number : Math.round(number * 100) / 100);
+}
+
+function normalizePlannerList_(value, maxLength) {
+  const values = String(value || '').split(/[,;]+/).map(item => item.trim()).filter(Boolean);
+  const unique = [];
+  const keys = {};
+  values.forEach(item => {
+    const key = item.toLowerCase();
+    if (!keys[key]) { keys[key] = true; unique.push(item); }
+  });
+  const result = unique.join(', ');
+  if (result.length > maxLength) throw new Error('One of the submitted list fields is too long.');
+  return result;
+}
+
+function parsePlannerIdList_(value, maxItems) {
+  let values = [];
+  if (Array.isArray(value)) values = value;
+  else {
+    const text = String(value || '').trim();
+    if (!text) return [];
+    if (text.charAt(0) === '[') {
+      try { values = JSON.parse(text); } catch (error) { throw new Error('The dependency list could not be read.'); }
+    } else values = text.split(/[,;]+/);
+  }
+  if (!Array.isArray(values)) throw new Error('The dependency list is invalid.');
+  const clean = values.map(item => String(item || '').trim()).filter(Boolean);
+  if (clean.length > maxItems) throw new Error('Too many dependencies were selected.');
+  const unique = [];
+  const seen = {};
+  clean.forEach(id => {
+    if (!/^[A-Z0-9-]{4,80}$/i.test(id)) throw new Error('A dependency identifier is invalid.');
+    if (!seen[id]) { seen[id] = true; unique.push(id); }
+  });
+  return unique;
+}
+
+function makePlannerId_(prefix, sheetName) {
+  let id = '';
+  do { id = prefix + '-' + randomCode_(10); } while (findObjectById_(sheetName, id));
+  return id;
+}
+
 
 // -------------------------- Storage helpers --------------------------
 

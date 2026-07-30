@@ -1,74 +1,80 @@
-# ASME Indy SponsorFlow — GitHub Pages Edition v3
+# ASME Indy SponsorFlow + Project Planner — GitHub Pages Edition v4
 
-SponsorFlow is a free sponsor-outreach workflow for Purdue University Indianapolis ASME.
+Version 4 combines the existing sponsor-outreach workflow with a collaborative engineering planner designed for Purdue University Indianapolis ASME.
 
 ```text
-GitHub Pages member portal
-          ↓
-Google Apps Script data service and admin dashboard
-          ↓
+GitHub Pages
+  ├─ Sponsor outreach portal
+  └─ Shared project planner
+           ↓
+Google Apps Script data service
+           ↓
 Private Google Sheet
 ```
 
-The application does not send email automatically. Members prepare sponsor outreach; officers verify destinations, comment, request revisions, approve, manually copy the final message or application package, and mark it submitted from `asmeindy@purdue.edu`.
+The planner is intentionally account-free. Everyone with the site link can view and edit it after entering a name. Names are recorded with task changes and comments so the club can coordinate work without managing individual accounts.
 
-## Version 3 highlights
+## Project Planner features
 
-- Duplicate-outreach protection by contact record, exact email, and normalized company name
-- Highly visible **No prior outreach**, **Active outreach exists**, and **Contacted X×** indicators
-- A required acknowledgement before creating an intentional follow-up or separate opportunity
-- 18 researched sponsor opportunities imported from official company programs and contact pages
-- Official email and application-form routes supported side by side
-- Company-specific research briefs with suggested asks, eligibility notes, personalization angles, and a recommended template
-- Six tightened sponsorship templates for direct requests, in-kind support, official programs, local grants, follow-ups, and sponsor fulfillment
-- Name-based request history and public club leaderboards
-- A cumulative sent/submitted outreach graph
-- Member-suggested companies and emails remain marked **Unverified** until officer review
-- Existing contacts, templates, requests, comments, revisions, and statistics are preserved during the upgrade
+- Separate teams and multiple timelines per team
+- Seeded workspaces for club-wide, mechanical, electrical, battery, manufacturing/parts, and operations work
+- Monday-style Kanban board with drag-and-drop status changes
+- Gantt-style timeline with milestones, progress bars, today marker, deadlines, and overdue indicators
+- Sortable visual task table
+- Priorities: Critical, High, Medium, and Low
+- Statuses: Backlog, Planned, In progress, Blocked, Review/test, and Done
+- Owners, tags, descriptions, acceptance criteria, start dates, due dates, and percent complete
+- Parts and purchasing fields for vendor, part number, quantity, estimated cost, and order status
+- Task dependencies with circular-dependency prevention
+- Comments and recent activity history
+- Optimistic conflict protection when two people edit the same task
+- Search, owner, status, priority, parts-only, and hide-completed filters
+- Board health metrics for progress, overdue/blocked work, near-term deadlines, and parts awaiting action
+- Board link sharing and CSV export
+- Responsive layouts for laptop, tablet, and phone use
 
-See [UPGRADE.md](UPGRADE.md) for the exact upgrade sequence.
+## SponsorFlow features retained
 
-## What “validated sponsor” means
-
-The imported records were reviewed on **July 27, 2026** against official program, education, sponsorship, or community-application pages. A validated record confirms a legitimate outreach route; it does not guarantee funding, eligibility, approval, or email delivery.
-
-Some opportunities require a faculty advisor, institutional authorization, a W-9, an EIN, or a U.S. 501(c)(3). SponsorFlow shows those constraints before a member drafts the request. Officers should re-open the official source before submitting.
-
-The full research export is available in:
-
-```text
-validated-sponsors.csv
-VALIDATED-SPONSORS.md
-```
-
-## Duplicate protection
-
-When a member chooses or types a sponsor, SponsorFlow checks prior requests using:
-
-1. The exact directory contact ID
-2. The exact normalized email address
-3. The normalized company name
-
-The public portal then shows whether the sponsor is available, has an active request, or has already been contacted. Prior outreach does not create a permanent ban: intentional follow-ups and distinct opportunities can proceed after the member acknowledges the history.
-
-The backend repeats the check at submission time, so bypassing the browser warning does not silently create a duplicate.
+- Name-based request access
+- Verified and member-suggested sponsors
+- Duplicate-outreach warnings
+- Officer comments, revision requests, approval, manual send, and sent history
+- Polished sponsor templates
+- Public club outreach statistics and leaderboards
+- Validated sponsor opportunity catalog
 
 ## Files
 
 ```text
-index.html                    Public member portal
-admin.html                    Redirect page to the Apps Script admin dashboard
-assets/config.js              Your deployed Apps Script URL; preserve this during updates
+index.html                    Sponsor outreach portal
+planner.html                  Collaborative project planner
+admin.html                    Redirect to the Apps Script admin dashboard
+assets/config.js              Your Apps Script URL; preserve this during updates
 assets/api.js                 GitHub Pages ↔ Apps Script bridge
-assets/member.js              Member workflow, duplicate indicators, research, and statistics
-assets/app.css                Public site styling
-apps-script/Code.gs           Apps Script backend and seeded sponsor research
-apps-script/Admin.html        Officer dashboard
-validated-sponsors.csv        Portable research export
-VALIDATED-SPONSORS.md         Human-readable outreach catalog
+assets/member.js              Sponsor outreach member workflow
+assets/planner.js             Planner boards, timeline, tasks, parts, and comments
+assets/app.css                Shared responsive design system
+apps-script/Code.gs           Backend, Sheet schema, sponsor workflow, and planner API
+apps-script/Admin.html        Officer sponsor-review dashboard
+UPGRADE.md                    Exact v3 → v4 migration instructions
+SECURITY.md                   Privacy, backup, and public-editing guidance
+```
+
+## Data added to the Google Sheet
+
+Version 4 creates these new tabs without clearing existing sponsor data:
+
+```text
+Planner Teams
+Planner Boards
+Planner Tasks
+Planner Comments
+Planner Activity
 ```
 
 ## Initial setup
+
+For a brand-new installation:
 
 1. Create a blank Google Sheet.
 2. Open **Extensions → Apps Script**.
@@ -76,18 +82,13 @@ VALIDATED-SPONSORS.md         Human-readable outreach catalog
 4. Create an HTML file named `Admin` and paste `apps-script/Admin.html` into it.
 5. Reload the Sheet and run **SponsorFlow → Initial setup**.
 6. Deploy Apps Script as a web app that executes as you and is accessible to **Anyone**.
-7. Copy the `/exec` URL into `assets/config.js`.
-8. Upload the public files to a GitHub Pages repository.
+7. Paste the `/exec` URL into `assets/config.js`.
+8. Upload the public files to GitHub Pages.
 
-Initial setup automatically creates the spreadsheet schema, refreshes the six built-in templates, and imports the validated sponsor catalog.
+Existing installations should follow [UPGRADE.md](UPGRADE.md).
 
-## Sponsor route types
+## Editing model
 
-- **EMAIL:** Officers copy the approved subject and body into the club mailbox, send it, then mark the request sent.
-- **FORM:** Officers open the official company application, copy the approved application package, submit it, then mark the request submitted. It is recorded as `SENT` for statistics and duplicate protection.
+There is no member authentication. The planner stores the entered editor name with each task change and comment. This is coordination, not identity verification. Anyone who knows the public site URL can potentially view or change planner data.
 
-## Privacy model
-
-This edition intentionally uses names rather than member authentication. Names and leaderboard counts are public, and anyone entering the same name can view that name's request history. Sponsor email addresses are not included in the public directory or public request response; they remain available in the private Sheet and admin dashboard.
-
-Do not store passwords, payment information, tax records, private academic records, or other sensitive information in SponsorFlow.
+Use the planner for ordinary club planning only. Do not put passwords, private student information, export-controlled designs, payment-card data, confidential sponsor terms, or sensitive university records into tasks or comments.

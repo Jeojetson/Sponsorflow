@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Collaborative Purdue Indianapolis ASME project timelines, parts tracking, and task planning.">
+  <meta name="theme-color" content="#111111">
+  <title>ASME Indy Project Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css?v=4">
+</head>
+<body class="planner-page">
+  <a class="skip-link" href="#plannerMain">Skip to planner</a>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="SponsorFlow home">
+      <span class="brand-mark">ASME</span>
+      <span class="brand-copy"><strong>Project Planner</strong><small>Purdue Indianapolis</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="index.html">Sponsor outreach</a>
+      <a class="nav-link is-active" href="planner.html">Project planner</a>
+      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team website</a>
+      <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <main id="plannerMain" class="planner-shell">
+    <section class="planner-intro">
+      <div>
+        <p class="eyebrow">Shared engineering workspace</p>
+        <h1>Turn the build into a plan everyone can move forward.</h1>
+        <p>Organize mechanical, electrical, battery, manufacturing, parts, and club work in team timelines. Every change is attributed to the name entered below.</p>
+      </div>
+      <div class="planner-intro-actions">
+        <button id="newTaskTopButton" class="button button-primary" type="button">+ New task</button>
+        <button id="manageWorkspaceButton" class="button button-dark-outline" type="button">Teams & timelines</button>
+      </div>
+    </section>
+
+    <div id="plannerConnectionBanner" class="connection-banner is-hidden" role="status"></div>
+
+    <section class="planner-control-deck" aria-label="Planner controls">
+      <div class="planner-identity-block">
+        <label class="field compact-field" for="plannerActorName"><span>Your name</span><input id="plannerActorName" maxlength="80" placeholder="Full name"></label>
+        <button id="savePlannerNameButton" class="button button-secondary button-small" type="button">Use this name</button>
+        <span id="plannerNameStatus" class="planner-name-status">Required to edit</span>
+      </div>
+      <div class="planner-context-controls">
+        <label class="field compact-field"><span>Team</span><select id="teamFilter"><option value="">Loading teams…</option></select></label>
+        <label class="field compact-field"><span>Timeline</span><select id="boardSelect"><option value="">Loading timelines…</option></select></label>
+      </div>
+      <div class="planner-view-controls" role="group" aria-label="Planner view">
+        <button class="planner-view-button is-active" type="button" data-planner-view="board">Board</button>
+        <button class="planner-view-button" type="button" data-planner-view="timeline">Timeline</button>
+        <button class="planner-view-button" type="button" data-planner-view="table">Table</button>
+      </div>
+    </section>
+
+    <section id="boardEmptyState" class="planner-empty is-hidden">
+      <span>◇</span>
+      <h2>No timeline selected</h2>
+      <p>Create a team timeline or choose an existing one to begin planning.</p>
+      <button class="button button-primary" type="button" data-open-workspace>Set up a timeline</button>
+    </section>
+
+    <section id="plannerWorkspace" class="is-hidden">
+      <header class="board-overview">
+        <div class="board-overview-copy">
+          <div class="board-title-row">
+            <span id="boardTeamBadge" class="team-badge">Team</span>
+            <span id="boardDateRange" class="board-date-range"></span>
+          </div>
+          <h2 id="boardTitle">Timeline</h2>
+          <p id="boardDescription"></p>
+        </div>
+        <div class="board-overview-actions">
+          <button id="shareBoardButton" class="button button-secondary button-small" type="button">Copy board link</button>
+          <button id="exportBoardButton" class="button button-secondary button-small" type="button">Export CSV</button>
+          <button id="editBoardButton" class="button button-ghost button-small" type="button">Edit timeline</button>
+          <button id="newTaskButton" class="button button-primary button-small" type="button">+ Add task</button>
+        </div>
+      </header>
+
+      <section id="plannerMetrics" class="planner-metrics" aria-label="Timeline summary"></section>
+
+      <section class="planner-toolbar">
+        <label class="planner-search"><span class="sr-only">Search tasks</span><input id="taskSearch" type="search" placeholder="Search tasks, parts, owners, or tags…"></label>
+        <div class="planner-filter-row">
+          <label class="field compact-field"><span>Status</span><select id="statusFilter"><option value="">All statuses</option></select></label>
+          <label class="field compact-field"><span>Priority</span><select id="priorityFilter"><option value="">All priorities</option></select></label>
+          <label class="field compact-field"><span>Owner</span><select id="ownerFilter"><option value="">All owners</option></select></label>
+          <label class="check-field planner-check"><input id="partsOnlyFilter" type="checkbox"><span>Parts only</span></label>
+          <label class="check-field planner-check"><input id="hideDoneFilter" type="checkbox"><span>Hide done</span></label>
+          <button id="clearPlannerFilters" class="button button-ghost button-small" type="button">Clear</button>
+        </div>
+      </section>
+
+      <div id="plannerLoading" class="planner-loading" role="status"><span></span><p>Loading the shared timeline…</p></div>
+      <div id="plannerMessage" class="form-status" aria-live="polite"></div>
+
+      <section id="boardView" class="planner-view-panel" data-planner-panel="board">
+        <div id="kanbanBoard" class="kanban-board"></div>
+      </section>
+
+      <section id="timelineView" class="planner-view-panel is-hidden" data-planner-panel="timeline">
+        <div class="timeline-toolbar">
+          <div>
+            <strong>Schedule view</strong>
+            <span>Milestones, date ranges, overdue work, and cross-team dependencies</span>
+          </div>
+          <label class="field compact-field"><span>Scale</span><select id="timelineScale"><option value="compact">Compact</option><option value="normal" selected>Standard</option><option value="wide">Detailed</option></select></label>
+        </div>
+        <div id="ganttHost" class="gantt-host"></div>
+      </section>
+
+      <section id="tableView" class="planner-view-panel is-hidden" data-planner-panel="table">
+        <div class="task-table-wrap">
+          <table class="task-table">
+            <thead><tr><th>Task</th><th>Status</th><th>Priority</th><th>Owner</th><th>Dates</th><th>Part / order</th><th>Progress</th><th>Updated</th></tr></thead>
+            <tbody id="taskTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="identityDialog" class="modal planner-modal">
+    <div class="modal-card identity-dialog-card">
+      <p class="eyebrow">Before you edit</p>
+      <h2>Put your name on the work.</h2>
+      <p>Everyone can edit this planner. Your name appears in task history and comments so the team can coordinate changes.</p>
+      <label class="field"><span>Your full name</span><input id="identityDialogName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
+      <div class="dialog-actions"><button id="identityDialogSave" class="button button-primary" type="button">Enter planner</button></div>
+      <p id="identityDialogStatus" class="form-status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <dialog id="workspaceDialog" class="modal modal-wide planner-modal">
+    <div class="modal-card">
+      <button class="modal-close" type="button" data-close-dialog="workspaceDialog" aria-label="Close">×</button>
+      <div class="workspace-dialog-header"><div><p class="eyebrow">Planner setup</p><h2>Teams and timelines</h2><p>Create a home for each workstream. Teams can maintain multiple timelines for builds, testing, purchasing, events, or research.</p></div></div>
+      <div class="workspace-dialog-grid">
+        <form id="teamForm" class="workspace-form" novalidate>
+          <input id="teamId" type="hidden">
+          <div class="panel-heading"><div><p class="panel-kicker">Team</p><h3 id="teamFormTitle">Create a team</h3></div><span class="panel-number">01</span></div>
+          <label class="field"><span>Team name</span><input id="teamName" maxlength="100" required placeholder="Battery Systems"></label>
+          <label class="field"><span>Description</span><textarea id="teamDescription" rows="3" maxlength="600" placeholder="What this team owns and delivers"></textarea></label>
+          <label class="field"><span>Short label / icon</span><input id="teamIcon" maxlength="8" placeholder="BATT"></label>
+          <div class="dialog-actions"><button class="button button-primary" type="submit">Save team</button><button id="resetTeamForm" class="button button-ghost" type="button">New</button></div>
+        </form>
+
+        <form id="boardForm" class="workspace-form" novalidate>
+          <input id="boardId" type="hidden">
+          <div class="panel-heading"><div><p class="panel-kicker">Timeline</p><h3 id="boardFormTitle">Create a timeline</h3></div><span class="panel-number">02</span></div>
+          <label class="field"><span>Team</span><select id="boardTeamId" required></select></label>
+          <label class="field"><span>Timeline name</span><input id="boardName" maxlength="140" required placeholder="2026 Battery Redesign"></label>
+          <label class="field"><span>Purpose</span><textarea id="boardFormDescription" rows="3" maxlength="800" placeholder="Scope, goal, or definition of done"></textarea></label>
+          <div class="field-grid two-col">
+            <label class="field"><span>Target start</span><span class="date-input-wrap"><input id="boardTargetStart" type="date"></span></label>
+            <label class="field"><span>Target finish</span><span class="date-input-wrap"><input id="boardTargetEnd" type="date"></span></label>
+          </div>
+          <div class="dialog-actions"><button class="button button-primary" type="submit">Save timeline</button><button id="resetBoardForm" class="button button-ghost" type="button">New</button></div>
+        </form>
+      </div>
+      <div class="workspace-directory">
+        <div class="workspace-directory-heading"><h3>Existing workspace</h3><span>Choose an item to edit it</span></div>
+        <div id="workspaceDirectoryList" class="workspace-directory-list"></div>
+      </div>
+      <p id="workspaceDialogStatus" class="form-status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <dialog id="taskDialog" class="modal modal-wide planner-modal task-dialog">
+    <form id="taskForm" class="modal-card task-modal-card" novalidate>
+      <button class="modal-close" type="button" data-close-dialog="taskDialog" aria-label="Close">×</button>
+      <input id="taskId" type="hidden">
+      <input id="taskExpectedUpdatedAt" type="hidden">
+      <div class="task-modal-heading">
+        <div><p class="eyebrow" id="taskDialogEyebrow">New task</p><h2 id="taskDialogTitle">Add work to the timeline</h2></div>
+        <div id="taskUpdatedMeta" class="task-updated-meta"></div>
+      </div>
+
+      <div class="task-editor-layout">
+        <div class="task-editor-main">
+          <label class="field"><span>Task title <b aria-hidden="true">*</b></span><input id="taskTitle" maxlength="180" required placeholder="Design battery enclosure mounting tabs"></label>
+          <label class="field"><span>Description / acceptance criteria</span><textarea id="taskDescription" rows="5" maxlength="4000" placeholder="What needs to be done, why it matters, and what finished looks like"></textarea></label>
+          <div class="field-grid three-col">
+            <label class="field"><span>Status</span><select id="taskStatus"></select></label>
+            <label class="field"><span>Priority</span><select id="taskPriority"></select></label>
+            <label class="field"><span>Progress</span><select id="taskProgress"><option value="0">0%</option><option value="10">10%</option><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option><option value="90">90%</option><option value="100">100%</option></select></label>
+          </div>
+          <div class="field-grid two-col">
+            <label class="field"><span>Owners</span><input id="taskOwners" maxlength="300" placeholder="Names separated by commas"></label>
+            <label class="field"><span>Tags</span><input id="taskTags" maxlength="300" placeholder="CAD, testing, safety"></label>
+          </div>
+          <div class="field-grid two-col">
+            <label class="field"><span>Start date</span><span class="date-input-wrap"><input id="taskStartDate" type="date"></span></label>
+            <label class="field"><span>Due date</span><span class="date-input-wrap"><input id="taskDueDate" type="date"></span></label>
+          </div>
+          <label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"><span>Milestone — show this as a key decision, delivery, test, or event</span></label>
+
+          <section class="task-subsection">
+            <div class="task-subsection-heading"><div><p class="panel-kicker">Parts and purchasing</p><h3>Track the physical item</h3></div><span>Optional</span></div>
+            <div class="field-grid two-col">
+              <label class="field"><span>Part / material</span><input id="taskPartName" maxlength="180" placeholder="Copper busbar stock"></label>
+              <label class="field"><span>Part number</span><input id="taskPartNumber" maxlength="120" placeholder="Manufacturer or internal number"></label>
+            </div>
+            <div class="field-grid four-col">
+              <label class="field"><span>Vendor</span><input id="taskVendor" maxlength="160" placeholder="Vendor"></label>
+              <label class="field"><span>Quantity</span><input id="taskQuantity" type="number" min="0" max="100000" step="1" placeholder="1"></label>
+              <label class="field"><span>Est. cost</span><input id="taskEstimatedCost" type="number" min="0" max="1000000" step="0.01" placeholder="0.00"></label>
+              <label class="field"><span>Order status</span><select id="taskOrderStatus"></select></label>
+            </div>
+          </section>
+
+          <section class="task-subsection">
+            <div class="task-subsection-heading"><div><p class="panel-kicker">Dependencies</p><h3>What must happen first?</h3></div><span>Optional</span></div>
+            <div id="taskDependencyList" class="dependency-picker"></div>
+          </section>
+        </div>
+
+        <aside class="task-editor-side">
+          <section id="taskHealthCard" class="task-health-card"></section>
+          <section id="taskConversation" class="task-conversation is-hidden">
+            <div class="task-subsection-heading"><div><p class="panel-kicker">Conversation</p><h3>Comments</h3></div></div>
+            <div id="taskComments" class="task-comments"></div>
+            <div class="comment-compose">
+              <label class="field"><span>Add a comment</span><textarea id="taskCommentBody" rows="3" maxlength="1500" placeholder="Decision, blocker, update, or handoff note"></textarea></label>
+              <button id="addTaskCommentButton" class="button button-secondary button-small" type="button">Post comment</button>
+            </div>
+          </section>
+          <section id="taskActivitySection" class="task-activity-section is-hidden">
+            <div class="task-subsection-heading"><div><p class="panel-kicker">History</p><h3>Recent activity</h3></div></div>
+            <ol id="taskActivity" class="task-activity"></ol>
+          </section>
+        </aside>
+      </div>
+
+      <div class="task-dialog-footer">
+        <button id="archiveTaskButton" class="button button-danger button-small is-hidden" type="button">Archive task</button>
+        <div class="task-dialog-footer-main"><p id="taskFormStatus" class="form-status" aria-live="polite"></p><button class="button button-primary" type="submit">Save task</button></div>
+      </div>
+    </form>
+  </dialog>
+
+  <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
+  <script src="assets/config.js?v=4"></script>
+  <script src="assets/api.js?v=4"></script>
+  <script src="assets/planner.js?v=4"></script>
+</body>
+</html>

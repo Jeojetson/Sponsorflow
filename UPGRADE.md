@@ -1,44 +1,39 @@
-# Upgrade SponsorFlow to version 3
+# Upgrade SponsorFlow to version 4
 
-This update preserves existing Google Sheet data and adds duplicate-outreach protection, official sponsor-program research, application-form routes, and upgraded templates.
+This update preserves existing contacts, templates, sponsor requests, revisions, audit history, and statistics. It adds the collaborative project planner and five new Sheet tabs.
 
-## Part 1 — Back up the Sheet
+## 1. Back up the Google Sheet
 
-Before upgrading, open the SponsorFlow Google Sheet and choose:
+Open the SponsorFlow Sheet and choose:
 
 ```text
 File → Make a copy
 ```
 
-The migration is designed to preserve all rows, but a backup gives the club a simple rollback point.
+Keep the copy until the v4 planner has been tested.
 
-## Part 2 — Update GitHub Pages
+## 2. Update GitHub Pages
 
-Upload or replace these files in the GitHub repository:
+Upload or replace these files in the repository:
 
 ```text
 index.html
 admin.html
+planner.html
 assets/app.css
 assets/api.js
 assets/member.js
-```
-
-You may also upload the research documents:
-
-```text
-validated-sponsors.csv
-VALIDATED-SPONSORS.md
+assets/planner.js
 README.md
 SECURITY.md
 UPGRADE.md
 ```
 
-**Do not overwrite `assets/config.js`.** Your existing Apps Script `/exec` URL is already stored there, and the drop-in update package intentionally excludes that file.
+**Do not replace `assets/config.js`.** It contains your working Apps Script `/exec` URL. The drop-in v4 update ZIP intentionally excludes that file.
 
 Commit the files to `main`, then wait for **Actions → pages build and deployment** to finish with a green check.
 
-## Part 3 — Update Apps Script
+## 3. Update Apps Script
 
 Open the SponsorFlow Google Sheet and choose:
 
@@ -46,37 +41,32 @@ Open the SponsorFlow Google Sheet and choose:
 Extensions → Apps Script
 ```
 
-Replace the complete contents of:
+Replace all content in `Code.gs` with the v4 `apps-script/Code.gs` source and click **Save**.
+
+`Admin.html` can also be replaced with the included file, although the sponsor-review dashboard itself is unchanged in this release.
+
+## 4. Run the v4 migration
+
+Reload the Google Sheet so the SponsorFlow menu refreshes. Choose:
 
 ```text
-Code.gs
-Admin.html
+SponsorFlow → Upgrade to v4 + project planner
 ```
 
-with the version-3 files in the `apps-script` folder. Copy the raw source, not a browser-rendered page. Click **Save**.
+The migration will:
 
-## Part 4 — Run the v3 migration and sponsor import
+- Preserve every existing sponsor row
+- Add the five planner tabs
+- Add six starter teams
+- Add one starter timeline for each team
+- Refresh the built-in sponsor templates and validated sponsor catalog
+- Leave existing contacts and officer choices intact
 
-Reload the Google Sheet. From the new **SponsorFlow** menu, choose:
+The starter teams and timelines can be renamed or expanded from the planner’s **Teams & timelines** button.
 
-```text
-Upgrade to v3 + import sponsor research
-```
+## 5. Redeploy Apps Script
 
-This action:
-
-- Adds outreach-route and duplicate-acknowledgement columns where needed
-- Preserves all existing rows
-- Refreshes the six built-in templates
-- Imports 18 official sponsor opportunities
-- Marks newly imported official routes verified and active
-- Preserves an officer's active/verified choices on later research refreshes
-
-You can later run **SponsorFlow → Import or refresh validated sponsors** to refresh the seeded research without clearing your own contacts.
-
-## Part 5 — Redeploy Apps Script
-
-Saving Apps Script does not update the live `/exec` deployment by itself.
+Saving code does not update the live web-app version.
 
 Choose:
 
@@ -90,41 +80,31 @@ Then:
 2. Choose **New version**.
 3. Click **Deploy**.
 
-Keep the same deployment and URL. You do not need to edit `assets/config.js` again.
+Keep the same deployment and `/exec` URL. No `config.js` change is required.
 
-## Part 6 — Refresh GitHub Pages
+## 6. Refresh GitHub Pages
 
-After the GitHub Pages workflow succeeds, hard-refresh the live site:
+After the Pages action succeeds, open the site and hard-refresh:
 
 ```text
 Command + Shift + R
 ```
 
-The version-3 files use `?v=3` cache-busting, but a hard refresh is still useful after a major update.
+Open **Project planner** from the navigation.
 
-## Part 7 — Test duplicate protection
+## 7. Recommended test
 
-1. Select an imported sponsor with no prior outreach.
-2. Confirm the page shows **No prior outreach**.
-3. Submit a test request and approve/mark it sent in the admin dashboard.
-4. Start a second request to the same company.
-5. Confirm the page shows **Contacted 1×** and requires acknowledgement.
-6. Create a request to the same company while the first request is still pending.
-7. Confirm the page shows **Active outreach exists**.
-8. Type the same company manually in **Suggest a sponsor** and verify the duplicate warning still appears.
+1. Enter your full name.
+2. Open **Teams & timelines** and confirm the six starter teams appear.
+3. Select **Battery Systems Roadmap**.
+4. Add a task with owners, priority, dates, and a part requiring a quote.
+5. Add a second task that depends on the first.
+6. Drag the first task from Planned to In progress.
+7. Open the Timeline view and confirm both tasks appear.
+8. Add a comment and verify it appears in task history.
+9. Open the site in another browser, edit the same task, and confirm changes are shared.
+10. Export the board CSV.
 
-## Part 8 — Review imported sponsor opportunities
+## Public editing tradeoff
 
-The Contacts sheet will contain official email or form routes, suggested asks, eligibility constraints, personalization ideas, and source URLs. Before real outreach:
-
-- Open the official source
-- Confirm the program is still accepting requests
-- Coordinate faculty or Purdue authorization where the record says it is required
-- Tailor the request to a concrete EV-Kart engineering need
-- Avoid submitting to two routes at the same company without officer coordination
-
-## Matching behavior
-
-SponsorFlow matches prior outreach by contact ID, exact email, or normalized company name. Company matching ignores capitalization, punctuation, and common suffixes such as `Inc.`, `LLC`, and `Corporation`.
-
-An intentional follow-up is still allowed, but the member must explicitly acknowledge the previous outreach. The backend enforces this requirement independently of the browser.
+The planner intentionally has no individual login. Entered names provide attribution but are not verified identities. Anyone with the site URL can edit. Keep routine project data in the planner, retain a Sheet backup, and restrict direct access to the underlying Google Sheet to officers or trusted maintainers.

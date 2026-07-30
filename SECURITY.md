@@ -1,41 +1,53 @@
-# SponsorFlow v3 security and privacy notes
+# SponsorFlow v4 security and privacy notes
 
-SponsorFlow v3 is designed for low-sensitivity student-club outreach, not confidential records.
+## Public website model
 
-## Name-based access
+The GitHub Pages site is public. The sponsor workflow and project planner use a Google Apps Script web app as the shared data service.
 
-Members do not authenticate. A normalized full name is used to find and revise requests. Anyone who knows or guesses the same name can view those requests. This is an intentional convenience tradeoff approved for this club workflow.
+The project planner is deliberately open-edit: any visitor with the site URL can enter a name and create or modify teams, timelines, tasks, parts information, comments, and statuses. Names are attribution labels, not verified identities.
 
-Keep email bodies professional and appropriate for broad club visibility. Do not include passwords, payment details, private academic information, medical information, or sensitive personal data.
+## Appropriate planner content
 
-## Sponsor email privacy
+Use the planner for routine club work such as:
 
-Verified sponsor emails are not sent to the public GitHub Pages frontend. The public portal receives a company name, program name, route type, public official link, research guidance, and aggregate outreach history. Member-suggested emails are submitted directly to the private Sheet and shown only in the admin dashboard.
+- Design and fabrication tasks
+- Test plans and build milestones
+- Non-confidential part numbers and vendors
+- Approximate project costs
+- Owners, handoffs, blockers, and meeting follow-ups
+- Sponsor fulfillment and event deadlines
 
-## Duplicate matching
+Do not store:
 
-Duplicate protection compares contact IDs, exact normalized emails, and normalized company names. Company-name matching is intentionally broad and can occasionally flag separate divisions or regional offices. Members may proceed after acknowledging that the outreach is an intentional follow-up, different contact, or separate opportunity.
+- Passwords or API keys
+- Payment-card or bank information
+- Private academic or disciplinary records
+- Sensitive personal data
+- Export-controlled technical data
+- Confidential sponsor pricing or contract terms
+- Purdue records that require restricted access
 
-The warning is a coordination control, not an absolute block. Officers should review the existing request history before approving an acknowledged duplicate.
+## Shared edit risk
 
-## Validated sponsor catalog
+Because edits are open, a visitor could make unwanted changes or impersonate another name. Version 4 reduces accidental conflicts by checking each task’s `updatedAt` value before saving, but it cannot prevent intentional misuse.
 
-“Validated” means an official public program, sponsorship page, academic contact, or community-application route was confirmed on July 27, 2026. It does not guarantee eligibility, approval, availability, or deliverability. Official programs can change, so officers should recheck the linked source before submitting.
+Recommended controls:
 
-Some imported opportunities require institutional or nonprofit information. Do not enter Purdue tax documents, banking details, or other institutional records into the public member portal. Coordinate those applications through the faculty advisor or appropriate Purdue office.
+1. Keep the site link within the club rather than widely advertising the planner URL.
+2. Review the **Planner Activity** Sheet when a change is unclear.
+3. Make periodic Google Sheet copies or exports.
+4. Restrict direct Sheet access to current officers and trusted project leads.
+5. Remove malicious or obsolete rows directly from the Sheet if necessary.
+6. Consider authenticated hosting later if the planner grows into a system containing sensitive or high-value data.
 
-## Admin password
+## Apps Script and Sheet
 
-The shared admin password is stored as a salted hash in Apps Script properties. It is not stored in GitHub or the Google Sheet. Use at least 14 characters, rotate it during officer transitions, and share it only with current approving officers.
+- Keep the Google account that owns Apps Script protected with multi-factor authentication.
+- Keep the Google Sheet private; the website talks to it through Apps Script.
+- Do not place the admin password in GitHub or `assets/config.js`.
+- The Apps Script URL is public by design and is not a password.
+- The SponsorFlow admin password remains a salted hash in Script Properties.
 
-## Apps Script URL
+## Backups
 
-The `/exec` URL in `assets/config.js` is not a password. The backend validates the configured GitHub Pages origin and limits public actions to the member workflow.
-
-## Verification gate
-
-Requests with member-suggested sponsor emails are marked `UNVERIFIED`. The server blocks approval and sent status until an officer verifies the address.
-
-## Google Sheet access
-
-Restrict the Sheet to current officers and the faculty advisor. Remove former members promptly and keep a periodic Sheet backup.
+Before major updates, use **File → Make a copy** in Google Sheets. For routine recovery, retain periodic copies or export the planner tabs to CSV.
