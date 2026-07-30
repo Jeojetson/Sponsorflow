@@ -1,94 +1,57 @@
-# ASME Indy SponsorFlow + Project Planner — GitHub Pages Edition v4
+# ASME Indy SponsorFlow + Project Planner — GitHub Pages Edition v5
 
-Version 4 combines the existing sponsor-outreach workflow with a collaborative engineering planner designed for Purdue University Indianapolis ASME.
+Version 5 adds a polished collaborative planning and funding-intelligence layer to SponsorFlow.
 
-```text
-GitHub Pages
-  ├─ Sponsor outreach portal
-  └─ Shared project planner
-           ↓
-Google Apps Script data service
-           ↓
-Private Google Sheet
-```
+## Requested teams created automatically
 
-The planner is intentionally account-free. Everyone with the site link can view and edit it after entering a name. Names are recorded with task changes and comments so the club can coordinate work without managing individual accounts.
+- Club-wide
+- Mechanical Design
+- Kart Setup
+- Wiring Harness
+- Battery
+- Software
+- Manufacturing Lead
+- Finance & Sponsorship
 
-## Project Planner features
+Each team has a starter timeline and can create additional build, test, parts, event, or research timelines.
 
-- Separate teams and multiple timelines per team
-- Seeded workspaces for club-wide, mechanical, electrical, battery, manufacturing/parts, and operations work
-- Monday-style Kanban board with drag-and-drop status changes
-- Gantt-style timeline with milestones, progress bars, today marker, deadlines, and overdue indicators
-- Sortable visual task table
-- Priorities: Critical, High, Medium, and Low
-- Statuses: Backlog, Planned, In progress, Blocked, Review/test, and Done
-- Owners, tags, descriptions, acceptance criteria, start dates, due dates, and percent complete
-- Parts and purchasing fields for vendor, part number, quantity, estimated cost, and order status
-- Task dependencies with circular-dependency prevention
-- Comments and recent activity history
-- Optimistic conflict protection when two people edit the same task
-- Search, owner, status, priority, parts-only, and hide-completed filters
-- Board health metrics for progress, overdue/blocked work, near-term deadlines, and parts awaiting action
-- Board link sharing and CSV export
-- Responsive layouts for laptop, tablet, and phone use
+## Four planner views
 
-## SponsorFlow features retained
+- **Board** — drag tasks through Backlog, Planned, In progress, Blocked, Review/test, and Done
+- **Timeline** — Gantt-style schedule with milestones, progress, dates, today marker, and dependencies
+- **Table** — compact review of owners, dates, funding/parts, progress, and update history
+- **Insights** — status donut, priority mix, workload by owner, next-eight-week due load, funding pipeline, parts pipeline, and all-team/current-timeline scope
 
-- Name-based request access
-- Verified and member-suggested sponsors
-- Duplicate-outreach warnings
-- Officer comments, revision requests, approval, manual send, and sent history
-- Polished sponsor templates
-- Public club outreach statistics and leaderboards
-- Validated sponsor opportunity catalog
+## Funding task support
 
-## Files
+Funding opportunities now include:
 
-```text
-index.html                    Sponsor outreach portal
-planner.html                  Collaborative project planner
-admin.html                    Redirect to the Apps Script admin dashboard
-assets/config.js              Your Apps Script URL; preserve this during updates
-assets/api.js                 GitHub Pages ↔ Apps Script bridge
-assets/member.js              Sponsor outreach member workflow
-assets/planner.js             Planner boards, timeline, tasks, parts, and comments
-assets/app.css                Shared responsive design system
-apps-script/Code.gs           Backend, Sheet schema, sponsor workflow, and planner API
-apps-script/Admin.html        Officer sponsor-review dashboard
-UPGRADE.md                    Exact v3 → v4 migration instructions
-SECURITY.md                   Privacy, backup, and public-editing guidance
-```
+- Campus / eligibility scope
+- Published or descriptive amount
+- Minimum and maximum value for analytics
+- Official source URL
+- Source-confidence badge
+- Requirements and next action
+- Internal or official date ranges
 
-## Data added to the Google Sheet
+The Finance & Sponsorship timeline is seeded with Purdue opportunities validated July 29, 2026. See `PURDUE-FUNDING-RESEARCH.md`.
 
-Version 4 creates these new tabs without clearing existing sponsor data:
+## Project-management features retained
 
-```text
-Planner Teams
-Planner Boards
-Planner Tasks
-Planner Comments
-Planner Activity
-```
+- Everyone can edit after entering a name
+- Multiple timelines per team
+- Priorities, owners, dates, tags, progress, milestones, and acceptance criteria
+- Parts, vendors, quantities, estimated cost, and purchasing stages
+- Dependencies with circular-dependency prevention
+- Comments and activity history
+- Concurrent-edit conflict protection
+- Search and filters
+- CSV export and board links
 
-## Initial setup
+## Deployment
 
-For a brand-new installation:
+Existing installations should follow `UPGRADE.md`. Preserve `assets/config.js`; it contains the live Apps Script URL.
 
-1. Create a blank Google Sheet.
-2. Open **Extensions → Apps Script**.
-3. Paste `apps-script/Code.gs` into `Code.gs`.
-4. Create an HTML file named `Admin` and paste `apps-script/Admin.html` into it.
-5. Reload the Sheet and run **SponsorFlow → Initial setup**.
-6. Deploy Apps Script as a web app that executes as you and is accessible to **Anyone**.
-7. Paste the `/exec` URL into `assets/config.js`.
-8. Upload the public files to GitHub Pages.
+## Public-editing model
 
-Existing installations should follow [UPGRADE.md](UPGRADE.md).
-
-## Editing model
-
-There is no member authentication. The planner stores the entered editor name with each task change and comment. This is coordination, not identity verification. Anyone who knows the public site URL can potentially view or change planner data.
-
-Use the planner for ordinary club planning only. Do not put passwords, private student information, export-controlled designs, payment-card data, confidential sponsor terms, or sensitive university records into tasks or comments.
+Names provide attribution, not identity verification. Anyone with the site URL can potentially edit planner data. Use the planner for ordinary club coordination. Do not store credentials, payment-card data, private student information, export-controlled designs, or confidential sponsor terms.

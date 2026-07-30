@@ -1,12 +1,12 @@
 /**
  * ASME Indy SponsorFlow — Google Apps Script backend
- * Version 4: sponsor outreach plus collaborative team timelines, task boards,
+ * Version 5: sponsor outreach plus collaborative team timelines, task boards,
  * parts tracking, dependencies, comments, and activity history.
  */
 
 const SF = Object.freeze({
-  VERSION: '4.0.0',
-  RESEARCH_VALIDATED_AT: '2026-07-27',
+  VERSION: '5.0.0',
+  RESEARCH_VALIDATED_AT: '2026-07-29',
   SESSION_SECONDS: 3600,
   SHEETS: {
     CONTACTS: 'Contacts',
@@ -41,8 +41,9 @@ const SF = Object.freeze({
     'Planner Boards': ['id', 'teamId', 'name', 'description', 'targetStart', 'targetEnd', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt'],
     'Planner Tasks': [
       'id', 'boardId', 'title', 'description', 'status', 'priority', 'ownerNames',
-      'startDate', 'dueDate', 'progress', 'isMilestone', 'tags', 'partName',
-      'partNumber', 'vendor', 'quantity', 'estimatedCost', 'orderStatus',
+      'startDate', 'dueDate', 'progress', 'isMilestone', 'tags', 'taskType',
+      'campus', 'fundingMin', 'fundingMax', 'fundingAmountLabel', 'sourceUrl',
+      'sourceConfidence', 'requirements', 'partName', 'partNumber', 'vendor', 'quantity', 'estimatedCost', 'orderStatus',
       'dependencyIds', 'sortOrder', 'commentCount', 'createdBy', 'updatedBy',
       'createdAt', 'updatedAt', 'completedAt', 'archived'
     ],
@@ -513,28 +514,412 @@ const VALIDATED_SPONSORS = [
 ];
 
 const DEFAULT_PLANNER_TEAMS = [
-  { id: 'TEAM-CLUB', name: 'Club-wide', description: 'Shared milestones, events, race deadlines, and cross-team commitments.', icon: 'ASME' },
-  { id: 'TEAM-MECH', name: 'Mechanical', description: 'Chassis, steering, brakes, packaging, mounts, structures, and mechanical validation.', icon: 'MECH' },
-  { id: 'TEAM-ELEC', name: 'Electrical & Controls', description: 'Wiring, controls, instrumentation, safety circuits, data, and electrical integration.', icon: 'ELEC' },
-  { id: 'TEAM-BATT', name: 'Battery Systems', description: 'Cell architecture, containment, busbars, BMS, thermal work, testing, and pack integration.', icon: 'BATT' },
-  { id: 'TEAM-MFG', name: 'Manufacturing & Parts', description: 'Drawings, sourcing, quotes, purchasing readiness, fabrication, and incoming parts.', icon: 'MFG' },
-  { id: 'TEAM-OPS', name: 'Operations & Sponsorship', description: 'Sponsorship, budgeting, documentation, travel, events, media, and team operations.', icon: 'OPS' }
+  { id: 'TEAM-CLUB', name: 'Club-wide', description: 'Shared milestones, race deadlines, design reviews, testing windows, and cross-team commitments.', icon: 'ASME' },
+  { id: 'TEAM-MECH', name: 'Mechanical Design', description: 'CAD, chassis interfaces, steering, brakes, packaging, mounts, structures, and mechanical validation.', icon: 'MECH' },
+  { id: 'TEAM-KART', name: 'Kart Setup', description: 'Assembly, alignment, track setup, ergonomics, tires, brakes, handling, inspection, and race-day readiness.', icon: 'KART' },
+  { id: 'TEAM-ELEC', name: 'Wiring Harness', description: 'Harness architecture, schematics, connectors, safety circuits, sensors, routing, documentation, and validation.', icon: 'WIRE' },
+  { id: 'TEAM-BATT', name: 'Battery', description: 'Cells, containment, busbars, BMS, thermal work, safety review, testing, and pack integration.', icon: 'BATT' },
+  { id: 'TEAM-SOFTWARE', name: 'Software', description: 'Telemetry, embedded code, dashboards, data acquisition, analysis, controls, and test tooling.', icon: 'SW' },
+  { id: 'TEAM-MFG', name: 'Manufacturing Lead', description: 'Design-for-manufacture review, drawings, CAM, sourcing, fabrication, inspection, rework, and incoming parts.', icon: 'MFG' },
+  { id: 'TEAM-OPS', name: 'Finance & Sponsorship', description: 'Purdue funding, sponsor outreach, budgets, purchasing controls, stewardship, travel, and operational reporting.', icon: 'FIN' }
 ];
 
 const DEFAULT_PLANNER_BOARDS = [
-  { id: 'BOARD-CLUB-MASTER', teamId: 'TEAM-CLUB', name: 'Club-wide Milestones', description: 'The master view for major deliverables, race dates, design reviews, testing windows, and handoffs between teams.' },
-  { id: 'BOARD-MECH-ROADMAP', teamId: 'TEAM-MECH', name: 'Mechanical Roadmap', description: 'Plan mechanical design, fabrication, assembly, fit checks, and validation work.' },
-  { id: 'BOARD-ELEC-ROADMAP', teamId: 'TEAM-ELEC', name: 'Electrical & Controls Roadmap', description: 'Coordinate wiring, controls, safety circuits, sensors, testing, and vehicle integration.' },
-  { id: 'BOARD-BATT-ROADMAP', teamId: 'TEAM-BATT', name: 'Battery Systems Roadmap', description: 'Track battery design, procurement, fabrication, BMS integration, safety review, and testing.' },
-  { id: 'BOARD-MFG-PARTS', teamId: 'TEAM-MFG', name: 'Parts & Manufacturing Pipeline', description: 'See which parts need specifications, quotes, purchase approval, fabrication, shipping, and receipt.' },
-  { id: 'BOARD-OPS-ROADMAP', teamId: 'TEAM-OPS', name: 'Operations & Sponsorship Roadmap', description: 'Coordinate fundraising, sponsor fulfillment, budgets, travel, events, and team communications.' }
+  { id: 'BOARD-CLUB-MASTER', teamId: 'TEAM-CLUB', name: 'Club-wide Master Timeline', description: 'Major deliverables, race dates, design reviews, integration gates, testing windows, and cross-team handoffs.' },
+  { id: 'BOARD-MECH-ROADMAP', teamId: 'TEAM-MECH', name: 'Mechanical Design Roadmap', description: 'Plan CAD, reviews, releases, structural work, packaging, fabrication handoffs, assembly, and validation.' },
+  { id: 'BOARD-KART-ROADMAP', teamId: 'TEAM-KART', name: 'Kart Setup & Track Readiness', description: 'Coordinate assembly, setup sheets, alignment, inspection, shakedown testing, transport, and race-day readiness.' },
+  { id: 'BOARD-ELEC-ROADMAP', teamId: 'TEAM-ELEC', name: 'Wiring Harness Redesign', description: 'Coordinate requirements, schematics, connector selection, routing, fabrication, continuity testing, and vehicle integration.' },
+  { id: 'BOARD-BATT-ROADMAP', teamId: 'TEAM-BATT', name: 'Battery Development Roadmap', description: 'Track architecture, safety analysis, procurement, fabrication, BMS integration, validation, and pack commissioning.' },
+  { id: 'BOARD-SOFTWARE-ROADMAP', teamId: 'TEAM-SOFTWARE', name: 'Software & Data Systems', description: 'Plan embedded software, telemetry, dashboards, sensor validation, data analysis, and trackside tooling.' },
+  { id: 'BOARD-MFG-PARTS', teamId: 'TEAM-MFG', name: 'Manufacturing & Fabrication Pipeline', description: 'See which designs need review, drawings, material, quotes, fabrication, inspection, rework, and receipt.' },
+  { id: 'BOARD-OPS-ROADMAP', teamId: 'TEAM-OPS', name: 'Purdue Funding & Sponsorship Calendar', description: 'A research-backed timeline of Purdue funding programs, application work, sponsor activity, budgets, and stewardship.', targetStart: '2026-08-01', targetEnd: '2027-05-15' }
+];
+
+const DEFAULT_FUNDING_TASKS = [
+  {
+    "id": "FUND-READINESS",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Build the 2026\u201327 funding readiness packet",
+    "description": "Internal prerequisite. Create one reusable package before pursuing grants: current club purpose, officer roster, advisor confirmation, project narrative, measurable student impact, itemized budget, alternative funding sources, current account statements, timeline, photos, and a one-page impact summary. Confirm the club is active and in good standing before any submission.",
+    "status": "PLANNED",
+    "priority": "CRITICAL",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-01",
+    "dueDate": "2026-08-21",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "finance, readiness, budget, Purdue",
+    "taskType": "WORK",
+    "campus": "Indianapolis / Purdue-wide",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Prerequisite \u2014 no direct award",
+    "sourceUrl": "https://www.purdue.edu/business/boso/manual/salesTax.php",
+    "sourceConfidence": "OFFICIAL_CURRENT",
+    "requirements": "President and treasurer should review Purdue student-organization financial requirements. Keep contracts, purchases, deposits, reimbursements, and gift handling within the approved Purdue process. Ask Indianapolis Student & Community Engagement which financial office/process applies to your organization.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[]"
+  },
+  {
+    "id": "FUND-INDY-INVENTORY",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Confirm Purdue Indianapolis student-organization funding channels",
+    "description": "Public Purdue Indianapolis pages describe Student & Community Engagement but do not currently publish a complete student-organization grant catalog or dollar caps. Use this task to obtain the current Indianapolis funding inventory, application routes, activity-fee eligibility, and officer training requirements directly from campus staff and the PSG Vice President Indianapolis. This is an internal target, not a published grant deadline.",
+    "status": "PLANNED",
+    "priority": "CRITICAL",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-03",
+    "dueDate": "2026-08-28",
+    "progress": "0",
+    "isMilestone": "true",
+    "tags": "Indianapolis, Purdue, verification, finance",
+    "taskType": "FUNDING",
+    "campus": "Indianapolis",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Amount not publicly posted",
+    "sourceUrl": "https://www.purdue.edu/indianapolis/office-of-student-and-community-engagement/",
+    "sourceConfidence": "CONTACT_REQUIRED",
+    "requirements": "Ask for: current grant names; dollar limits; eligible expenses; application windows; whether SOGA/SFAB/PESC apply to Indianapolis organizations; how donations and contracts are processed; and the correct staff contact. Record the written response in a task comment.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\"]"
+  },
+  {
+    "id": "FUND-PESC-MERIT",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "PESC / PEPC Merit Fund \u2014 confirm next engineering-organization cycle",
+    "description": "PESC says Merit Fund is typically offered in fall and spring for student-run Purdue engineering organizations. It supports one-time future project costs tied to engineering impact; past guidance excludes catering social events and logo wear. The 2026 application is currently closed, so the dates below are internal monitoring targets rather than an official deadline.",
+    "status": "PLANNED",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-10",
+    "dueDate": "2026-09-04",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "PESC, PEPC, engineering, grant, verify cycle",
+    "taskType": "FUNDING",
+    "campus": "Purdue Engineering \u2014 confirm Indianapolis eligibility",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Variable; no public award cap",
+    "sourceUrl": "https://www.purdueesc.org/scholarships",
+    "sourceConfidence": "OFFICIAL_NO_CURRENT_DEADLINE",
+    "requirements": "Confirm Indianapolis eligibility with PESC/PEPC. Prepare a one-time project-cost request, engineering impact statement, itemized budget, interview talking points, and evidence the project builds engineering knowledge or interest. A 2023 Purdue report said 21 organizations shared $12,600 and requests ranged from $300 to $8,700; that is historical context, not a current cap.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\"]"
+  },
+  {
+    "id": "FUND-SOGA",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "SOGA \u2014 verify the 2026\u201327 cycle before preparing an application",
+    "description": "SOGA supports West Lafayette student organizations registered with Student Activities & Organizations. Purdue guidance lists grants of $8,000 or less. Campus-open events are prioritized most; equipment and supplies are lowest in the published priority order. The public page currently shows the last 2025\u201326 period deadline (March 30, 2026), so this task uses an internal check date until 2026\u201327 dates are posted.",
+    "status": "PLANNED",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-10",
+    "dueDate": "2026-09-04",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "SOGA, West Lafayette, grant, verify cycle",
+    "taskType": "FUNDING",
+    "campus": "West Lafayette only",
+    "fundingMin": "",
+    "fundingMax": "8000",
+    "fundingAmountLabel": "Up to $8,000",
+    "sourceUrl": "https://purdue.campuslabs.com/engage/organization/soga",
+    "sourceConfidence": "OFFICIAL_NO_CURRENT_DEADLINE",
+    "requirements": "Confirm whether the Indianapolis club is eligible or must partner with a West Lafayette organization. Apply through the organization finance page. Build a student-community benefit case and itemized budget. Purdue AAE guidance says organizations should not receive both SOGA and SFAB funding for the same cycle/request; verify the current rule in the guidelines.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\",\"FUND-INDY-INVENTORY\"]"
+  },
+  {
+    "id": "FUND-SERVICE-LEARNING",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Community Service / Service-Learning Student Grant",
+    "description": "Purdue's Office of Engagement has funded student and student-organization projects conducted with communities, nonprofits, schools, or government partners. Purdue guidance lists up to $1,500 for a team or organization and has stated that students from regional campuses may apply. A current 2026\u201327 deadline was not publicly posted when this timeline was validated; the due date is an internal concept-development target.",
+    "status": "PLANNED",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-17",
+    "dueDate": "2026-10-01",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "service learning, Indianapolis, engagement, grant",
+    "taskType": "FUNDING",
+    "campus": "Purdue-wide; regional campuses included in published guidance",
+    "fundingMin": "100",
+    "fundingMax": "1500",
+    "fundingAmountLabel": "$100\u2013$1,500",
+    "sourceUrl": "https://www.purdue.edu/newsroom/purduetoday/releases/2022/Q3/grants-available-to-students-for-community-service-projects.html",
+    "sourceConfidence": "OFFICIAL_NO_CURRENT_DEADLINE",
+    "requirements": "Identify a real community partner and co-defined need. Describe how students use engineering knowledge to provide a service, the learning outcomes, community impact, budget, dates, partner role, and evaluation plan. Contact Purdue Engagement to confirm the current application window and whether an EV/mobility, K\u201312, or community engineering project fits.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\"]"
+  },
+  {
+    "id": "FUND-PSG-COSPONSOR",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "PSG Co-Sponsorship Award \u2014 verify current availability",
+    "description": "An official Purdue engineering funding guide describes PSG co-sponsorship awards of up to $500 for equipment, food, travel, or space tied to an event, with applications recommended at least four weeks in advance. This information is older and a current public application page was not found, so do not count this as open until PSG confirms it.",
+    "status": "BACKLOG",
+    "priority": "MEDIUM",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-17",
+    "dueDate": "2026-09-11",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "PSG, event, co-sponsorship, verify",
+    "taskType": "FUNDING",
+    "campus": "West Lafayette \u2014 confirm Indianapolis access",
+    "fundingMin": "",
+    "fundingMax": "500",
+    "fundingAmountLabel": "Historically up to $500; verify current program",
+    "sourceUrl": "https://engineering.purdue.edu/AAE/foryou/currentstudents/student-org-funding-sources",
+    "sourceConfidence": "VERIFY_CURRENT",
+    "requirements": "Email Purdue Student Government and ask whether the award still exists, who is eligible, current categories, application route, meeting schedule, lead time, and whether Indianapolis organizations can apply. Only move this task to Planned after written confirmation.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-INDY-INVENTORY\"]"
+  },
+  {
+    "id": "FUND-PSG-JOINT",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "PSG Joint-Network Co-Sponsorship \u2014 verify current program",
+    "description": "An official Purdue engineering funding guide describes joint-network awards between $500 and $2,500 for collaborative events benefiting the Purdue community, with substantial planning and audit involvement. Current public availability was not confirmed, so this is a verification task rather than an active application.",
+    "status": "BACKLOG",
+    "priority": "LOW",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-08-17",
+    "dueDate": "2026-09-11",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "PSG, collaboration, event, verify",
+    "taskType": "FUNDING",
+    "campus": "West Lafayette \u2014 confirm Indianapolis access",
+    "fundingMin": "500",
+    "fundingMax": "2500",
+    "fundingAmountLabel": "Historically $500\u2013$2,500; verify current program",
+    "sourceUrl": "https://engineering.purdue.edu/AAE/foryou/currentstudents/student-org-funding-sources",
+    "sourceConfidence": "VERIFY_CURRENT",
+    "requirements": "Identify a partner organization and a campus-benefit event concept, then ask PSG whether the program is currently active, whether Indianapolis organizations qualify, and what Senate/meeting lead time applies.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-INDY-INVENTORY\"]"
+  },
+  {
+    "id": "FUND-CROWDFUNDING",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Purdue for Life crowdfunding campaign intake",
+    "description": "Purdue for Life operates a Purdue crowdfunding platform used by student clubs and projects. Public pages provide a contact route but do not publish a standard award or campaign cap. Treat the date as an internal outreach target and ask Purdue for Life whether ASME Indy can launch a campaign, what fund designation is required, and what approvals and content are needed.",
+    "status": "PLANNED",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-09-01",
+    "dueDate": "2026-09-30",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "crowdfunding, Purdue for Life, alumni, Indianapolis",
+    "taskType": "FUNDING",
+    "campus": "Purdue-wide; confirm organization onboarding",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Variable / donor-driven",
+    "sourceUrl": "https://crowdfunding.purdue.edu/about",
+    "sourceConfidence": "CONTACT_REQUIRED",
+    "requirements": "Contact crowdfunding@purdueforlife.org. Ask about eligibility, fund/account setup, campaign length, approval lead time, gift processing, tax receipts, donor data access, images/video requirements, matching gifts, and post-campaign stewardship. Prepare a specific funding goal and donor story before intake.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\"]"
+  },
+  {
+    "id": "FUND-PDOG",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Purdue Day of Giving 2027 participation plan",
+    "description": "Purdue Day of Giving is a 24-hour online fundraiser with unit and student-organization participation, donor leaderboards, and challenge bonus money. An Autonomous RC Club at Purdue Indy had a 2026 campaign page, demonstrating Indianapolis student-team participation. The 2027 event date and onboarding deadline were not posted when validated; these are internal preparation dates.",
+    "status": "PLANNED",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-10-01",
+    "dueDate": "2026-12-15",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "Purdue Day of Giving, alumni, fundraising, Indianapolis",
+    "taskType": "FUNDING",
+    "campus": "West Lafayette and Indianapolis participation observed",
+    "fundingMin": "10",
+    "fundingMax": "",
+    "fundingAmountLabel": "Variable donations + challenge bonuses; $10 minimum gift in 2026",
+    "sourceUrl": "https://dayofgiving.purdue.edu/info/faq",
+    "sourceConfidence": "OFFICIAL_NO_CURRENT_DEADLINE",
+    "requirements": "Contact purduedayofgiving@purdue.edu to confirm 2027 participation and onboarding. Secure the proper fund designation, define a public goal, prepare photos/video and impact metrics, build an alumni/family contact plan, assign challenge monitoring, and schedule donor thank-yous. Do not promise a challenge award; bonus amounts depend on that year's rules and leaderboard results.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\",\"FUND-CROWDFUNDING\"]"
+  },
+  {
+    "id": "FUND-SFAB-APP",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "SFAB 2027 application \u2014 select a $15,000\u2013$100,000 student-body impact request",
+    "description": "The current SFAB page says the application will be available by November 1, 2026 and is due February 1, 2027 at 11:55 p.m. One application is allowed per organization/department, with a minimum request of $15,000 and maximum of $100,000. This is the largest verified internal opportunity in this timeline, but it is designed for broad undergraduate student impact rather than routine club operating costs.",
+    "status": "PLANNED",
+    "priority": "CRITICAL",
+    "ownerNames": "Finance Team",
+    "startDate": "2026-11-01",
+    "dueDate": "2027-02-01",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "SFAB, West Lafayette, major grant, official deadline",
+    "taskType": "FUNDING",
+    "campus": "West Lafayette undergraduate student-fee program",
+    "fundingMin": "15000",
+    "fundingMax": "100000",
+    "fundingAmountLabel": "$15,000\u2013$100,000",
+    "sourceUrl": "https://boilerlink.purdue.edu/organization/sfab",
+    "sourceConfidence": "OFFICIAL_CURRENT",
+    "requirements": "Email sfab@purdue.edu for the current guidelines. Define a request with student body-wide value, measurable outcomes, sustainable ownership, detailed quotes/budget, and a strong presentation case. Confirm campus and organization eligibility before investing heavily. Purdue AAE guidance says SFAB and SOGA funding should not be combined; verify the current restriction.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-READINESS\",\"FUND-INDY-INVENTORY\"]"
+  },
+  {
+    "id": "FUND-SFAB-SUPPORT",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "SFAB supporting files \u2014 deck, letters, and account statements",
+    "description": "Current SFAB instructions require PowerPoint files by February 5, 2027 at 5:00 p.m. via attachment. Letters of support for capital improvements and/or bank statements are also due at that time. The published account-statement window is July 1, 2025 through December 31, 2026. Missing required materials can jeopardize funding.",
+    "status": "PLANNED",
+    "priority": "CRITICAL",
+    "ownerNames": "Finance Team",
+    "startDate": "2027-02-02",
+    "dueDate": "2027-02-05",
+    "progress": "0",
+    "isMilestone": "true",
+    "tags": "SFAB, presentation, documents, official deadline",
+    "taskType": "WORK",
+    "campus": "West Lafayette",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Supports $15,000\u2013$100,000 application",
+    "sourceUrl": "https://boilerlink.purdue.edu/organization/sfab",
+    "sourceConfidence": "OFFICIAL_CURRENT",
+    "requirements": "Submit the deck as a PowerPoint attachment, not a link. Include the exact required letters/account statements, verify every quote and total, and retain delivery confirmation. Assign one officer to final compliance review before 5:00 p.m.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-SFAB-APP\"]"
+  },
+  {
+    "id": "FUND-SFAB-PRESENT",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "SFAB presentation and Q&A readiness",
+    "description": "SFAB presentations are scheduled for a weekend in February 2027; the exact date was not yet announced. The public page says the presentation schedule will be sent by the end of the business day February 8, 2027. This task uses a February window and should be updated when the official slot arrives.",
+    "status": "PLANNED",
+    "priority": "CRITICAL",
+    "ownerNames": "Finance Team",
+    "startDate": "2027-02-06",
+    "dueDate": "2027-02-28",
+    "progress": "0",
+    "isMilestone": "true",
+    "tags": "SFAB, presentation, Q&A",
+    "taskType": "MEETING",
+    "campus": "West Lafayette",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Decision stage for $15,000\u2013$100,000 request",
+    "sourceUrl": "https://boilerlink.purdue.edu/organization/sfab",
+    "sourceConfidence": "OFFICIAL_CURRENT",
+    "requirements": "Rehearse a concise problem, student impact, implementation, budget, stewardship, risk, and sustainability narrative. Prepare answers on who benefits, why this cannot be covered by current funds, quotes, ongoing costs, ownership, storage, maintenance, and evaluation.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[\"FUND-SFAB-SUPPORT\"]"
+  },
+  {
+    "id": "FUND-STEWARDSHIP",
+    "boardId": "BOARD-OPS-ROADMAP",
+    "title": "Award closeout, sponsor stewardship, and impact reporting system",
+    "description": "Create one closeout workflow for every Purdue award and donor-funded campaign: approval documentation, restricted-use tracking, receipts, before/after photos, student participation, technical outputs, thank-you messages, sponsor benefits, and a concise impact report. This reduces audit risk and improves future applications.",
+    "status": "BACKLOG",
+    "priority": "HIGH",
+    "ownerNames": "Finance Team",
+    "startDate": "2027-03-01",
+    "dueDate": "2027-05-15",
+    "progress": "0",
+    "isMilestone": "false",
+    "tags": "stewardship, reporting, finance, impact",
+    "taskType": "WORK",
+    "campus": "Purdue-wide",
+    "fundingMin": "",
+    "fundingMax": "",
+    "fundingAmountLabel": "Protects all awarded funds",
+    "sourceUrl": "https://www.purdue.edu/business/boso/manual/salesTax.php",
+    "sourceConfidence": "OFFICIAL_CURRENT",
+    "requirements": "For each award, record restrictions, approved budget, spending route, receipts, deliverables, recognition promises, reporting dates, responsible officer, and fund balance. Store public-safe impact evidence separately from confidential financial records.",
+    "partName": "",
+    "partNumber": "",
+    "vendor": "",
+    "quantity": "",
+    "estimatedCost": "",
+    "orderStatus": "NOT_NEEDED",
+    "dependencyIds": "[]"
+  }
 ];
 
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('SponsorFlow')
     .addItem('Initial setup', 'showInitialSetup')
-    .addItem('Upgrade to v4 + project planner', 'upgradeSponsorFlowV4')
+    .addItem('Upgrade to v5 + team planner & funding calendar', 'upgradeSponsorFlowV5')
     .addItem('Import or refresh validated sponsors', 'seedValidatedSponsors')
     .addItem('Refresh polished templates', 'refreshPolishedTemplates')
     .addItem('Change admin password', 'showChangeAdminPassword')
@@ -566,7 +951,21 @@ function showInitialSetup() {
   refreshDefaultTemplates_();
   seedValidatedSponsors_();
   seedDefaultPlannerStructure_();
-  ui.alert('SponsorFlow setup is complete. Sponsor opportunities and the collaborative project planner were added. Next, deploy this script as a web app.');
+  ui.alert('SponsorFlow setup is complete. Sponsor opportunities, team workspaces, analytics, and the Purdue funding calendar were added. Next, deploy this script as a web app.');
+}
+
+function upgradeSponsorFlowV5() {
+  setupSponsorFlow_();
+  refreshDefaultTemplates_();
+  const sponsorResult = seedValidatedSponsors_();
+  const plannerResult = seedDefaultPlannerStructure_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow was upgraded to version 5. Existing sponsor and planner data were preserved. ` +
+    `${plannerResult.teamsCreated} teams were added, ${plannerResult.teamsUpdated} default teams were polished, ` +
+    `${plannerResult.boardsCreated} timelines were added, ${plannerResult.boardsUpdated} default timelines were polished, ` +
+    `and ${plannerResult.tasksCreated} funding tasks were added / ${plannerResult.tasksUpdated} research records refreshed. ` +
+    `${sponsorResult.created} sponsor opportunities were added and ${sponsorResult.updated} refreshed.`
+  );
 }
 
 function upgradeSponsorFlowV4() {
@@ -1435,29 +1834,69 @@ function seedDefaultPlannerStructure_() {
   ensureSchema_();
   const now = nowIso_();
   let teamsCreated = 0;
+  let teamsUpdated = 0;
   let boardsCreated = 0;
+  let boardsUpdated = 0;
+  let tasksCreated = 0;
+  let tasksUpdated = 0;
 
   DEFAULT_PLANNER_TEAMS.forEach(team => {
-    if (findObjectById_(SF.SHEETS.PLANNER_TEAMS, team.id)) return;
-    appendObject_(SF.SHEETS.PLANNER_TEAMS, Object.assign({}, team, {
-      active: 'true', createdBy: 'SponsorFlow setup', updatedBy: 'SponsorFlow setup',
-      createdAt: now, updatedAt: now
-    }));
-    teamsCreated += 1;
+    const existing = findObjectById_(SF.SHEETS.PLANNER_TEAMS, team.id);
+    if (existing) {
+      updateObjectById_(SF.SHEETS.PLANNER_TEAMS, team.id, Object.assign({}, team, { active: 'true', updatedBy: 'SponsorFlow v5 migration', updatedAt: now }));
+      teamsUpdated += 1;
+    } else {
+      appendObject_(SF.SHEETS.PLANNER_TEAMS, Object.assign({}, team, {
+        active: 'true', createdBy: 'SponsorFlow setup', updatedBy: 'SponsorFlow setup',
+        createdAt: now, updatedAt: now
+      }));
+      teamsCreated += 1;
+    }
   });
 
   DEFAULT_PLANNER_BOARDS.forEach(board => {
-    if (findObjectById_(SF.SHEETS.PLANNER_BOARDS, board.id)) return;
-    appendObject_(SF.SHEETS.PLANNER_BOARDS, Object.assign({}, board, {
-      targetStart: '', targetEnd: '', active: 'true',
-      createdBy: 'SponsorFlow setup', updatedBy: 'SponsorFlow setup',
-      createdAt: now, updatedAt: now
-    }));
-    boardsCreated += 1;
+    const existing = findObjectById_(SF.SHEETS.PLANNER_BOARDS, board.id);
+    const record = Object.assign({}, board, {
+      targetStart: board.targetStart || (existing ? existing.targetStart : ''),
+      targetEnd: board.targetEnd || (existing ? existing.targetEnd : ''),
+      active: 'true', updatedBy: 'SponsorFlow v5 migration', updatedAt: now
+    });
+    if (existing) {
+      updateObjectById_(SF.SHEETS.PLANNER_BOARDS, board.id, record);
+      boardsUpdated += 1;
+    } else {
+      appendObject_(SF.SHEETS.PLANNER_BOARDS, Object.assign({}, record, { createdBy: 'SponsorFlow setup', createdAt: now }));
+      boardsCreated += 1;
+    }
+  });
+
+  DEFAULT_FUNDING_TASKS.forEach(task => {
+    const existing = findObjectById_(SF.SHEETS.PLANNER_TASKS, task.id);
+    const researchFields = {
+      boardId: task.boardId, title: task.title, description: task.description, tags: task.tags,
+      taskType: task.taskType, campus: task.campus, fundingMin: task.fundingMin,
+      fundingMax: task.fundingMax, fundingAmountLabel: task.fundingAmountLabel,
+      sourceUrl: task.sourceUrl, sourceConfidence: task.sourceConfidence,
+      requirements: task.requirements, isMilestone: task.isMilestone,
+      dependencyIds: task.dependencyIds, updatedBy: 'SponsorFlow v5 research', updatedAt: now,
+      archived: 'false'
+    };
+    if (existing) {
+      updateObjectById_(SF.SHEETS.PLANNER_TASKS, task.id, researchFields);
+      tasksUpdated += 1;
+    } else {
+      appendObject_(SF.SHEETS.PLANNER_TASKS, Object.assign({}, task, {
+        sortOrder: String(Date.now() + tasksCreated), commentCount: '0',
+        createdBy: 'SponsorFlow v5 research', updatedBy: 'SponsorFlow v5 research',
+        createdAt: now, updatedAt: now, completedAt: '', archived: 'false'
+      }));
+      appendPlannerActivity_(task.id, task.boardId, 'TASK_CREATED', 'SponsorFlow v5 research', `${task.title} · research-backed funding calendar`);
+      tasksCreated += 1;
+    }
   });
 
   PropertiesService.getScriptProperties().setProperty('PLANNER_SCHEMA_VERSION', SF.VERSION);
-  return { teamsCreated: teamsCreated, boardsCreated: boardsCreated };
+  return { teamsCreated, teamsUpdated, boardsCreated, boardsUpdated, tasksCreated, tasksUpdated };
 }
 
 function plannerBootstrap_() {
@@ -1569,12 +2008,17 @@ function savePlannerTask_(p) {
     requireFreshPlannerRecord_(existing, p.expectedUpdatedAt);
 
     const id = existingId || makePlannerId_('TASK', SF.SHEETS.PLANNER_TASKS);
+    const taskType = requirePlannerChoice_(p.taskType || 'WORK', ['WORK', 'FUNDING', 'PURCHASE', 'MEETING'], 'task type');
     const status = requirePlannerChoice_(p.status, ['BACKLOG', 'PLANNED', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE'], 'task status');
     const priority = requirePlannerChoice_(p.priority, ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], 'priority');
+    const sourceConfidence = requirePlannerChoice_(p.sourceConfidence || 'TEAM_ENTERED', ['OFFICIAL_CURRENT', 'OFFICIAL_NO_CURRENT_DEADLINE', 'VERIFY_CURRENT', 'CONTACT_REQUIRED', 'TEAM_ENTERED'], 'source confidence');
     const orderStatus = requirePlannerChoice_(p.orderStatus || 'NOT_NEEDED', ['NOT_NEEDED', 'NEEDS_SPEC', 'NEEDS_QUOTE', 'READY_TO_ORDER', 'ORDERED', 'SHIPPED', 'RECEIVED'], 'order status');
     const startDate = optionalIsoDate_(p.startDate, 'Start date');
     const dueDate = optionalIsoDate_(p.dueDate, 'Due date');
     if (startDate && dueDate && dueDate < startDate) throw new Error('Due date must be on or after the start date.');
+    const fundingMinValue = String(p.fundingMin == null ? '' : p.fundingMin).trim() === '' ? null : Number(p.fundingMin);
+    const fundingMaxValue = String(p.fundingMax == null ? '' : p.fundingMax).trim() === '' ? null : Number(p.fundingMax);
+    if (fundingMinValue != null && fundingMaxValue != null && fundingMaxValue < fundingMinValue) throw new Error('Funding maximum must be at least the funding minimum.');
 
     const dependencies = parsePlannerIdList_(p.dependencyIds, 80);
     if (dependencies.indexOf(id) !== -1) throw new Error('A task cannot depend on itself.');
@@ -1597,6 +2041,14 @@ function savePlannerTask_(p) {
       progress: String(progress),
       isMilestone: String(toBool_(p.isMilestone)),
       tags: normalizePlannerList_(p.tags, 300),
+      taskType: taskType,
+      campus: optionalText_(p.campus, 120),
+      fundingMin: plannerOptionalNumber_(p.fundingMin, 'Funding minimum', 0, 10000000, false),
+      fundingMax: plannerOptionalNumber_(p.fundingMax, 'Funding maximum', 0, 10000000, false),
+      fundingAmountLabel: optionalText_(p.fundingAmountLabel, 160),
+      sourceUrl: optionalUrl_(p.sourceUrl),
+      sourceConfidence: sourceConfidence,
+      requirements: optionalText_(p.requirements, 3000),
       partName: optionalText_(p.partName, 180),
       partNumber: optionalText_(p.partNumber, 120),
       vendor: optionalText_(p.vendor, 160),
@@ -1630,6 +2082,7 @@ function movePlannerTask_(p) {
     const task = findObjectById_(SF.SHEETS.PLANNER_TASKS, taskId);
     if (!task || toBool_(task.archived)) throw new Error('Task not found. Refresh the planner and try again.');
     requireFreshPlannerRecord_(task, p.expectedUpdatedAt);
+    const taskType = requirePlannerChoice_(p.taskType || 'WORK', ['WORK', 'FUNDING', 'PURCHASE', 'MEETING'], 'task type');
     const status = requirePlannerChoice_(p.status, ['BACKLOG', 'PLANNED', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE'], 'task status');
     const now = nowIso_();
     const previous = task.status;
@@ -1736,6 +2189,14 @@ function plannerTaskPublic_(row, commentCount) {
     progress: Number(row.progress || 0),
     isMilestone: toBool_(row.isMilestone),
     tags: row.tags || '',
+    taskType: row.taskType || 'WORK',
+    campus: row.campus || '',
+    fundingMin: row.fundingMin === '' ? '' : Number(row.fundingMin),
+    fundingMax: row.fundingMax === '' ? '' : Number(row.fundingMax),
+    fundingAmountLabel: row.fundingAmountLabel || '',
+    sourceUrl: row.sourceUrl || '',
+    sourceConfidence: row.sourceConfidence || 'TEAM_ENTERED',
+    requirements: row.requirements || '',
     partName: row.partName || '',
     partNumber: row.partNumber || '',
     vendor: row.vendor || '',
@@ -1789,6 +2250,8 @@ function summarizeTaskChanges_(before, after) {
   const labels = {
     title: 'title', description: 'description', status: 'status', priority: 'priority', ownerNames: 'owners',
     startDate: 'start date', dueDate: 'due date', progress: 'progress', isMilestone: 'milestone', tags: 'tags',
+    taskType: 'task type', campus: 'campus', fundingMin: 'funding minimum', fundingMax: 'funding maximum',
+    fundingAmountLabel: 'funding label', sourceUrl: 'source URL', sourceConfidence: 'source confidence', requirements: 'requirements',
     partName: 'part', partNumber: 'part number', vendor: 'vendor', quantity: 'quantity', estimatedCost: 'estimated cost',
     orderStatus: 'order status', dependencyIds: 'dependencies'
   };

@@ -51,3 +51,8 @@ Recommended controls:
 ## Backups
 
 Before major updates, use **File → Make a copy** in Google Sheets. For routine recovery, retain periodic copies or export the planner tabs to CSV.
+
+
+## Funding research fields
+
+Funding tasks may contain public Purdue program links, eligibility notes, and budget ranges. Do not paste private bank statements, tax identifiers, donor lists, confidential award letters, passwords, or payment information into planner tasks or comments. Store those in an access-controlled Purdue-approved location.

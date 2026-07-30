@@ -1,110 +1,82 @@
-# Upgrade SponsorFlow to version 4
+# Upgrade SponsorFlow to version 5
 
-This update preserves existing contacts, templates, sponsor requests, revisions, audit history, and statistics. It adds the collaborative project planner and five new Sheet tabs.
+Version 5 preserves existing sponsor and planner data. It adds the requested team structure, a research-backed Purdue funding calendar, funding-specific task fields, an Insights dashboard, and larger/cleaner controls.
 
-## 1. Back up the Google Sheet
+## 1. Make a backup
 
-Open the SponsorFlow Sheet and choose:
+Open the SponsorFlow Google Sheet and choose:
 
 ```text
 File → Make a copy
 ```
 
-Keep the copy until the v4 planner has been tested.
-
 ## 2. Update GitHub Pages
 
-Upload or replace these files in the repository:
+Upload/replace the files from the v5 update ZIP.
+
+**Do not replace `assets/config.js`.** The update ZIP intentionally excludes it, preserving your working Apps Script `/exec` URL.
+
+Commit to `main`, then wait for **Actions → pages build and deployment** to finish.
+
+## 3. Replace Apps Script
+
+Open:
 
 ```text
-index.html
-admin.html
-planner.html
-assets/app.css
-assets/api.js
-assets/member.js
-assets/planner.js
-README.md
-SECURITY.md
-UPGRADE.md
+Google Sheet → Extensions → Apps Script
 ```
 
-**Do not replace `assets/config.js`.** It contains your working Apps Script `/exec` URL. The drop-in v4 update ZIP intentionally excludes that file.
+Replace all of `Code.gs` with `apps-script/Code.gs`. `Admin.html` may also be replaced, although its sponsor-review workflow is unchanged.
 
-Commit the files to `main`, then wait for **Actions → pages build and deployment** to finish with a green check.
+## 4. Run the migration
 
-## 3. Update Apps Script
-
-Open the SponsorFlow Google Sheet and choose:
+Reload the Sheet and choose:
 
 ```text
-Extensions → Apps Script
+SponsorFlow → Upgrade to v5 + team planner & funding calendar
 ```
 
-Replace all content in `Code.gs` with the v4 `apps-script/Code.gs` source and click **Save**.
+The migration:
 
-`Admin.html` can also be replaced with the included file, although the sponsor-review dashboard itself is unchanged in this release.
-
-## 4. Run the v4 migration
-
-Reload the Google Sheet so the SponsorFlow menu refreshes. Choose:
-
-```text
-SponsorFlow → Upgrade to v4 + project planner
-```
-
-The migration will:
-
-- Preserve every existing sponsor row
-- Add the five planner tabs
-- Add six starter teams
-- Add one starter timeline for each team
-- Refresh the built-in sponsor templates and validated sponsor catalog
-- Leave existing contacts and officer choices intact
-
-The starter teams and timelines can be renamed or expanded from the planner’s **Teams & timelines** button.
+- Preserves sponsor requests, contacts, comments, revisions, planner comments, and activity
+- Renames the original default workspaces into the requested teams
+- Adds **Kart Setup** and **Software** teams
+- Creates/updates timelines for Mechanical Design, Kart Setup, Wiring Harness, Battery, Software, Manufacturing Lead, Finance & Sponsorship, and Club-wide work
+- Adds funding metadata columns to Planner Tasks
+- Seeds the Purdue Funding & Sponsorship Calendar
+- Refreshes system-seeded research metadata without resetting user status, owners, progress, or comments
 
 ## 5. Redeploy Apps Script
 
-Saving code does not update the live web-app version.
-
-Choose:
+Saving does not update the live deployment:
 
 ```text
-Deploy → Manage deployments
+Deploy → Manage deployments → pencil icon → New version → Deploy
 ```
 
-Then:
+Keep the same `/exec` URL.
 
-1. Click the pencil icon beside the current deployment.
-2. Choose **New version**.
-3. Click **Deploy**.
+## 6. Hard refresh the site
 
-Keep the same deployment and `/exec` URL. No `config.js` change is required.
-
-## 6. Refresh GitHub Pages
-
-After the Pages action succeeds, open the site and hard-refresh:
+After GitHub Pages finishes:
 
 ```text
 Command + Shift + R
 ```
 
-Open **Project planner** from the navigation.
+Open **Project planner**, choose **Finance & Sponsorship**, and select **Purdue Funding & Sponsorship Calendar**.
 
-## 7. Recommended test
+## 7. Test checklist
 
-1. Enter your full name.
-2. Open **Teams & timelines** and confirm the six starter teams appear.
-3. Select **Battery Systems Roadmap**.
-4. Add a task with owners, priority, dates, and a part requiring a quote.
-5. Add a second task that depends on the first.
-6. Drag the first task from Planned to In progress.
-7. Open the Timeline view and confirm both tasks appear.
-8. Add a comment and verify it appears in task history.
-9. Open the site in another browser, edit the same task, and confirm changes are shared.
-10. Export the board CSV.
+1. Confirm the requested teams appear.
+2. Open the Finance timeline and verify the seeded opportunity tasks.
+3. Open a funding task and confirm amount, campus, source confidence, source URL, and requirements appear.
+4. Open **Insights** and switch between Current timeline and All teams.
+5. Confirm the status donut, priority bars, workload, due-week chart, funding pipeline, and parts pipeline render.
+6. Create a new funding opportunity and save it.
+7. Create a purchase task and verify the parts pipeline updates.
+8. Drag a task on the board and confirm the larger controls work on laptop and phone.
 
-## Public editing tradeoff
+## Accuracy note
 
-The planner intentionally has no individual login. Entered names provide attribution but are not verified identities. Anyone with the site URL can edit. Keep routine project data in the planner, retain a Sheet backup, and restrict direct access to the underlying Google Sheet to officers or trusted maintainers.
+Several programs do not yet publish 2026–27 deadlines. SponsorFlow marks them clearly and uses internal preparation targets rather than presenting invented deadlines. Review `PURDUE-FUNDING-RESEARCH.md` for the source and confidence of each seeded opportunity.

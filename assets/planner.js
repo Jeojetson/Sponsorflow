@@ -19,6 +19,19 @@
     { id: "MEDIUM", label: "Medium" },
     { id: "LOW", label: "Low" }
   ];
+  const TASK_TYPE = [
+    { id: "WORK", label: "Work item" },
+    { id: "FUNDING", label: "Funding opportunity" },
+    { id: "PURCHASE", label: "Purchase / part" },
+    { id: "MEETING", label: "Review / meeting" }
+  ];
+  const SOURCE_CONFIDENCE = [
+    { id: "OFFICIAL_CURRENT", label: "Official · current details" },
+    { id: "OFFICIAL_NO_CURRENT_DEADLINE", label: "Official · deadline not posted" },
+    { id: "VERIFY_CURRENT", label: "Official older guidance · verify" },
+    { id: "CONTACT_REQUIRED", label: "Contact Purdue for details" },
+    { id: "TEAM_ENTERED", label: "Team-entered information" }
+  ];
   const ORDER_STATUS = [
     { id: "NOT_NEEDED", label: "Not a purchase" },
     { id: "NEEDS_SPEC", label: "Needs specification" },
@@ -40,7 +53,8 @@
     view: "board",
     loading: false,
     taskDetail: null,
-    draggedTaskId: ""
+    draggedTaskId: "",
+    insightsScope: "board"
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -59,9 +73,11 @@
   function populateStaticOptions() {
     $("#statusFilter").innerHTML += STATUS.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#priorityFilter").innerHTML += PRIORITY.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
+    $("#taskType").innerHTML = TASK_TYPE.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#taskStatus").innerHTML = STATUS.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#taskPriority").innerHTML = PRIORITY.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
     $("#taskOrderStatus").innerHTML = ORDER_STATUS.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
+    $("#taskSourceConfidence").innerHTML = SOURCE_CONFIDENCE.map(item => `<option value="${item.id}">${item.label}</option>`).join("");
   }
 
   function bindEvents() {
@@ -92,6 +108,7 @@
     });
     $("#clearPlannerFilters").addEventListener("click", clearFilters);
     $("#timelineScale").addEventListener("change", renderGantt);
+    $("#insightsScope").addEventListener("change", event => { state.insightsScope = event.currentTarget.value; renderInsights(); });
 
     $("#teamForm").addEventListener("submit", saveTeam);
     $("#boardForm").addEventListener("submit", saveBoard);
@@ -102,8 +119,8 @@
     $("#taskForm").addEventListener("submit", saveTask);
     $("#archiveTaskButton").addEventListener("click", archiveTask);
     $("#addTaskCommentButton").addEventListener("click", addTaskComment);
-    ["taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone"].forEach(id => {
-      $("#" + id).addEventListener("change", updateTaskHealthPreview);
+    ["taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone", "taskSourceConfidence"].forEach(id => {
+      $("#" + id).addEventListener("change", () => { updateFundingEditor(); updateTaskHealthPreview(); });
     });
 
     $$('[data-close-dialog]').forEach(button => button.addEventListener("click", () => {
@@ -252,7 +269,7 @@
     const partsOnly = $("#partsOnlyFilter").checked;
     const hideDone = $("#hideDoneFilter").checked;
     return boardTasks().filter(task => {
-      const haystack = [task.title, task.description, task.ownerNames, task.tags, task.partName, task.partNumber, task.vendor].join(" ").toLowerCase();
+      const haystack = [task.title, task.description, task.ownerNames, task.tags, task.partName, task.partNumber, task.vendor, task.campus, task.fundingAmountLabel, task.requirements].join(" ").toLowerCase();
       if (search && !haystack.includes(search)) return false;
       if (status && task.status !== status) return false;
       if (priority && task.priority !== priority) return false;
@@ -285,6 +302,7 @@
     renderKanban();
     renderGantt();
     renderTaskTable();
+    renderInsights();
   }
 
   function renderOwnerFilter() {
@@ -303,13 +321,19 @@
     const dueSoon = tasks.filter(task => task.status !== "DONE" && task.dueDate && task.dueDate >= now && daysBetween(now, task.dueDate) <= 7).length;
     const awaitingOrder = tasks.filter(task => ["NEEDS_SPEC", "NEEDS_QUOTE", "READY_TO_ORDER"].includes(task.orderStatus)).length;
     const estimatedCost = tasks.reduce((sum, task) => sum + (Number(task.estimatedCost) || 0), 0);
+    const funding = tasks.filter(task => task.taskType === "FUNDING");
+    const knownFunding = funding.reduce((sum, task) => sum + (Number(task.fundingMax) || 0), 0);
+    const variableFunding = funding.filter(task => !Number(task.fundingMax)).length;
     const completion = tasks.length ? Math.round(tasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / tasks.length) : 0;
 
+    const fourth = funding.length
+      ? { label: "Funding tracked", value: knownFunding ? formatCurrency(knownFunding) : funding.length, detail: `${funding.length} opportunities${variableFunding ? ` · ${variableFunding} variable` : ""}`, tone: "funding" }
+      : { label: "Parts to source", value: awaitingOrder, detail: `${formatCurrency(estimatedCost)} estimated total`, tone: awaitingOrder ? "parts" : "neutral" };
     const metrics = [
       { label: "Overall progress", value: `${completion}%`, detail: `${done} of ${tasks.length} tasks done`, tone: "progress" },
       { label: "Needs attention", value: overdue + blocked, detail: `${overdue} overdue · ${blocked} blocked`, tone: overdue + blocked ? "danger" : "good" },
       { label: "Due in 7 days", value: dueSoon, detail: "Upcoming commitments", tone: dueSoon ? "warning" : "neutral" },
-      { label: "Parts to source", value: awaitingOrder, detail: `${formatCurrency(estimatedCost)} estimated total`, tone: awaitingOrder ? "parts" : "neutral" }
+      fourth
     ];
     $("#plannerMetrics").innerHTML = metrics.map(metric => `
       <article class="planner-metric metric-${metric.tone}">
@@ -363,9 +387,11 @@
     const owners = splitList(task.ownerNames);
     const depCount = splitList(task.dependencyIds).length;
     const part = isPartsTask(task);
-    return `<article class="planner-task-card priority-edge-${task.priority}" role="button" tabindex="0" draggable="true" data-task-id="${escapeHtml(task.id)}">
+    const funding = task.taskType === "FUNDING";
+    return `<article class="planner-task-card priority-edge-${task.priority}${funding ? " is-funding-card" : ""}" role="button" tabindex="0" draggable="true" data-task-id="${escapeHtml(task.id)}">
       <div class="task-card-top">
         <span class="priority-pill priority-${task.priority}">${priorityLabel(task.priority)}</span>
+        <span class="task-type-pill type-${task.taskType || "WORK"}">${taskTypeLabel(task.taskType)}</span>
         ${task.isMilestone ? '<span class="milestone-pill">◆ Milestone</span>' : ""}
       </div>
       <h3>${escapeHtml(task.title)}</h3>
@@ -373,7 +399,9 @@
       <div class="task-card-tags">
         ${splitList(task.tags).slice(0, 3).map(tag => `<span>${escapeHtml(tag)}</span>`).join("")}
         ${part ? `<span class="part-tag">${escapeHtml(orderLabel(task.orderStatus))}</span>` : ""}
+        ${funding && task.campus ? `<span class="funding-campus-tag">${escapeHtml(task.campus)}</span>` : ""}
       </div>
+      ${funding ? `<div class="funding-value-line"><strong>${escapeHtml(fundingValueLabel(task))}</strong><span>${escapeHtml(sourceConfidenceShort(task.sourceConfidence))}</span></div>` : ""}
       <div class="task-card-progress"><i style="width:${clamp(Number(task.progress) || 0, 0, 100)}%"></i><span>${clamp(Number(task.progress) || 0, 0, 100)}%</span></div>
       <footer>
         <div class="task-owner-avatars" aria-label="Owners">${renderOwnerAvatars(owners)}</div>
@@ -470,7 +498,7 @@
         <td><span class="priority-pill priority-${task.priority}">${priorityLabel(task.priority)}</span></td>
         <td>${escapeHtml(task.ownerNames || "Unassigned")}</td>
         <td><strong>${escapeHtml(task.startDate ? formatShortDate(task.startDate) : "—")}</strong><small class="table-subline ${due.tone === "overdue" ? "text-danger" : ""}">${escapeHtml(task.dueDate ? `Due ${formatShortDate(task.dueDate)}` : "No due date")}</small></td>
-        <td>${isPartsTask(task) ? `<strong>${escapeHtml(task.partName || task.partNumber || "Part")}</strong><small class="table-subline">${escapeHtml(orderLabel(task.orderStatus))}</small>` : "—"}</td>
+        <td>${task.taskType === "FUNDING" ? `<strong>${escapeHtml(fundingValueLabel(task))}</strong><small class="table-subline">${escapeHtml(task.campus || sourceConfidenceShort(task.sourceConfidence))}</small>` : isPartsTask(task) ? `<strong>${escapeHtml(task.partName || task.partNumber || "Part")}</strong><small class="table-subline">${escapeHtml(orderLabel(task.orderStatus))}</small>` : "—"}</td>
         <td><div class="table-progress"><i style="width:${clamp(Number(task.progress) || 0, 0, 100)}%"></i><span>${clamp(Number(task.progress) || 0, 0, 100)}%</span></div></td>
         <td>${escapeHtml(relativeTime(task.updatedAt))}<small class="table-subline">${escapeHtml(task.updatedBy || "")}</small></td>
       </tr>`;
@@ -479,10 +507,11 @@
   }
 
   function setPlannerView(view) {
-    state.view = ["board", "timeline", "table"].includes(view) ? view : "board";
+    state.view = ["board", "timeline", "table", "insights"].includes(view) ? view : "board";
     $$("[data-planner-view]").forEach(button => button.classList.toggle("is-active", button.dataset.plannerView === state.view));
     $$("[data-planner-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.plannerPanel !== state.view));
     if (state.view === "timeline") renderGantt();
+    if (state.view === "insights") renderInsights();
   }
 
   function clearFilters() {
@@ -648,15 +677,18 @@
     if (!taskId) {
       $("#taskDialogEyebrow").textContent = "New task";
       $("#taskDialogTitle").textContent = "Add work to the timeline";
+      $("#taskType").value = defaults.taskType || "WORK";
       $("#taskStatus").value = defaults.status || "PLANNED";
       $("#taskPriority").value = "MEDIUM";
       $("#taskProgress").value = "0";
-      $("#taskOrderStatus").value = "NOT_NEEDED";
+      $("#taskOrderStatus").value = defaults.taskType === "PURCHASE" ? "NEEDS_SPEC" : "NOT_NEEDED";
+      $("#taskSourceConfidence").value = "TEAM_ENTERED";
       $("#taskOwners").value = state.actorName;
       const board = currentBoard();
       $("#taskStartDate").value = board.targetStart || todayText();
       $("#taskDueDate").value = board.targetEnd && board.targetEnd >= todayText() ? board.targetEnd : "";
       renderDependencyPicker("");
+      updateFundingEditor();
       updateTaskHealthPreview();
       dialog.showModal();
       $("#taskTitle").focus();
@@ -689,6 +721,7 @@
     $("#taskActivitySection").classList.add("is-hidden");
     $("#taskComments").innerHTML = "";
     $("#taskActivity").innerHTML = "";
+    $("#taskFundingSection").classList.add("is-hidden");
     setTaskStatus("");
   }
 
@@ -699,11 +732,19 @@
     $("#taskExpectedUpdatedAt").value = task.updatedAt || "";
     $("#taskTitle").value = task.title || "";
     $("#taskDescription").value = task.description || "";
+    $("#taskType").value = task.taskType || "WORK";
     $("#taskStatus").value = task.status || "PLANNED";
     $("#taskPriority").value = task.priority || "MEDIUM";
     $("#taskProgress").value = String(task.progress ?? 0);
     $("#taskOwners").value = task.ownerNames || "";
     $("#taskTags").value = task.tags || "";
+    $("#taskCampus").value = task.campus || "";
+    $("#taskFundingMin").value = task.fundingMin === "" || task.fundingMin == null ? "" : task.fundingMin;
+    $("#taskFundingMax").value = task.fundingMax === "" || task.fundingMax == null ? "" : task.fundingMax;
+    $("#taskFundingAmountLabel").value = task.fundingAmountLabel || "";
+    $("#taskSourceUrl").value = task.sourceUrl || "";
+    $("#taskSourceConfidence").value = task.sourceConfidence || "TEAM_ENTERED";
+    $("#taskRequirements").value = task.requirements || "";
     $("#taskStartDate").value = task.startDate || "";
     $("#taskDueDate").value = task.dueDate || "";
     $("#taskIsMilestone").checked = Boolean(task.isMilestone);
@@ -716,6 +757,7 @@
     $("#taskUpdatedMeta").textContent = `Last updated ${relativeTime(task.updatedAt)} by ${task.updatedBy || "unknown"}`;
     $("#archiveTaskButton").classList.remove("is-hidden");
     renderDependencyPicker(task.id, splitList(task.dependencyIds));
+    updateFundingEditor();
     updateTaskHealthPreview();
   }
 
@@ -745,6 +787,7 @@
       boardId: state.currentBoardId,
       title,
       description: $("#taskDescription").value,
+      taskType: $("#taskType").value,
       status: $("#taskStatus").value,
       priority: $("#taskPriority").value,
       ownerNames: $("#taskOwners").value,
@@ -753,6 +796,13 @@
       progress: $("#taskProgress").value,
       isMilestone: $("#taskIsMilestone").checked,
       tags: $("#taskTags").value,
+      campus: $("#taskCampus").value,
+      fundingMin: $("#taskFundingMin").value,
+      fundingMax: $("#taskFundingMax").value,
+      fundingAmountLabel: $("#taskFundingAmountLabel").value,
+      sourceUrl: $("#taskSourceUrl").value,
+      sourceConfidence: $("#taskSourceConfidence").value,
+      requirements: $("#taskRequirements").value,
       partName: $("#taskPartName").value,
       partNumber: $("#taskPartNumber").value,
       vendor: $("#taskVendor").value,
@@ -823,12 +873,15 @@
 
   function updateTaskHealthPreview() {
     const task = {
+      taskType: $("#taskType").value,
       status: $("#taskStatus").value,
       priority: $("#taskPriority").value,
       progress: Number($("#taskProgress").value || 0),
       startDate: $("#taskStartDate").value,
       dueDate: $("#taskDueDate").value,
       orderStatus: $("#taskOrderStatus").value,
+      sourceConfidence: $("#taskSourceConfidence").value,
+      fundingAmountLabel: $("#taskFundingAmountLabel").value,
       isMilestone: $("#taskIsMilestone").checked
     };
     const health = taskHealth(task);
@@ -855,8 +908,8 @@
   function exportBoardCsv() {
     const board = currentBoard();
     if (!board) return;
-    const headers = ["Task", "Status", "Priority", "Owners", "Start", "Due", "Progress", "Milestone", "Tags", "Part", "Part Number", "Vendor", "Quantity", "Estimated Cost", "Order Status", "Dependencies", "Updated By", "Updated At"];
-    const rows = boardTasks().map(task => [task.title, statusLabel(task.status), priorityLabel(task.priority), task.ownerNames, task.startDate, task.dueDate, task.progress, task.isMilestone ? "Yes" : "No", task.tags, task.partName, task.partNumber, task.vendor, task.quantity, task.estimatedCost, orderLabel(task.orderStatus), splitList(task.dependencyIds).map(id => state.tasks.find(item => item.id === id)?.title || id).join("; "), task.updatedBy, task.updatedAt]);
+    const headers = ["Task", "Task Type", "Status", "Priority", "Owners", "Start", "Due", "Progress", "Milestone", "Tags", "Campus", "Funding Minimum", "Funding Maximum", "Funding Amount Label", "Source URL", "Source Confidence", "Requirements", "Part", "Part Number", "Vendor", "Quantity", "Estimated Cost", "Order Status", "Dependencies", "Updated By", "Updated At"];
+    const rows = boardTasks().map(task => [task.title, taskTypeLabel(task.taskType), statusLabel(task.status), priorityLabel(task.priority), task.ownerNames, task.startDate, task.dueDate, task.progress, task.isMilestone ? "Yes" : "No", task.tags, task.campus, task.fundingMin, task.fundingMax, task.fundingAmountLabel, task.sourceUrl, sourceConfidenceLabel(task.sourceConfidence), task.requirements, task.partName, task.partNumber, task.vendor, task.quantity, task.estimatedCost, orderLabel(task.orderStatus), splitList(task.dependencyIds).map(id => state.tasks.find(item => item.id === id)?.title || id).join("; "), task.updatedBy, task.updatedAt]);
     const csv = [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");
@@ -885,6 +938,124 @@
   function showConnectionError(message) { const banner = $("#plannerConnectionBanner"); banner.textContent = message; banner.classList.remove("is-hidden"); }
   function hideConnectionError() { $("#plannerConnectionBanner").classList.add("is-hidden"); }
 
+  function updateFundingEditor() {
+    const type = $("#taskType").value || "WORK";
+    $("#taskFundingSection").classList.toggle("is-hidden", type !== "FUNDING");
+    if (type === "PURCHASE" && $("#taskOrderStatus").value === "NOT_NEEDED") $("#taskOrderStatus").value = "NEEDS_SPEC";
+  }
+
+  function insightsTasks() {
+    if (state.insightsScope === "all") return state.tasks.filter(task => !task.archived);
+    return boardTasks();
+  }
+
+  function renderInsights() {
+    const host = $("#plannerInsights");
+    if (!host) return;
+    const tasks = insightsTasks();
+    if (!tasks.length) {
+      host.innerHTML = '<div class="insights-empty"><span>◫</span><h3>No data to visualize yet</h3><p>Add tasks, owners, dates, funding opportunities, or parts to unlock planner insights.</p></div>';
+      return;
+    }
+    const today = todayText();
+    const active = tasks.filter(task => task.status !== "DONE");
+    const overdue = active.filter(task => task.dueDate && task.dueDate < today);
+    const blocked = active.filter(task => task.status === "BLOCKED");
+    const funding = tasks.filter(task => task.taskType === "FUNDING");
+    const knownFunding = funding.reduce((sum, task) => sum + (Number(task.fundingMax) || 0), 0);
+    const variableFunding = funding.filter(task => !Number(task.fundingMax)).length;
+    const parts = tasks.filter(isPartsTask);
+    const owners = ownerWorkload(tasks);
+    const statusCounts = STATUS.map(item => ({ ...item, count: tasks.filter(task => task.status === item.id).length }));
+    const priorityCounts = PRIORITY.map(item => ({ ...item, count: tasks.filter(task => task.priority === item.id).length }));
+    const weeks = dueWeekBuckets(tasks, 8);
+    const partCounts = ORDER_STATUS.filter(item => item.id !== "NOT_NEEDED").map(item => ({ ...item, count: parts.filter(task => task.orderStatus === item.id).length }));
+
+    host.innerHTML = `
+      <div class="insight-summary-grid">
+        <article><span>Tasks in scope</span><strong>${tasks.length}</strong><small>${active.length} active · ${tasks.length - active.length} done</small></article>
+        <article><span>Schedule risk</span><strong>${overdue.length + blocked.length}</strong><small>${overdue.length} overdue · ${blocked.length} blocked</small></article>
+        <article><span>Known funding ceiling</span><strong>${formatCurrency(knownFunding)}</strong><small>${funding.length} opportunities${variableFunding ? ` · ${variableFunding} variable` : ""}</small></article>
+        <article><span>Parts pipeline</span><strong>${parts.length}</strong><small>${partCounts.filter(item => item.id !== "RECEIVED").reduce((sum, item) => sum + item.count, 0)} not received</small></article>
+      </div>
+      <div class="insight-grid">
+        ${renderStatusInsight(statusCounts, tasks.length)}
+        ${renderPriorityInsight(priorityCounts, tasks.length)}
+        ${renderOwnerInsight(owners)}
+        ${renderScheduleInsight(weeks)}
+        ${renderFundingInsight(funding)}
+        ${renderPartsInsight(partCounts)}
+      </div>`;
+  }
+
+  function renderStatusInsight(items, total) {
+    const colors = { BACKLOG: "#92928a", PLANNED: "#2f5d8a", IN_PROGRESS: "#cfb991", BLOCKED: "#a52a2a", REVIEW: "#7a5f9e", DONE: "#276749" };
+    let cursor = 0;
+    const segments = items.map(item => {
+      const start = cursor;
+      cursor += total ? item.count / total * 100 : 0;
+      return `${colors[item.id]} ${start}% ${cursor}%`;
+    }).join(", ");
+    return `<article class="insight-panel insight-status"><header><div><span>Flow</span><h3>Status distribution</h3></div><small>${total} tasks</small></header><div class="donut-layout"><div class="insight-donut" style="--donut:${segments}"><strong>${Math.round((items.find(i => i.id === "DONE")?.count || 0) / Math.max(1,total) * 100)}%</strong><span>done</span></div><div class="chart-legend">${items.map(item => `<div><i style="background:${colors[item.id]}"></i><span>${item.label}</span><strong>${item.count}</strong></div>`).join("")}</div></div></article>`;
+  }
+
+  function renderPriorityInsight(items, total) {
+    return `<article class="insight-panel"><header><div><span>Risk</span><h3>Priority mix</h3></div><small>${items.filter(i => i.count).length} active bands</small></header><div class="bar-list">${items.map(item => `<div class="bar-row"><div><span>${item.label}</span><strong>${item.count}</strong></div><div class="bar-track"><i class="priority-bg-${item.id}" style="width:${total ? item.count / total * 100 : 0}%"></i></div></div>`).join("")}</div></article>`;
+  }
+
+  function renderOwnerInsight(owners) {
+    const max = Math.max(1, ...owners.map(owner => owner.total));
+    return `<article class="insight-panel"><header><div><span>Capacity</span><h3>Workload by owner</h3></div><small>Top ${Math.min(8, owners.length)}</small></header><div class="owner-load-list">${owners.length ? owners.slice(0,8).map(owner => `<div><span class="owner-load-avatar">${escapeHtml(initials(owner.name))}</span><div><strong>${escapeHtml(owner.name)}</strong><small>${owner.active} active${owner.risk ? ` · ${owner.risk} at risk` : ""}</small><div class="bar-track"><i style="width:${owner.total / max * 100}%"></i></div></div><b>${owner.total}</b></div>`).join("") : '<p class="insight-no-data">Assign owners to see capacity.</p>'}</div></article>`;
+  }
+
+  function renderScheduleInsight(weeks) {
+    const max = Math.max(1, ...weeks.map(week => week.count));
+    return `<article class="insight-panel insight-wide"><header><div><span>Schedule</span><h3>Due-date load · next 8 weeks</h3></div><small>Tasks grouped by due week</small></header><div class="week-chart" role="img" aria-label="Tasks due over the next eight weeks">${weeks.map(week => `<div><div class="week-bar"><i style="height:${week.count / max * 100}%"></i><strong>${week.count || ""}</strong></div><span>${escapeHtml(week.label)}</span></div>`).join("")}</div></article>`;
+  }
+
+  function renderFundingInsight(tasks) {
+    const statuses = STATUS.map(status => ({ ...status, tasks: tasks.filter(task => task.status === status.id) })).filter(group => group.tasks.length);
+    const known = tasks.reduce((sum, task) => sum + (Number(task.fundingMax) || 0), 0);
+    const max = Math.max(1, ...statuses.map(group => group.tasks.reduce((sum, task) => sum + (Number(task.fundingMax) || 0), 0) || group.tasks.length));
+    return `<article class="insight-panel insight-wide funding-insight"><header><div><span>Finance</span><h3>Funding opportunity pipeline</h3></div><small>${known ? formatCurrency(known) + " known ceiling" : "Variable opportunity values"}</small></header>${tasks.length ? `<div class="funding-pipeline">${statuses.map(group => { const value = group.tasks.reduce((sum, task) => sum + (Number(task.fundingMax) || 0), 0); const scaleValue = value || group.tasks.length; return `<div><div class="funding-stage-heading"><span>${group.label}</span><strong>${group.tasks.length}</strong></div><div class="bar-track"><i class="status-bar-${group.id}" style="width:${scaleValue / max * 100}%"></i></div><small>${value ? formatCurrency(value) : group.tasks.map(fundingValueLabel).join(" · ")}</small></div>`; }).join("")}</div>` : '<p class="insight-no-data">Mark tasks as Funding opportunity to track Purdue grants and fundraising programs here.</p>'}</article>`;
+  }
+
+  function renderPartsInsight(items) {
+    const total = items.reduce((sum, item) => sum + item.count, 0);
+    return `<article class="insight-panel"><header><div><span>Supply chain</span><h3>Parts purchasing stages</h3></div><small>${total} tracked</small></header><div class="bar-list compact-bars">${items.map(item => `<div class="bar-row"><div><span>${item.label}</span><strong>${item.count}</strong></div><div class="bar-track"><i style="width:${total ? item.count / total * 100 : 0}%"></i></div></div>`).join("")}</div></article>`;
+  }
+
+  function ownerWorkload(tasks) {
+    const map = new Map();
+    tasks.forEach(task => {
+      const names = splitList(task.ownerNames);
+      (names.length ? names : ["Unassigned"]).forEach(name => {
+        const item = map.get(normalizeKey(name)) || { name, total: 0, active: 0, risk: 0 };
+        item.total += 1;
+        if (task.status !== "DONE") item.active += 1;
+        if (task.status === "BLOCKED" || (task.status !== "DONE" && task.dueDate && task.dueDate < todayText())) item.risk += 1;
+        map.set(normalizeKey(name), item);
+      });
+    });
+    return Array.from(map.values()).sort((a,b) => b.active - a.active || b.total - a.total || a.name.localeCompare(b.name));
+  }
+
+  function dueWeekBuckets(tasks, count) {
+    const start = startOfWeek(todayText());
+    return Array.from({ length: count }, (_, index) => {
+      const weekStart = addDaysText(start, index * 7);
+      const weekEnd = addDaysText(weekStart, 6);
+      return { label: formatAxisDate(weekStart), count: tasks.filter(task => task.dueDate && task.dueDate >= weekStart && task.dueDate <= weekEnd && task.status !== "DONE").length };
+    });
+  }
+
+  function startOfWeek(value) {
+    const date = parseDate(value);
+    const day = date.getDay();
+    date.setDate(date.getDate() - day);
+    return dateText(date);
+  }
+
   function taskSort(a, b) {
     const priorityRank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
     const aDue = a.dueDate || "9999-12-31";
@@ -895,6 +1066,7 @@
   function taskHealth(task) {
     const today = todayText();
     if (task.status === "DONE") return { tone: "good", label: "Task health", title: "Complete", detail: "Finished work is reflected in timeline progress." };
+    if (task.taskType === "FUNDING" && ["VERIFY_CURRENT", "CONTACT_REQUIRED"].includes(task.sourceConfidence)) return { tone: "warning", label: "Funding research", title: sourceConfidenceShort(task.sourceConfidence), detail: "Confirm the current cycle, eligibility, and deadline before treating this as an active application." };
     if (task.status === "BLOCKED") return { tone: "danger", label: "Task health", title: "Blocked", detail: "Name the blocker in a comment and assign the next action." };
     if (task.dueDate && task.dueDate < today) return { tone: "danger", label: "Task health", title: "Overdue", detail: `Due ${formatShortDate(task.dueDate)}. Update the date, status, or recovery plan.` };
     if (task.dueDate && daysBetween(today, task.dueDate) <= 3 && Number(task.progress || 0) < 75) return { tone: "warning", label: "Task health", title: "At risk", detail: "Due soon with substantial work remaining." };
@@ -930,9 +1102,13 @@
     return owners.slice(0, 3).map(name => `<span title="${escapeHtml(name)}">${escapeHtml(initials(name))}</span>`).join("") + (owners.length > 3 ? `<span>+${owners.length - 3}</span>` : "");
   }
 
+  function taskTypeLabel(value) { return TASK_TYPE.find(item => item.id === value)?.label || value || "Work item"; }
   function statusLabel(value) { return STATUS.find(item => item.id === value)?.label || value || "Planned"; }
   function priorityLabel(value) { return PRIORITY.find(item => item.id === value)?.label || value || "Medium"; }
   function orderLabel(value) { return ORDER_STATUS.find(item => item.id === value)?.label || value || "Not a purchase"; }
+  function sourceConfidenceLabel(value) { return SOURCE_CONFIDENCE.find(item => item.id === value)?.label || value || "Team-entered information"; }
+  function sourceConfidenceShort(value) { const labels = { OFFICIAL_CURRENT: "Official current", OFFICIAL_NO_CURRENT_DEADLINE: "Deadline not posted", VERIFY_CURRENT: "Verify current cycle", CONTACT_REQUIRED: "Contact required", TEAM_ENTERED: "Team entered" }; return labels[value] || "Team entered"; }
+  function fundingValueLabel(task) { if (task.fundingAmountLabel) return task.fundingAmountLabel; const min = Number(task.fundingMin) || 0; const max = Number(task.fundingMax) || 0; if (min && max && min !== max) return `${formatCurrency(min)}–${formatCurrency(max)}`; if (max) return `Up to ${formatCurrency(max)}`; if (min) return `From ${formatCurrency(min)}`; return "Amount not published"; }
   function isPartsTask(task) { return Boolean(task.partName || task.partNumber || task.vendor || (task.orderStatus && task.orderStatus !== "NOT_NEEDED")); }
   function splitList(value) {
     if (Array.isArray(value)) return value.map(String).map(item => item.trim()).filter(Boolean);
