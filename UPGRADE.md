@@ -1,94 +1,38 @@
-# SponsorFlow 1.1 upgrade
+# SponsorFlow 1.2 calendar cleanup
 
-SponsorFlow 1.1 fixes calendar date storage, moves the calendar into its own website section, adds a new workspace splash page, and applies one visual system across outreach, planning, calendar, and admin links.
+SponsorFlow 1.2 simplifies the calendar picker and fixes the alignment issues shown in Safari.
 
-## Important: back up the Sheet first
+## What changes
 
-In the SponsorFlow Google Sheet, choose **File → Make a copy**.
+The calendar picker now contains only:
 
-## 1. Update the GitHub Pages files
+- All calendars
+- Important club events
+- General timeline
+- One calendar for each active subteam
 
-Upload the contents of the 1.1 update package to the root of the existing GitHub repository and replace matching files.
+Individual project-timeline calendars are no longer duplicated in the main picker or subscription screen. Tasks are still saved to their underlying project timeline, so no planning data is removed.
 
-New files:
+The calendar page also has:
 
-- `outreach.html`
-- `calendar.html`
-- `assets/calendar.js`
+- one event/subscription action area instead of duplicated buttons;
+- aligned name and calendar controls;
+- a clearer month navigation row;
+- improved agenda and subscription-card alignment;
+- cleaner tablet and phone layouts.
 
-Replaced files:
+## Install
 
-- `index.html`
-- `planner.html`
-- `admin.html`
-- `assets/app.css`
-- `assets/planner.js`
+1. Back up the GitHub repository or download its current ZIP.
+2. Extract `asme-sponsorflow-1.2-update.zip`.
+3. Upload these files to the repository root, replacing the existing copies:
+   - `calendar.html`
+   - `assets/calendar.js`
+   - `assets/app.css`
+4. Do not replace `assets/config.js`.
+5. Commit to `main` and wait for the GitHub Pages deployment to finish.
+6. Refresh the calendar with `Command + Shift + R`.
 
-Do **not** replace or delete:
+## Google Apps Script
 
-- `assets/config.js`
-- `assets/img/`
-
-The old sponsor portal that previously lived at `index.html` now lives at `outreach.html`. The new `index.html` is the workspace home page.
-
-Commit the changes to `main`, then wait for **Actions → pages build and deployment** to finish.
-
-## 2. Replace the Google Apps Script backend
-
-Open the SponsorFlow Sheet, then choose:
-
-**Extensions → Apps Script → Code.gs**
-
-Replace all contents of `Code.gs` with the SponsorFlow 1.1 source and save it.
-
-The Google Apps Script `Admin.html` file does not change in this release.
-
-## 3. Run the date repair migration
-
-Reload the Google Sheet and choose:
-
-**SponsorFlow → Upgrade to SponsorFlow 1.1**
-
-This migration:
-
-- converts planner and calendar date cells to stable `YYYY-MM-DD` text values;
-- repairs dates that Google Sheets previously auto-converted into Date objects;
-- preserves existing tasks, events, sponsors, owners, statuses, progress, comments, funding research, and timelines;
-- adds only missing starter records.
-
-This step fixes the bug where an event appeared as the first day of a month or appeared in the agenda but not in the calendar grid.
-
-## 4. Redeploy Apps Script
-
-Choose:
-
-**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**
-
-Edit the existing deployment so the `/exec` URL remains unchanged. You do not need to edit `assets/config.js`.
-
-## 5. Refresh the website
-
-After the GitHub Pages workflow is green, open the site and press:
-
-**Command + Shift + R**
-
-The site now has these main pages:
-
-- `index.html` — workspace home
-- `outreach.html` — sponsor outreach
-- `planner.html` — project planner
-- `calendar.html` — shared club calendar
-- `admin.html` — secure admin dashboard link
-
-## Acceptance test
-
-1. Open `calendar.html`.
-2. Enter your name.
-3. Click a day in the month and create an all-day event.
-4. Save it and verify it appears inside the correct day cell and in the agenda.
-5. Edit its date and verify it moves to the new day.
-6. Refresh the page and verify the date remains unchanged.
-7. Create a timed event with a location.
-8. Download the event as `.ics`.
-9. Open Live subscriptions and verify the team calendars still load.
-10. Open Planner and verify Board, Timeline, Table, and Insights still work.
+No Google Sheet migration or Apps Script redeployment is required for version 1.2. Existing live subscription URLs continue to work.

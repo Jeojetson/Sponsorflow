@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=11">
+  <link rel="stylesheet" href="assets/app.css?v=12">
 </head>
 <body class="calendar-page">
   <a class="skip-link" href="#calendarMain">Skip to calendar</a>
@@ -33,41 +33,45 @@
       <div>
         <p class="eyebrow">Shared dates across every team</p>
         <h1>Club Calendar</h1>
-        <p>Create events, review deadlines, and subscribe to the calendars that matter to you.</p>
-      </div>
-      <div class="calendar-app-actions">
-        <button id="calendarNewEventTop" class="button button-primary" type="button">+ New event</button>
-        <button id="calendarSubscribeTop" class="button button-secondary" type="button">Subscribe</button>
+        <p>Create events, review deadlines, and subscribe to a clean set of shared club and subteam calendars.</p>
       </div>
     </section>
 
     <div id="calendarConnectionBanner" class="connection-banner is-hidden" role="status"></div>
 
     <section class="calendar-control-bar" aria-label="Calendar controls">
-      <div class="calendar-identity-control">
-        <label class="field compact-field"><span>Your name</span><input id="calendarActorName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
-        <button id="calendarSaveName" class="button button-secondary button-small" type="button">Use this name</button>
+      <div class="calendar-control-group calendar-identity-control">
+        <div class="calendar-identity-row">
+          <label class="field compact-field"><span>Your name</span><input id="calendarActorName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
+          <button id="calendarSaveName" class="button button-secondary button-small" type="button">Use this name</button>
+        </div>
         <span id="calendarNameStatus" class="planner-name-status">Required to edit</span>
       </div>
       <label class="field compact-field calendar-scope-control">
-        <span>Calendar</span>
-        <select id="calendarScopeSelect"><option value="club">Club-wide · all teams</option><option value="important">Important dates</option></select>
+        <span>View calendar</span>
+        <select id="calendarScopeSelect">
+          <option value="all">All calendars</option>
+          <option value="important">Important club events</option>
+          <option value="general">General timeline</option>
+        </select>
       </label>
     </section>
 
     <section class="calendar-command-bar">
-      <div class="calendar-month-nav">
-        <button id="calendarPrevious" class="icon-button" type="button" aria-label="Previous month">←</button>
-        <button id="calendarToday" class="button button-ghost button-small" type="button">Today</button>
-        <button id="calendarNext" class="icon-button" type="button" aria-label="Next month">→</button>
-      </div>
-      <div class="calendar-command-title">
-        <p class="panel-kicker">Selected month</p>
-        <h2 id="calendarTitle">Month</h2>
+      <div class="calendar-month-control">
+        <div class="calendar-month-nav" aria-label="Month navigation">
+          <button id="calendarPrevious" class="icon-button" type="button" aria-label="Previous month">←</button>
+          <button id="calendarToday" class="button button-ghost button-small" type="button">Today</button>
+          <button id="calendarNext" class="icon-button" type="button" aria-label="Next month">→</button>
+        </div>
+        <div class="calendar-command-title">
+          <p class="panel-kicker">Selected month</p>
+          <h2 id="calendarTitle">Month</h2>
+        </div>
       </div>
       <div class="calendar-command-actions">
-        <button id="calendarNewEvent" class="button button-primary button-small" type="button">+ Event</button>
-        <button id="calendarSubscribe" class="button button-secondary button-small" type="button">Live subscriptions</button>
+        <button id="calendarNewEvent" class="button button-primary button-small" type="button">+ New event</button>
+        <button id="calendarSubscribe" class="button button-secondary button-small" type="button">Subscribe</button>
         <button id="calendarSnapshot" class="button button-ghost button-small" type="button">Download .ics</button>
       </div>
     </section>
@@ -78,7 +82,7 @@
     <section class="standalone-calendar-layout">
       <article class="calendar-month-panel standalone-calendar-panel">
         <header class="calendar-month-heading">
-          <div class="calendar-scope-summary"><strong id="calendarScopeName">Club-wide</strong><span id="calendarScopeDescription">Every dated task and event across the club.</span></div>
+          <div class="calendar-scope-summary"><strong id="calendarScopeName">All calendars</strong><span id="calendarScopeDescription">Every dated task and event across the club.</span></div>
           <div class="calendar-legend" aria-label="Calendar status legend">
             <span><i class="status-color-PLANNED"></i>Planned</span>
             <span><i class="status-color-IN_PROGRESS"></i>In progress</span>
@@ -170,7 +174,7 @@
       <button class="modal-close" type="button" data-subscription-close aria-label="Close">×</button>
       <p class="eyebrow">Live calendar feeds</p>
       <h2>Subscribe once. Stay current.</h2>
-      <p class="subscription-intro">Choose any combination of club, important-date, team, or timeline calendars. Calendar apps refresh these read-only feeds automatically.</p>
+      <p class="subscription-intro">Choose the combined calendar, important club events, the general timeline, or any subteam calendar. Calendar apps refresh these read-only feeds automatically.</p>
       <div id="calendarSubscriptionList" class="calendar-subscription-list"></div>
       <div class="subscription-help-grid">
         <article><strong>Apple Calendar</strong><p>File → New Calendar Subscription, then paste the URL.</p></article>
@@ -182,8 +186,8 @@
   </dialog>
 
   <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=11"></script>
-  <script src="assets/api.js?v=11"></script>
-  <script src="assets/calendar.js?v=11"></script>
+  <script src="assets/config.js?v=12"></script>
+  <script src="assets/api.js?v=12"></script>
+  <script src="assets/calendar.js?v=12"></script>
 </body>
 </html>

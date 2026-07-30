@@ -5,6 +5,16 @@
   const $ = selector => document.querySelector(selector);
   const $$ = selector => Array.from(document.querySelectorAll(selector));
   const CLUB_BOARD_ID = "BOARD-CLUB-MASTER";
+  const GENERAL_TEAM_ID = "TEAM-CLUB";
+  const DEFAULT_TEAM_ORDER = [
+    "TEAM-MECH",
+    "TEAM-KART",
+    "TEAM-ELEC",
+    "TEAM-BATT",
+    "TEAM-SOFTWARE",
+    "TEAM-MFG",
+    "TEAM-OPS"
+  ];
 
   const state = {
     actorName: "",
@@ -13,7 +23,7 @@
     tasks: [],
     calendarFeedBaseUrl: "",
     month: `${todayText().slice(0, 7)}-01`,
-    scope: "club",
+    scope: "all",
     editingTask: null,
     dirty: false,
     saving: false
@@ -25,7 +35,7 @@
     bindEvents();
     restoreIdentity();
     state.month = validDateOnly(localStorage.getItem("asmeCalendarMonth")) || state.month;
-    state.scope = localStorage.getItem("asmeCalendarScope") || "club";
+    state.scope = normalizeStoredScope(localStorage.getItem("asmeCalendarScope") || "all");
     if (!API || !API.configured()) {
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
       return;
@@ -56,8 +66,8 @@
       localStorage.setItem("asmeCalendarMonth", state.month);
       renderCalendar();
     });
-    ["calendarNewEventTop", "calendarNewEvent"].forEach(id => $("#" + id).addEventListener("click", () => openEventDialog("", { startDate: todayText() })));
-    ["calendarSubscribeTop", "calendarSubscribe"].forEach(id => $("#" + id).addEventListener("click", openSubscriptions));
+    $("#calendarNewEvent").addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
+    $("#calendarSubscribe").addEventListener("click", openSubscriptions);
     $("#calendarSnapshot").addEventListener("click", downloadCurrentCalendar);
 
     $("#calendarEventForm").addEventListener("submit", saveEvent);
@@ -106,7 +116,11 @@
       state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
       const query = new URLSearchParams(window.location.search);
       const queryBoard = query.get("board") || "";
-      if (queryBoard && state.boards.some(board => board.id === queryBoard)) state.scope = `board:${queryBoard}`;
+      if (queryBoard && state.boards.some(board => board.id === queryBoard)) {
+        const board = state.boards.find(item => item.id === queryBoard);
+        state.scope = board?.teamId === GENERAL_TEAM_ID ? "general" : `team:${board?.teamId || ""}`;
+      }
+      state.scope = normalizeScopeAgainstData(state.scope);
       renderScopeOptions();
       renderBoardOptions();
       renderCalendar();
@@ -135,16 +149,50 @@
   }
 
   function renderScopeOptions() {
-    const teamOptions = state.teams.map(team => `<option value="team:${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join("");
-    const boardOptions = state.teams.map(team => {
-      const boards = state.boards.filter(board => board.teamId === team.id);
-      if (!boards.length) return "";
-      return `<optgroup label="${escapeHtml(team.name)}">${boards.map(board => `<option value="board:${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")}</optgroup>`;
-    }).join("");
-    $("#calendarScopeSelect").innerHTML = `<option value="club">Club-wide · all teams</option><option value="important">Important dates</option><optgroup label="Team calendars">${teamOptions}</optgroup>${boardOptions}`;
-    const valid = state.scope === "club" || state.scope === "important" || /^team:/.test(state.scope) && state.teams.some(team => `team:${team.id}` === state.scope) || /^board:/.test(state.scope) && state.boards.some(board => `board:${board.id}` === state.scope);
-    if (!valid) state.scope = "club";
+    const teams = calendarTeams();
+    const options = [
+      '<option value="all">All calendars</option>',
+      '<option value="important">Important club events</option>',
+      '<option value="general">General timeline</option>',
+      ...teams.map(team => `<option value="team:${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`)
+    ];
+    $("#calendarScopeSelect").innerHTML = options.join("");
+    state.scope = normalizeScopeAgainstData(state.scope);
     $("#calendarScopeSelect").value = state.scope;
+  }
+
+  function calendarTeams() {
+    const order = new Map(DEFAULT_TEAM_ORDER.map((id, index) => [id, index]));
+    return state.teams
+      .filter(team => team.id !== GENERAL_TEAM_ID && team.active !== false)
+      .sort((a, b) => {
+        const aRank = order.has(a.id) ? order.get(a.id) : 999;
+        const bRank = order.has(b.id) ? order.get(b.id) : 999;
+        return aRank - bRank || String(a.name || "").localeCompare(String(b.name || ""));
+      });
+  }
+
+  function normalizeStoredScope(value) {
+    const raw = String(value || "").trim();
+    if (!raw || raw === "club") return "all";
+    if (raw === `team:${GENERAL_TEAM_ID}`) return "general";
+    return raw;
+  }
+
+  function normalizeScopeAgainstData(value) {
+    const scope = normalizeStoredScope(value);
+    if (scope === "all" || scope === "important" || scope === "general") return scope;
+    if (scope.startsWith("board:")) {
+      const board = state.boards.find(item => `board:${item.id}` === scope);
+      if (!board) return "all";
+      return board.teamId === GENERAL_TEAM_ID ? "general" : `team:${board.teamId}`;
+    }
+    if (scope.startsWith("team:")) {
+      const teamId = scope.slice(5);
+      if (teamId === GENERAL_TEAM_ID) return "general";
+      return calendarTeams().some(team => team.id === teamId) ? scope : "all";
+    }
+    return "all";
   }
 
   function renderBoardOptions(selectedId = "") {
@@ -158,32 +206,53 @@
   }
 
   function defaultBoardForScope() {
-    if (state.scope.startsWith("board:")) return state.scope.slice(6);
-    if (state.scope.startsWith("team:")) return state.boards.find(board => board.teamId === state.scope.slice(5))?.id || state.boards[0]?.id || "";
-    return state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
+    if (state.scope === "general") {
+      return state.boards.find(board => board.teamId === GENERAL_TEAM_ID)?.id || state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
+    }
+    if (state.scope.startsWith("team:")) {
+      return state.boards.find(board => board.teamId === state.scope.slice(5))?.id || state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
+    }
+    return state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards.find(board => board.teamId === GENERAL_TEAM_ID)?.id || state.boards[0]?.id || "";
   }
 
   function scopeMeta() {
-    if (state.scope === "important") return { name: "Important Dates", description: "Milestones, races, deadlines, meetings, and dates marked important." };
+    if (state.scope === "important") {
+      return {
+        name: "Important club events",
+        description: "Races, milestones, meetings, critical deadlines, and dates explicitly marked important."
+      };
+    }
+    if (state.scope === "general") {
+      const team = state.teams.find(item => item.id === GENERAL_TEAM_ID);
+      return {
+        name: "General timeline",
+        description: team?.description || "Shared club-level milestones, cross-team deadlines, and general planning."
+      };
+    }
     if (state.scope.startsWith("team:")) {
       const team = state.teams.find(item => item.id === state.scope.slice(5));
-      return { name: team?.name || "Team calendar", description: team?.description || "Every dated item owned by this team." };
+      return {
+        name: team?.name || "Team calendar",
+        description: team?.description || "Every dated item owned by this subteam."
+      };
     }
-    if (state.scope.startsWith("board:")) {
-      const board = state.boards.find(item => item.id === state.scope.slice(6));
-      return { name: board?.name || "Timeline calendar", description: board?.description || "Dated work from this timeline." };
-    }
-    return { name: "Club-wide", description: "Every dated task and event across all teams, including funding and sponsorship." };
+    return {
+      name: "All calendars",
+      description: "Every dated task and event across all subteams, the general timeline, and Finance & Sponsorship."
+    };
   }
 
   function tasksForScope() {
-    let tasks = state.tasks.filter(task => !task.archived && (task.startDate || task.dueDate));
+    const tasks = state.tasks.filter(task => !task.archived && (task.startDate || task.dueDate));
     if (state.scope === "important") return tasks.filter(isImportantTask);
+    if (state.scope === "general") {
+      const boardIds = new Set(state.boards.filter(board => board.teamId === GENERAL_TEAM_ID).map(board => board.id));
+      return tasks.filter(task => boardIds.has(task.boardId));
+    }
     if (state.scope.startsWith("team:")) {
       const boardIds = new Set(state.boards.filter(board => board.teamId === state.scope.slice(5)).map(board => board.id));
       return tasks.filter(task => boardIds.has(task.boardId));
     }
-    if (state.scope.startsWith("board:")) return tasks.filter(task => task.boardId === state.scope.slice(6));
     return tasks;
   }
 
@@ -495,15 +564,50 @@
 
   function openSubscriptions() {
     if (!state.calendarFeedBaseUrl) return setPageMessage("Redeploy the current Apps Script backend before creating live subscriptions.", "error");
+    const generalTeam = state.teams.find(team => team.id === GENERAL_TEAM_ID);
     const items = [
-      { name: "Club-wide", description: "Every dated item across every team, including finance and sponsorship.", scope: "club", id: "", badge: "All teams" },
-      { name: "Important Dates", description: "Milestones, races, funding deadlines, meetings, and critical work.", scope: "important", id: "", badge: "Key dates" },
-      ...state.teams.map(team => ({ name: team.name, description: team.description || "All dated work for this team.", scope: "team", id: team.id, badge: "Team" })),
-      ...state.boards.map(board => ({ name: board.name, description: board.description || "Dated work from this timeline.", scope: "board", id: board.id, badge: "Timeline" }))
+      {
+        name: "All calendars",
+        description: "Every dated item across every subteam, the general timeline, and Finance & Sponsorship.",
+        scope: "club",
+        id: "",
+        badge: "Combined"
+      },
+      {
+        name: "Important club events",
+        description: "Races, milestones, meetings, critical deadlines, and dates explicitly marked important.",
+        scope: "important",
+        id: "",
+        badge: "Key dates"
+      },
+      {
+        name: "General timeline",
+        description: generalTeam?.description || "Shared club-level milestones and cross-team work.",
+        scope: "team",
+        id: GENERAL_TEAM_ID,
+        badge: "General"
+      },
+      ...calendarTeams().map(team => ({
+        name: team.name,
+        description: team.description || "All dated work for this subteam.",
+        scope: "team",
+        id: team.id,
+        badge: "Subteam"
+      }))
     ];
     $("#calendarSubscriptionList").innerHTML = items.map(item => {
       const url = feedUrl(item.scope, item.id);
-      return `<article class="calendar-subscription-card"><div><span class="verification-badge research">${escapeHtml(item.badge)}</span><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.description)}</p></div><div class="calendar-subscription-actions"><button class="button button-secondary button-small" type="button" data-copy-feed="${escapeHtml(url)}">Copy URL</button><a class="button button-ghost button-small" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open feed</a></div></article>`;
+      return `<article class="calendar-subscription-card">
+        <div class="calendar-subscription-copy">
+          <span class="verification-badge research">${escapeHtml(item.badge)}</span>
+          <strong>${escapeHtml(item.name)}</strong>
+          <p>${escapeHtml(item.description)}</p>
+        </div>
+        <div class="calendar-subscription-actions">
+          <button class="button button-secondary button-small" type="button" data-copy-feed="${escapeHtml(url)}">Copy URL</button>
+          <a class="button button-ghost button-small" href="${escapeHtml(url)}" target="_blank" rel="noreferrer">Open feed</a>
+        </div>
+      </article>`;
     }).join("");
     $("#calendarSubscriptionList").querySelectorAll("[data-copy-feed]").forEach(button => button.addEventListener("click", () => copyText(button.dataset.copyFeed)));
     setSubscriptionStatus("");

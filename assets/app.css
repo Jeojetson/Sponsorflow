@@ -2942,3 +2942,172 @@ body { background: var(--app-bg); color: var(--app-ink); }
   .event-modal-footer .button { width: 100%; }
   .field-grid.two-col, .field-grid.three-col { grid-template-columns: 1fr; }
 }
+
+/* SponsorFlow 1.2 — calendar information architecture and alignment */
+.calendar-page .calendar-app-header {
+  align-items: flex-start;
+  padding-bottom: 24px;
+}
+.calendar-page .calendar-control-bar {
+  grid-template-columns: minmax(420px, 1.2fr) minmax(280px, .8fr);
+  align-items: stretch;
+  gap: 16px;
+  padding: 18px;
+}
+.calendar-page .calendar-control-group,
+.calendar-page .calendar-scope-control {
+  min-width: 0;
+}
+.calendar-page .calendar-identity-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+}
+.calendar-page .calendar-identity-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.calendar-page .calendar-identity-row .button {
+  white-space: nowrap;
+}
+.calendar-page .planner-name-status {
+  min-height: 18px;
+  margin: 0;
+  padding-left: 2px;
+  line-height: 1.35;
+}
+.calendar-page .calendar-scope-control {
+  align-self: start;
+}
+.calendar-page .calendar-command-bar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  padding: 28px 2px 18px;
+}
+.calendar-page .calendar-month-control {
+  min-width: 0;
+  display: flex;
+  align-items: end;
+  gap: 18px;
+}
+.calendar-page .calendar-month-nav {
+  flex: 0 0 auto;
+}
+.calendar-page .calendar-command-title {
+  min-width: 0;
+  text-align: left;
+}
+.calendar-page .calendar-command-title h2 {
+  margin-top: 2px;
+  line-height: 1;
+}
+.calendar-page .calendar-command-actions {
+  justify-content: flex-end;
+  align-items: center;
+}
+.calendar-page .calendar-command-actions .button {
+  white-space: nowrap;
+}
+.calendar-page .calendar-month-heading {
+  align-items: center;
+  gap: 20px;
+}
+.calendar-page .calendar-scope-summary {
+  min-width: 0;
+}
+.calendar-page .calendar-legend {
+  flex: 0 0 auto;
+}
+.calendar-page .standalone-calendar-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+}
+.calendar-page .calendar-agenda-heading {
+  align-items: center;
+}
+.calendar-page .calendar-subscription-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 18px;
+}
+.calendar-page .calendar-subscription-copy {
+  min-width: 0;
+}
+.calendar-page .calendar-subscription-copy strong {
+  margin-top: 8px;
+}
+.calendar-page .calendar-subscription-copy p {
+  margin-bottom: 0;
+}
+.calendar-page .calendar-subscription-actions {
+  flex-wrap: nowrap;
+}
+.calendar-page .subscription-modal-card {
+  width: min(900px, calc(100vw - 36px));
+}
+
+@media (max-width: 1050px) {
+  .calendar-page .calendar-control-bar {
+    grid-template-columns: 1fr;
+  }
+  .calendar-page .calendar-command-bar {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .calendar-page .calendar-command-actions {
+    justify-content: flex-start;
+  }
+  .calendar-page .standalone-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+  .calendar-page .standalone-agenda-panel {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .calendar-page .calendar-app-shell {
+    padding-inline: 14px;
+  }
+  .calendar-page .calendar-identity-row {
+    grid-template-columns: 1fr;
+  }
+  .calendar-page .calendar-identity-row .button {
+    width: 100%;
+  }
+  .calendar-page .calendar-month-control {
+    align-items: flex-start;
+    flex-direction: column-reverse;
+    gap: 12px;
+  }
+  .calendar-page .calendar-command-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .calendar-page .calendar-command-actions .button {
+    width: 100%;
+  }
+  .calendar-page .calendar-command-actions .button:last-child {
+    grid-column: 1 / -1;
+  }
+  .calendar-page .calendar-month-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .calendar-page .calendar-subscription-card {
+    grid-template-columns: 1fr;
+  }
+  .calendar-page .calendar-subscription-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .calendar-page .calendar-subscription-actions .button {
+    width: 100%;
+  }
+}
