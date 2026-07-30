@@ -3,250 +3,94 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Purdue University Indianapolis ASME sponsor outreach request portal.">
+  <meta name="description" content="Purdue Indianapolis ASME shared workspace for sponsor outreach, project planning, and club calendars.">
   <meta name="theme-color" content="#111111">
-  <title>ASME Indy SponsorFlow</title>
+  <title>ASME Indy Workspace</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=10">
+  <link rel="stylesheet" href="assets/app.css?v=11">
 </head>
-<body>
+<body class="home-page">
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
-    <a class="brand" href="./" aria-label="SponsorFlow home">
+    <a class="brand" href="index.html" aria-label="ASME Indy Workspace home">
       <span class="brand-mark">ASME</span>
-      <span class="brand-copy"><strong>SponsorFlow</strong><small>Purdue Indianapolis</small></span>
+      <span class="brand-copy"><strong>Indy Workspace</strong><small>Purdue Indianapolis</small></span>
     </a>
     <nav class="top-nav" aria-label="Primary navigation">
-      <button class="nav-button is-active" type="button" data-view-button="compose">Compose</button>
-      <button class="nav-button" type="button" data-view-button="requests">My requests</button>
-      <button class="nav-button" type="button" data-view-button="stats">Club stats</button>
-      <a class="nav-link" href="planner.html">Project planner</a>
-      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team website</a>
+      <a class="nav-link is-active" href="index.html">Home</a>
+      <a class="nav-link" href="outreach.html">Outreach</a>
+      <a class="nav-link" href="planner.html">Planner</a>
+      <a class="nav-link" href="calendar.html">Calendar</a>
+      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team site</a>
       <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
     </nav>
   </header>
 
-  <main id="main">
-    <section class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Sponsor outreach, organized</p>
-        <h1>Write the request. Build the relationship. Move the team forward.</h1>
-        <p class="hero-lede">Start with a polished template, personalize it for a real company, and submit it for officer review. Use your full name consistently so your requests and club impact stay together.</p>
-        <div class="hero-actions">
-          <button class="button button-primary" type="button" data-view-button="compose">Start a request</button>
-          <a class="button button-dark-outline" href="planner.html">Open project planner</a>
-          <button class="button button-dark-outline" type="button" data-view-button="stats">See club momentum</button>
-        </div>
-        <div class="hero-proof">
-          <div><strong>5th</strong><span>of 27 EVGP teams</span></div>
-          <div><strong>In-house</strong><span>battery engineering</span></div>
-          <div><strong>Officer review</strong><span>before every send</span></div>
+  <main id="main" class="home-main">
+    <section class="home-hero">
+      <div class="home-hero-copy">
+        <p class="eyebrow">One shared operating system for the club</p>
+        <h1>Plan the build. Coordinate the team. Grow the program.</h1>
+        <p>ASME Indy Workspace brings sponsor outreach, engineering timelines, parts, deadlines, and live calendar subscriptions into one clear place.</p>
+        <div class="home-hero-actions">
+          <a class="button button-primary" href="planner.html">Open project planner</a>
+          <a class="button button-secondary" href="calendar.html">Open club calendar</a>
         </div>
       </div>
-      <div class="hero-media">
-        <img src="assets/img/team.jpg" alt="Purdue Indianapolis ASME EV-Kart team gathered with their kart">
-        <div class="hero-media-card"><span class="status-dot"></span><div><strong>Student-led engineering</strong><small>Design, fabrication, testing, and racing</small></div></div>
+      <div class="home-hero-visual" aria-label="ASME EV-Kart team highlights">
+        <img src="assets/img/team.jpg" alt="Purdue Indianapolis ASME EV-Kart team with their kart">
+        <div class="home-hero-stat"><strong>5th of 27</strong><span>Recent EV Grand Prix finish</span></div>
       </div>
     </section>
 
-    <section class="workspace-shell">
-      <div id="connectionBanner" class="connection-banner is-hidden" role="status"></div>
-
-      <section class="app-view" data-view="compose">
-        <div class="section-heading">
-          <div><p class="eyebrow">New outreach request</p><h2>Build a sponsor-ready message</h2></div>
-          <div class="identity-chip"><span>✦</span><strong>Your full name is your request key</strong></div>
-        </div>
-
-        <form id="composeForm" novalidate>
-          <div class="compose-grid">
-            <div class="form-stack">
-              <article class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Identity and credit</p><h3>Who is leading this outreach?</h3></div><span class="panel-number">01</span></div>
-                <div class="field-grid two-col">
-                  <label class="field">
-                    <span>Your full name <b aria-hidden="true">*</b></span>
-                    <input id="requesterName" name="requesterName" list="memberNameSuggestions" autocomplete="name" maxlength="80" required placeholder="Colin Ternus">
-                    <datalist id="memberNameSuggestions"></datalist>
-                  </label>
-                  <label class="field"><span>Your club role</span><input id="requesterRole" name="requesterRole" maxlength="80" placeholder="EVK Project Lead"></label>
-                </div>
-                <div class="name-guidance"><strong>Use the same spelling every time.</strong><span>Your name groups your requests and contributes to the club leaderboard. No account or cookie is required.</span></div>
-              </article>
-
-              <article class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Recipient and approach</p><h3>Choose or suggest a sponsor</h3></div><span class="panel-number">02</span></div>
-
-                <div id="revisionBanner" class="revision-banner is-hidden">
-                  <div><span class="verification-badge" id="revisionSponsorBadge"></span><strong id="revisionSponsorName"></strong><small>The recipient is locked while you revise the approved draft content.</small></div>
-                  <button id="cancelRevisionButton" class="button button-ghost button-small" type="button">Cancel revision</button>
-                </div>
-
-                <div id="sponsorChooser">
-                  <div class="segmented-control" role="group" aria-label="Sponsor source">
-                    <button class="segment is-active" type="button" data-sponsor-mode="directory"><strong>Verified directory</strong><small>Use an officer-approved contact</small></button>
-                    <button class="segment" type="button" data-sponsor-mode="custom"><strong>Suggest a sponsor</strong><small>Enter a company and email yourself</small></button>
-                  </div>
-
-                  <div id="verifiedSponsorFields" class="sponsor-fields">
-                    <label class="field"><span>Verified sponsor contact <b aria-hidden="true">*</b></span><select id="contactId" name="contactId"><option value="">Loading contacts…</option></select></label>
-                    <p class="verification-note verified"><span class="verification-badge verified">Verified sponsor</span> The email has been reviewed by an officer and stays hidden from the public directory.</p>
-                  </div>
-
-                  <div id="customSponsorFields" class="sponsor-fields is-hidden">
-                    <div class="field-grid two-col">
-                      <label class="field"><span>Company name <b aria-hidden="true">*</b></span><input id="customCompanyName" maxlength="160" placeholder="Company or organization"></label>
-                      <label class="field"><span>Contact name</span><input id="customContactName" maxlength="120" placeholder="First and last name, if known"></label>
-                    </div>
-                    <label class="field"><span>Sponsor email <b aria-hidden="true">*</b></span><input id="customContactEmail" type="email" maxlength="254" placeholder="sponsorships@company.com"></label>
-                    <p class="verification-note unverified"><span class="verification-badge unverified">Unverified sponsor</span> An officer will verify this address before the request can be approved or marked sent.</p>
-                  </div>
-                </div>
-
-                  <div id="sponsorInsightCard" class="sponsor-insight is-hidden" aria-live="polite">
-                    <div class="sponsor-insight-head">
-                      <div><span id="sponsorProgramBadge" class="verification-badge research">Official opportunity</span><strong id="sponsorInsightTitle"></strong></div>
-                      <a id="sponsorRouteLink" class="button button-ghost button-small is-hidden" href="#" target="_blank" rel="noreferrer">Open official application</a>
-                    </div>
-                    <div class="sponsor-insight-grid">
-                      <div><span>Suggested ask</span><p id="sponsorSuggestedAsk"></p></div>
-                      <div><span>Eligibility / route</span><p id="sponsorEligibility"></p></div>
-                      <div class="sponsor-insight-wide"><span>Strong personalization angle</span><p id="sponsorPersonalizationIdea"></p></div>
-                    </div>
-                    <button id="useSponsorResearchButton" class="button button-secondary button-small" type="button">Use these research notes</button>
-                  </div>
-
-                  <div id="sponsorHistoryCard" class="outreach-history is-hidden" aria-live="polite">
-                    <div class="outreach-history-icon" id="sponsorHistoryIcon">✓</div>
-                    <div class="outreach-history-copy">
-                      <div class="badge-row"><span id="sponsorHistoryBadge" class="verification-badge available">No prior outreach</span></div>
-                      <strong id="sponsorHistoryTitle">No prior SponsorFlow requests found</strong>
-                      <p id="sponsorHistoryText">This sponsor appears available for a new first-touch request.</p>
-                      <label id="duplicateAckWrap" class="check-field duplicate-check is-hidden">
-                        <input id="duplicateAcknowledged" type="checkbox">
-                        <span>I reviewed the existing outreach and confirm this is an intentional follow-up, new contact, or separate opportunity.</span>
-                      </label>
-                    </div>
-                  </div>
-
-                <label class="field template-field"><span>Email template <b aria-hidden="true">*</b></span><select id="templateId" name="templateId" required><option value="">Loading templates…</option></select></label>
-                <div id="templateDescription" class="template-note is-hidden"></div>
-              </article>
-
-              <article id="substancePanel" class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Sponsor-specific substance</p><h3>Make the request worth reading</h3></div><span class="panel-number">03</span></div>
-                <div class="form-stack compact">
-                  <label class="field"><span>Why is this company a strong fit? <b aria-hidden="true">*</b></span><textarea id="personalizedConnection" rows="4" maxlength="900" required placeholder="Connect a product, facility, mission, industry, or Indianapolis presence to the work our students are doing."></textarea><small>Specific beats flattering. Name something real about the company.</small></label>
-                  <div class="field-grid two-col">
-                    <label class="field"><span>What are you asking for? <b aria-hidden="true">*</b></span><textarea id="specificRequest" rows="4" maxlength="700" required placeholder="A $750 sponsorship, high-voltage connectors, machining support, software licenses…"></textarea></label>
-                    <label class="field"><span>What will it enable? <b aria-hidden="true">*</b></span><textarea id="specificUse" rows="4" maxlength="700" required placeholder="Explain the engineering milestone, student experience, or event this support unlocks."></textarea></label>
-                  </div>
-                  <label class="field"><span>Sponsor return <b aria-hidden="true">*</b></span>
-                    <select id="benefitPreset">
-                      <option value="">Choose a sponsorship level or write a custom return</option>
-                      <option value="a small logo on the electric kart and applicable project items, one Instagram sponsor announcement, and the company name on the back of team shirts">Tier 1 — $250</option>
-                      <option value="a medium logo on the electric kart and applicable project items, sponsor announcements on Instagram and LinkedIn, and a small company logo on the back of team shirts">Tier 2 — $500</option>
-                      <option value="a medium logo on the electric kart and applicable project items, an Instagram and LinkedIn announcement, tags in relevant 2026 posts, and a large company logo on the back of team shirts">Tier 3 — $750</option>
-                      <option value="a large logo on the electric kart and applicable project items, an announcement across club platforms, tags in relevant 2026 posts, and a large company logo on the back of team shirts">Tier 4 — $1,000</option>
-                      <option value="primary logo placement on the electric kart and applicable project items, exclusive announcements across club platforms, tags in relevant 2026 posts, the largest company logo on team shirts, and a one-page impact report with photos, metrics, and student quotes">Exclusive — $10,000</option>
-                    </select>
-                    <textarea id="selectedBenefits" rows="4" maxlength="1000" required placeholder="Describe only benefits the club is prepared to deliver."></textarea>
-                  </label>
-                  <label class="field"><span>Optional detail or fallback</span><textarea id="customMessage" rows="3" maxlength="900" placeholder="Add a flexible alternative, attachment note, deadline, or relevant technical detail."></textarea></label>
-                </div>
-                <button id="generateDraftButton" class="button button-secondary" type="button">Generate polished draft</button>
-              </article>
-            </div>
-
-            <aside class="draft-column">
-              <article class="panel sticky-panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Editable output</p><h3>Your draft</h3></div><span id="qualityScore" class="quality-score">0</span></div>
-                <label class="field"><span>Subject <b aria-hidden="true">*</b></span><input id="emailSubject" maxlength="200" required placeholder="Select a template and generate a draft"></label>
-                <label class="field"><span>Email body <b aria-hidden="true">*</b></span><textarea id="emailBody" class="email-editor" rows="22" maxlength="12000" required placeholder="Your polished email will appear here."></textarea></label>
-                <div class="quality-card">
-                  <div class="quality-heading"><strong>Draft quality</strong><span id="qualityLabel">Needs content</span></div>
-                  <div class="quality-bar"><span id="qualityBar"></span></div>
-                  <ul id="qualityChecks" class="quality-checks"></ul>
-                </div>
-                <div class="submit-box">
-                  <label class="check-field"><input id="accuracyCheck" type="checkbox" required><span>I verified the facts, request, and benefits in this draft.</span></label>
-                  <button id="submitRequestButton" class="button button-primary button-full" type="submit">Submit for admin review</button>
-                  <p id="formStatus" class="form-status" aria-live="polite"></p>
-                </div>
-              </article>
-            </aside>
-          </div>
-        </form>
-      </section>
-
-      <section class="app-view is-hidden" data-view="requests">
-        <div class="section-heading"><div><p class="eyebrow">Name-based access</p><h2>Find your requests</h2><p>Enter the same full name used when you submitted. Requests remain available even after browser data is cleared.</p></div></div>
-        <form id="requestsLookupForm" class="lookup-card">
-          <label class="field"><span>Your full name</span><input id="requestLookupName" list="memberNameSuggestions" maxlength="80" required placeholder="Enter the same name used at submission"></label>
-          <button class="button button-primary" type="submit">Load my requests</button>
-          <p id="requestLookupStatus" class="form-status" aria-live="polite"></p>
-        </form>
-        <div id="requestsEmpty" class="empty-state"><div class="empty-icon">✦</div><h3>Enter your name to load requests</h3><p>Your request history is stored in the club sheet—not in browser cookies.</p></div>
-        <div id="requestList" class="request-list request-list-wide"></div>
-      </section>
-
-      <section class="app-view is-hidden" data-view="stats">
-        <div class="section-heading"><div><p class="eyebrow">Club momentum</p><h2>Outreach statistics</h2><p>Celebrate the members moving sponsor conversations forward and see the club's cumulative outreach over time.</p></div><span class="live-data-pill"><span class="status-dot"></span>Updated from SponsorFlow</span></div>
-        <div class="stats-summary">
-          <article><span>Total requests</span><strong id="statTotalRequests">0</strong></article>
-          <article><span>Sent by the club</span><strong id="statTotalSent">0</strong></article>
-          <article><span>Active queue</span><strong id="statTotalPending">0</strong></article>
-          <article><span>Participating members</span><strong id="statMembers">0</strong></article>
-        </div>
-        <div class="stats-grid">
-          <article class="stats-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Leaderboard</p><h3>Emails sent</h3></div><span class="verification-badge verified">Completed outreach</span></div><ol id="sentLeaders" class="leaderboard"></ol></article>
-          <article class="stats-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Leaderboard</p><h3>Active requests</h3></div><span class="verification-badge pending">In progress</span></div><ol id="pendingLeaders" class="leaderboard"></ol></article>
-          <article class="stats-panel chart-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Cumulative progress</p><h3>Sponsor emails sent over time</h3></div><strong id="chartTotal" class="chart-total">0 sent</strong></div><div id="timelineChart" class="timeline-chart" role="img" aria-label="Cumulative sponsor emails sent over time"></div></article>
-        </div>
-      </section>
-    </section>
-
-    <section class="process-section">
-      <div><p class="eyebrow">Simple by design</p><h2>Members write. Officers verify. The club sends.</h2></div>
-      <div class="process-grid">
-        <article><span>01</span><h3>Compose</h3><p>Use a verified contact or suggest a new sponsor, then build from a polished template.</p></article>
-        <article><span>02</span><h3>Review</h3><p>An officer verifies new addresses, comments, approves, rejects, or requests a revision.</p></article>
-        <article><span>03</span><h3>Send manually</h3><p>The officer copies the approved message into <strong>asmeindy@purdue.edu</strong> and records the send.</p></article>
+    <section class="home-modules" aria-labelledby="workspaceHeading">
+      <div class="home-section-heading">
+        <p class="eyebrow">Choose a workspace</p>
+        <h2 id="workspaceHeading">Everything has a clear home.</h2>
+      </div>
+      <div class="home-module-grid">
+        <a class="home-module-card" href="outreach.html">
+          <span class="home-module-index">01</span>
+          <div class="home-module-icon" aria-hidden="true">↗</div>
+          <h3>Sponsor outreach</h3>
+          <p>Build polished sponsor messages, avoid duplicate outreach, submit for officer review, and track club results.</p>
+          <span class="home-module-link">Open outreach <b>→</b></span>
+        </a>
+        <a class="home-module-card" href="planner.html">
+          <span class="home-module-index">02</span>
+          <div class="home-module-icon" aria-hidden="true">✓</div>
+          <h3>Project planner</h3>
+          <p>Manage team timelines, engineering tasks, priorities, dependencies, purchasing, funding, and progress.</p>
+          <span class="home-module-link">Open planner <b>→</b></span>
+        </a>
+        <a class="home-module-card" href="calendar.html">
+          <span class="home-module-index">03</span>
+          <div class="home-module-icon" aria-hidden="true">□</div>
+          <h3>Club calendar</h3>
+          <p>Create and edit events, view every team’s dated work, and subscribe to live calendars that update automatically.</p>
+          <span class="home-module-link">Open calendar <b>→</b></span>
+        </a>
       </div>
     </section>
 
-    <section class="engineering-banner">
-      <img src="assets/img/battery.jpg" alt="Student-designed modular EV-Kart battery pack">
-      <div><p class="eyebrow">Built around real engineering</p><h2>Specific work creates credible sponsorship.</h2><p>The strongest requests connect a company to concrete student work: battery systems, electrical architecture, fabrication, testing, race operations, and the next generation of engineers.</p></div>
+    <section class="home-operations">
+      <div>
+        <p class="eyebrow">Built for shared ownership</p>
+        <h2>Simple enough for the whole team. Structured enough to stay reliable.</h2>
+      </div>
+      <div class="home-operation-list">
+        <article><strong>Name-based attribution</strong><p>Changes and comments are connected to the name entered by each member.</p></article>
+        <article><strong>Team-specific views</strong><p>Mechanical, setup, wiring, battery, software, manufacturing, finance, and club-wide work stay organized.</p></article>
+        <article><strong>Portable calendars</strong><p>Subscribe to live team feeds or download individual events as standard .ics files.</p></article>
+      </div>
     </section>
   </main>
 
-  <dialog id="submittedDialog" class="modal">
-    <form method="dialog" class="modal-card">
-      <button class="modal-close" value="cancel" aria-label="Close">×</button>
-      <p class="eyebrow">Added to the review queue</p>
-      <h2>Request submitted</h2>
-      <p>The request is filed under <strong id="submittedName"></strong>. Use that same name on any browser to see it again.</p>
-      <div class="submission-summary"><span>Request ID</span><strong id="submittedRequestId"></strong><span id="submittedVerification" class="verification-badge"></span></div>
-      <button id="goToRequestsButton" class="button button-primary button-full" value="default">View my requests</button>
-    </form>
-  </dialog>
-
-  <dialog id="requestDialog" class="modal modal-wide">
-    <div class="modal-card"><button class="modal-close" type="button" data-close-dialog="requestDialog" aria-label="Close">×</button><div id="requestDetail"></div></div>
-  </dialog>
-
-  <iframe id="apiFrame" name="sponsorflow-api-frame" title="SponsorFlow data connection" hidden></iframe>
-
-  <footer class="site-footer">
-    <div><strong>Purdue University Indianapolis ASME</strong><span>Student-led engineering and electric racing</span></div>
-    <div><a href="planner.html">Project planner</a><a href="mailto:asmeindy@purdue.edu">asmeindy@purdue.edu</a><a href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">asmevk.webflow.io</a></div>
+  <footer class="site-footer home-footer">
+    <span>Purdue University Indianapolis ASME</span>
+    <span>Club email: asmeindy@purdue.edu</span>
   </footer>
-
-  <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=10"></script>
-  <script src="assets/member.js?v=10"></script>
 </body>
 </html>

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Purdue Indianapolis ASME shared club calendar and live calendar subscriptions.">
+  <meta name="theme-color" content="#111111">
+  <title>Club Calendar · ASME Indy Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css?v=11">
+</head>
+<body class="calendar-page">
+  <a class="skip-link" href="#calendarMain">Skip to calendar</a>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="ASME Indy Workspace home">
+      <span class="brand-mark">ASME</span>
+      <span class="brand-copy"><strong>Club Calendar</strong><small>ASME Indy Workspace</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="outreach.html">Outreach</a>
+      <a class="nav-link" href="planner.html">Planner</a>
+      <a class="nav-link is-active" href="calendar.html">Calendar</a>
+      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team site</a>
+      <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <main id="calendarMain" class="calendar-app-shell">
+    <section class="calendar-app-header">
+      <div>
+        <p class="eyebrow">Shared dates across every team</p>
+        <h1>Club Calendar</h1>
+        <p>Create events, review deadlines, and subscribe to the calendars that matter to you.</p>
+      </div>
+      <div class="calendar-app-actions">
+        <button id="calendarNewEventTop" class="button button-primary" type="button">+ New event</button>
+        <button id="calendarSubscribeTop" class="button button-secondary" type="button">Subscribe</button>
+      </div>
+    </section>
+
+    <div id="calendarConnectionBanner" class="connection-banner is-hidden" role="status"></div>
+
+    <section class="calendar-control-bar" aria-label="Calendar controls">
+      <div class="calendar-identity-control">
+        <label class="field compact-field"><span>Your name</span><input id="calendarActorName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
+        <button id="calendarSaveName" class="button button-secondary button-small" type="button">Use this name</button>
+        <span id="calendarNameStatus" class="planner-name-status">Required to edit</span>
+      </div>
+      <label class="field compact-field calendar-scope-control">
+        <span>Calendar</span>
+        <select id="calendarScopeSelect"><option value="club">Club-wide · all teams</option><option value="important">Important dates</option></select>
+      </label>
+    </section>
+
+    <section class="calendar-command-bar">
+      <div class="calendar-month-nav">
+        <button id="calendarPrevious" class="icon-button" type="button" aria-label="Previous month">←</button>
+        <button id="calendarToday" class="button button-ghost button-small" type="button">Today</button>
+        <button id="calendarNext" class="icon-button" type="button" aria-label="Next month">→</button>
+      </div>
+      <div class="calendar-command-title">
+        <p class="panel-kicker">Selected month</p>
+        <h2 id="calendarTitle">Month</h2>
+      </div>
+      <div class="calendar-command-actions">
+        <button id="calendarNewEvent" class="button button-primary button-small" type="button">+ Event</button>
+        <button id="calendarSubscribe" class="button button-secondary button-small" type="button">Live subscriptions</button>
+        <button id="calendarSnapshot" class="button button-ghost button-small" type="button">Download .ics</button>
+      </div>
+    </section>
+
+    <div id="calendarMessage" class="form-status calendar-page-message" aria-live="polite"></div>
+    <div id="calendarLoading" class="planner-loading"><span></span><p>Loading shared dates…</p></div>
+
+    <section class="standalone-calendar-layout">
+      <article class="calendar-month-panel standalone-calendar-panel">
+        <header class="calendar-month-heading">
+          <div class="calendar-scope-summary"><strong id="calendarScopeName">Club-wide</strong><span id="calendarScopeDescription">Every dated task and event across the club.</span></div>
+          <div class="calendar-legend" aria-label="Calendar status legend">
+            <span><i class="status-color-PLANNED"></i>Planned</span>
+            <span><i class="status-color-IN_PROGRESS"></i>In progress</span>
+            <span><i class="status-color-BLOCKED"></i>Blocked</span>
+            <span><i class="status-color-DONE"></i>Done</span>
+          </div>
+        </header>
+        <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+        <div id="calendarGrid" class="planner-calendar-grid standalone-calendar-grid"></div>
+      </article>
+
+      <aside class="calendar-agenda-panel standalone-agenda-panel">
+        <div class="calendar-agenda-heading">
+          <div><p class="panel-kicker">Month agenda</p><h3>Upcoming work</h3></div>
+          <span id="calendarAgendaCount" class="calendar-count-badge">0</span>
+        </div>
+        <div id="calendarAgenda" class="calendar-agenda"></div>
+      </aside>
+    </section>
+  </main>
+
+  <dialog id="calendarIdentityDialog" class="modal planner-modal">
+    <div class="modal-card identity-dialog-card">
+      <p class="eyebrow">Before you edit</p>
+      <h2>Put your name on the change.</h2>
+      <p>Your name is recorded with calendar edits so the club can coordinate updates.</p>
+      <label class="field"><span>Your full name</span><input id="calendarIdentityName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
+      <div class="dialog-actions"><button id="calendarIdentitySave" class="button button-primary" type="button">Enter calendar</button></div>
+      <p id="calendarIdentityStatus" class="form-status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <dialog id="calendarEventDialog" class="modal planner-modal event-dialog-standalone">
+    <form id="calendarEventForm" class="modal-card event-modal-card" novalidate>
+      <input id="calendarEventId" type="hidden">
+      <input id="calendarEventExpectedUpdatedAt" type="hidden">
+      <header class="event-modal-header">
+        <div><p class="eyebrow" id="calendarEventEyebrow">Calendar event</p><h2 id="calendarEventDialogTitle">Add event</h2><p id="calendarEventUpdatedMeta" class="task-updated-meta"></p></div>
+        <button class="modal-close" type="button" data-calendar-close aria-label="Close">×</button>
+      </header>
+
+      <div class="event-form-layout">
+        <section class="event-form-main">
+          <label class="field"><span>Title <b aria-hidden="true">*</b></span><input id="calendarEventTitle" maxlength="180" required placeholder="EVGP race, design review, team meeting…"></label>
+          <div class="field-grid two-col">
+            <label class="field"><span>Team timeline <b aria-hidden="true">*</b></span><select id="calendarEventBoard" required></select></label>
+            <label class="field"><span>Type</span><select id="calendarEventType"><option value="MEETING">Event / meeting</option><option value="WORK">Work deadline</option><option value="FUNDING">Funding deadline</option><option value="PURCHASE">Purchase / delivery</option></select></label>
+          </div>
+          <div class="field-grid two-col">
+            <label class="field"><span>Start date <b aria-hidden="true">*</b></span><span class="date-input-wrap"><input id="calendarEventStartDate" type="date" required></span></label>
+            <label class="field"><span>End date</span><span class="date-input-wrap"><input id="calendarEventEndDate" type="date"></span></label>
+          </div>
+          <label class="check-field event-all-day-row"><input id="calendarEventAllDay" type="checkbox" checked><span>All-day event</span></label>
+          <div id="calendarEventTimeFields" class="field-grid two-col is-hidden">
+            <label class="field"><span>Start time</span><input id="calendarEventStartTime" type="time"></label>
+            <label class="field"><span>End time</span><input id="calendarEventEndTime" type="time"></label>
+          </div>
+          <div class="field-grid two-col">
+            <label class="field"><span>Location</span><input id="calendarEventLocation" maxlength="240" placeholder="ET 101, Speedway, online…"></label>
+            <label class="field"><span>Owners</span><input id="calendarEventOwners" maxlength="300" placeholder="Names separated by commas"></label>
+          </div>
+          <div class="field-grid three-col">
+            <label class="field"><span>Status</span><select id="calendarEventStatus"><option value="BACKLOG">Backlog</option><option value="PLANNED">Planned</option><option value="IN_PROGRESS">In progress</option><option value="BLOCKED">Blocked</option><option value="REVIEW">Review / test</option><option value="DONE">Done</option></select></label>
+            <label class="field"><span>Priority</span><select id="calendarEventPriority"><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM" selected>Medium</option><option value="LOW">Low</option></select></label>
+            <label class="field"><span>Progress</span><select id="calendarEventProgress"><option value="0">0%</option><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option><option value="100">100%</option></select></label>
+          </div>
+          <label class="field"><span>Notes / acceptance criteria</span><textarea id="calendarEventDescription" rows="5" maxlength="4000" placeholder="Purpose, preparation, deliverables, or anything the team should know"></textarea></label>
+          <div class="event-flag-grid">
+            <label class="check-field"><input id="calendarEventMilestone" type="checkbox"><span>Milestone</span></label>
+            <label class="check-field"><input id="calendarEventImportant" type="checkbox"><span>Important date</span></label>
+          </div>
+        </section>
+        <aside class="event-form-aside">
+          <div id="calendarEventHealth" class="task-health-card health-neutral"><span>Schedule health</span><strong>Add a date</strong><p>Choose dates to place this item on the shared calendar.</p></div>
+          <div class="event-help-card"><p class="panel-kicker">Calendar behavior</p><h3>One change, every view</h3><p>Events saved here also appear in the corresponding project timeline and live calendar subscriptions.</p></div>
+        </aside>
+      </div>
+
+      <footer class="event-modal-footer">
+        <div><button id="calendarEventArchive" class="button button-danger button-small is-hidden" type="button">Archive</button><button id="calendarEventDownload" class="button button-ghost button-small is-hidden" type="button">Download .ics</button></div>
+        <div><button class="button button-ghost" type="button" data-calendar-close>Cancel</button><button id="calendarEventSave" class="button button-primary" type="submit">Save event</button></div>
+      </footer>
+      <p id="calendarEventFormStatus" class="form-status event-form-status" aria-live="polite"></p>
+    </form>
+  </dialog>
+
+  <dialog id="calendarSubscriptionsDialog" class="modal modal-wide planner-modal">
+    <div class="modal-card subscription-modal-card">
+      <button class="modal-close" type="button" data-subscription-close aria-label="Close">×</button>
+      <p class="eyebrow">Live calendar feeds</p>
+      <h2>Subscribe once. Stay current.</h2>
+      <p class="subscription-intro">Choose any combination of club, important-date, team, or timeline calendars. Calendar apps refresh these read-only feeds automatically.</p>
+      <div id="calendarSubscriptionList" class="calendar-subscription-list"></div>
+      <div class="subscription-help-grid">
+        <article><strong>Apple Calendar</strong><p>File → New Calendar Subscription, then paste the URL.</p></article>
+        <article><strong>Google Calendar</strong><p>Other calendars → + → From URL, then paste the URL.</p></article>
+        <article><strong>Outlook</strong><p>Add calendar → Subscribe from web, then paste the URL.</p></article>
+      </div>
+      <p id="calendarSubscriptionStatus" class="form-status" aria-live="polite"></p>
+    </div>
+  </dialog>
+
+  <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
+  <script src="assets/config.js?v=11"></script>
+  <script src="assets/api.js?v=11"></script>
+  <script src="assets/calendar.js?v=11"></script>
+</body>
+</html>

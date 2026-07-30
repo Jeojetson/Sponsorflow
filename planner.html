@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=10">
+  <link rel="stylesheet" href="assets/app.css?v=11">
 </head>
 <body class="planner-page">
   <a class="skip-link" href="#plannerMain">Skip to planner</a>
@@ -19,9 +19,11 @@
       <span class="brand-copy"><strong>Project Planner</strong><small>Purdue Indianapolis</small></span>
     </a>
     <nav class="top-nav" aria-label="Primary navigation">
-      <a class="nav-link" href="index.html">Sponsor outreach</a>
-      <a class="nav-link is-active" href="planner.html">Project planner</a>
-      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team website</a>
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="outreach.html">Outreach</a>
+      <a class="nav-link is-active" href="planner.html">Planner</a>
+      <a class="nav-link" href="calendar.html">Calendar</a>
+      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team site</a>
       <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
     </nav>
   </header>
@@ -35,7 +37,8 @@
       </div>
       <div class="planner-intro-actions">
         <button id="newTaskTopButton" class="button button-primary" type="button">+ Task</button>
-        <button id="newEventTopButton" class="button button-secondary" type="button">+ Calendar event</button>
+        <button id="newEventTopButton" class="is-hidden" type="button" aria-hidden="true" tabindex="-1">+ Calendar event</button>
+        <a class="button button-secondary" href="calendar.html">Open calendar</a>
         <button id="manageWorkspaceButton" class="button button-dark-outline" type="button">Teams & timelines</button>
       </div>
     </section>
@@ -55,7 +58,7 @@
       <div class="planner-view-controls" role="group" aria-label="Planner view">
         <button class="planner-view-button is-active" type="button" data-planner-view="board">Board</button>
         <button class="planner-view-button" type="button" data-planner-view="timeline">Timeline</button>
-        <button class="planner-view-button" type="button" data-planner-view="calendar">Calendar</button>
+        <button class="planner-view-button is-hidden" type="button" data-planner-view="calendar" aria-hidden="true" tabindex="-1">Calendar</button>
         <button class="planner-view-button" type="button" data-planner-view="table">Table</button>
         <button class="planner-view-button" type="button" data-planner-view="insights">Insights</button>
       </div>
@@ -81,12 +84,13 @@
         <div class="board-overview-actions">
           <div class="board-primary-actions">
             <button id="newTaskButton" class="button button-primary button-small" type="button">+ Task</button>
-            <button id="newEventButton" class="button button-secondary button-small" type="button">+ Event</button>
+            <button id="newEventButton" class="is-hidden" type="button" aria-hidden="true" tabindex="-1">+ Event</button>
+            <a class="button button-secondary button-small" href="calendar.html">Calendar</a>
           </div>
           <details class="board-more-actions">
             <summary>More</summary>
             <div>
-              <button id="calendarSubscriptionsButton" class="button button-ghost button-small" type="button">Calendar subscriptions</button>
+              <button id="calendarSubscriptionsButton" class="button button-ghost button-small" type="button">Open subscriptions</button>
               <button id="shareBoardButton" class="button button-ghost button-small" type="button">Copy link</button>
               <button id="exportBoardButton" class="button button-ghost button-small" type="button">Export CSV</button>
               <button id="exportCalendarButton" class="button button-ghost button-small" type="button">Download .ics snapshot</button>
@@ -430,8 +434,8 @@
   </dialog>
 
   <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=10"></script>
-  <script src="assets/api.js?v=10"></script>
-  <script src="assets/planner.js?v=10"></script>
+  <script src="assets/config.js?v=11"></script>
+  <script src="assets/api.js?v=11"></script>
+  <script src="assets/planner.js?v=11"></script>
 </body>
 </html>

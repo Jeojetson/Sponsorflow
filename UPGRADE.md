@@ -1,107 +1,94 @@
-# Upgrade SponsorFlow to 1.0
+# SponsorFlow 1.1 upgrade
 
-SponsorFlow 1.0 is a stability and usability release for the Project Planner. It preserves the existing sponsor directory, requests, teams, timelines, tasks, comments, funding opportunities, and activity history.
+SponsorFlow 1.1 fixes calendar date storage, moves the calendar into its own website section, adds a new workspace splash page, and applies one visual system across outreach, planning, calendar, and admin links.
 
-## Before upgrading
+## Important: back up the Sheet first
 
-1. Open the SponsorFlow Google Sheet.
-2. Choose **File → Make a copy**.
-3. Keep that copy until you have completed the tests below.
+In the SponsorFlow Google Sheet, choose **File → Make a copy**.
 
 ## 1. Update the GitHub Pages files
 
-Extract `asme-sponsorflow-1.0-update.zip` and upload its contents to the root of the existing GitHub repository, replacing matching files.
+Upload the contents of the 1.1 update package to the root of the existing GitHub repository and replace matching files.
 
-The update intentionally does **not** contain `assets/config.js`. Do not delete or replace your working config file.
+New files:
 
-The principal changed files are:
+- `outreach.html`
+- `calendar.html`
+- `assets/calendar.js`
 
-```text
-planner.html
-index.html
-admin.html
-assets/app.css
-assets/planner.js
-apps-script/Code.gs
-```
+Replaced files:
 
-Commit the files to `main`, then wait for **Actions → pages build and deployment** to complete.
+- `index.html`
+- `planner.html`
+- `admin.html`
+- `assets/app.css`
+- `assets/planner.js`
 
-## 2. Replace the Apps Script backend
+Do **not** replace or delete:
 
-Open:
+- `assets/config.js`
+- `assets/img/`
 
-```text
-Google Sheet → Extensions → Apps Script → Code.gs
-```
+The old sponsor portal that previously lived at `index.html` now lives at `outreach.html`. The new `index.html` is the workspace home page.
 
-Replace the entire contents of `Code.gs` with the SponsorFlow 1.0 version and save it.
+Commit the changes to `main`, then wait for **Actions → pages build and deployment** to finish.
 
-A plain-text copy is also supplied as `SponsorFlow-1.0-Code.txt`.
+## 2. Replace the Google Apps Script backend
 
-## 3. Run the schema upgrade
+Open the SponsorFlow Sheet, then choose:
 
-Reload the Google Sheet, then choose:
+**Extensions → Apps Script → Code.gs**
 
-```text
-SponsorFlow → Upgrade to SponsorFlow 1.0
-```
+Replace all contents of `Code.gs` with the SponsorFlow 1.1 source and save it.
 
-This adds these planner columns when they do not already exist:
+The Google Apps Script `Admin.html` file does not change in this release.
 
-```text
-allDay
-startTime
-endTime
-location
-```
+## 3. Run the date repair migration
 
-Existing rows are preserved. The 1.0 upgrade is additive-only: it creates missing columns and missing starter records, but it does not rewrite existing sponsors, templates, teams, timelines, tasks, dates, owners, progress, comments, or funding research. Existing dated tasks default to all-day items unless times are added.
+Reload the Google Sheet and choose:
 
-## 4. Redeploy the Apps Script web app
+**SponsorFlow → Upgrade to SponsorFlow 1.1**
 
-Saving Code.gs does not update the public deployment by itself.
+This migration:
 
-Open:
+- converts planner and calendar date cells to stable `YYYY-MM-DD` text values;
+- repairs dates that Google Sheets previously auto-converted into Date objects;
+- preserves existing tasks, events, sponsors, owners, statuses, progress, comments, funding research, and timelines;
+- adds only missing starter records.
 
-```text
-Deploy → Manage deployments → pencil icon
-```
+This step fixes the bug where an event appeared as the first day of a month or appeared in the agenda but not in the calendar grid.
 
-Choose **New version**, enter a description such as `SponsorFlow 1.0`, and deploy the existing web-app deployment. Keep the same `/exec` URL.
+## 4. Redeploy Apps Script
 
-## 5. Refresh GitHub Pages
+Choose:
 
-Open the live planner and press:
+**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**
 
-```text
-Command + Shift + R
-```
+Edit the existing deployment so the `/exec` URL remains unchanged. You do not need to edit `assets/config.js`.
 
-The page now requests the `v=10` frontend assets, which should also prevent older cached layouts from returning.
+## 5. Refresh the website
+
+After the GitHub Pages workflow is green, open the site and press:
+
+**Command + Shift + R**
+
+The site now has these main pages:
+
+- `index.html` — workspace home
+- `outreach.html` — sponsor outreach
+- `planner.html` — project planner
+- `calendar.html` — shared club calendar
+- `admin.html` — secure admin dashboard link
 
 ## Acceptance test
 
-1. Open **Calendar**.
-2. Click a day or choose **+ Event**.
-3. Create a one-day all-day event and save it.
-4. Reopen the event and confirm its title, date, owner, and location remain intact.
-5. Create a timed event by clearing **All-day event** and entering start/end times.
-6. Open a regular task and check the **Schedule** tab. Its health card should reflect the visible due date.
-7. Edit a task, close without saving, and confirm the discard warning appears.
-8. Begin another edit, refresh the page before saving, reopen the same task, and confirm the browser offers to restore the unsaved draft.
-9. Open **Subscribe** and verify the live calendar links still load.
-
-## What changed
-
-- Dedicated quick calendar-event editor
-- Reliable single-day and multi-day events
-- Optional event times and locations
-- Server-confirmed saves before the UI reports success
-- Local draft recovery for unsaved task and event edits
-- Unsaved-change warnings
-- Task editor split into Overview, Schedule, Details, and Comments & History
-- Corrected task-health date preview
-- Compact planner header and simpler action menus
-- Responsive layouts with no page-level or modal horizontal overflow
-- Timed events supported by downloaded and subscribed `.ics` calendars
+1. Open `calendar.html`.
+2. Enter your name.
+3. Click a day in the month and create an all-day event.
+4. Save it and verify it appears inside the correct day cell and in the agenda.
+5. Edit its date and verify it moves to the new day.
+6. Refresh the page and verify the date remains unchanged.
+7. Create a timed event with a location.
+8. Download the event as `.ics`.
+9. Open Live subscriptions and verify the team calendars still load.
+10. Open Planner and verify Board, Timeline, Table, and Insights still work.

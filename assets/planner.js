@@ -76,6 +76,7 @@
     bindEvents();
     restoreIdentity();
     state.view = localStorage.getItem("asmePlannerView") || "board";
+    if (state.view === "calendar") state.view = "board";
     state.calendarMonth = localStorage.getItem("asmePlannerCalendarMonth") || state.calendarMonth;
     if (!API || !API.configured()) {
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
@@ -277,10 +278,20 @@
   function applyPlannerBootstrap(data, preferredBoardId = "") {
     state.teams = Array.isArray(data.teams) ? data.teams : [];
     state.boards = Array.isArray(data.boards) ? data.boards : [];
-    state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    state.tasks = (Array.isArray(data.tasks) ? data.tasks : []).map(normalizePlannerTaskDates);
     state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
     renderContextOptions();
     chooseInitialBoard(preferredBoardId);
+  }
+
+  function normalizePlannerTaskDates(task) {
+    return {
+      ...task,
+      startDate: normalizeDateInput(task.startDate),
+      dueDate: normalizeDateInput(task.dueDate),
+      startTime: normalizeTimeInput(task.startTime),
+      endTime: normalizeTimeInput(task.endTime)
+    };
   }
 
   function chooseInitialBoard(preferredId = "") {
@@ -788,7 +799,8 @@
   }
 
   function setPlannerView(view) {
-    state.view = ["board", "timeline", "calendar", "table", "insights"].includes(view) ? view : "board";
+    if (view === "calendar") view = "board";
+    state.view = ["board", "timeline", "table", "insights"].includes(view) ? view : "board";
     localStorage.setItem("asmePlannerView", state.view);
     $$("[data-planner-view]").forEach(button => button.classList.toggle("is-active", button.dataset.plannerView === state.view));
     $$("[data-planner-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.plannerPanel !== state.view));
