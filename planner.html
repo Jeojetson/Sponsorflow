@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=7">
+  <link rel="stylesheet" href="assets/app.css?v=8">
 </head>
 <body class="planner-page">
   <a class="skip-link" href="#plannerMain">Skip to planner</a>
@@ -31,7 +31,7 @@
       <div>
         <p class="eyebrow">Shared engineering workspace</p>
         <h1>Turn the build into a plan everyone can move forward.</h1>
-        <p>Organize mechanical, electrical, battery, manufacturing, parts, and club work in team timelines, visual calendars, and portable .ics exports. Every change is attributed to the name entered below.</p>
+        <p>Organize mechanical, electrical, battery, manufacturing, parts, and club work in team timelines. Every change is attributed to the name entered below.</p>
       </div>
       <div class="planner-intro-actions">
         <button id="newTaskTopButton" class="button button-primary" type="button">+ New task</button>
@@ -80,7 +80,8 @@
         <div class="board-overview-actions">
           <button id="shareBoardButton" class="button button-secondary button-small" type="button">Copy board link</button>
           <button id="exportBoardButton" class="button button-secondary button-small" type="button">Export CSV</button>
-          <button id="exportCalendarButton" class="button button-secondary button-small" type="button">Download calendar</button>
+          <button id="calendarSubscriptionsButton" class="button button-secondary button-small" type="button">Subscribe to calendars</button>
+          <button id="exportCalendarButton" class="button button-secondary button-small" type="button">Download snapshot</button>
           <button id="editBoardButton" class="button button-ghost button-small" type="button">Edit timeline</button>
           <button id="newTaskButton" class="button button-primary button-small" type="button">+ Add task</button>
         </div>
@@ -122,13 +123,15 @@
         <div class="calendar-toolbar">
           <div>
             <strong>Club calendar</strong>
-            <span>See dated work by month, open a task from any event, or download an iCalendar file for Outlook, Apple Calendar, or Google Calendar.</span>
+            <span>Click a day to add an event, open any item to edit it, or subscribe to live team calendars that refresh as the planner changes.</span>
           </div>
           <div class="calendar-toolbar-actions">
             <button id="calendarPreviousButton" class="button button-secondary button-small calendar-step-button" type="button" aria-label="Previous month">←</button>
             <button id="calendarTodayButton" class="button button-ghost button-small" type="button">Today</button>
             <button id="calendarNextButton" class="button button-secondary button-small calendar-step-button" type="button" aria-label="Next month">→</button>
-            <button id="downloadCalendarButton" class="button button-primary button-small" type="button">Download .ics</button>
+            <button id="addCalendarEventButton" class="button button-primary button-small" type="button">+ Add event</button>
+            <button id="openCalendarSubscriptionsButton" class="button button-secondary button-small" type="button">Live subscriptions</button>
+            <button id="downloadCalendarButton" class="button button-ghost button-small" type="button">Download snapshot</button>
           </div>
         </div>
         <div class="calendar-layout">
@@ -235,7 +238,10 @@
 
       <div class="task-editor-layout">
         <div class="task-editor-main">
-          <label class="field"><span>Task title <b aria-hidden="true">*</b></span><input id="taskTitle" maxlength="180" required placeholder="Design battery enclosure mounting tabs"></label>
+          <div class="field-grid two-col task-placement-fields">
+            <label class="field"><span>Timeline <b aria-hidden="true">*</b></span><select id="taskBoardId" required></select></label>
+            <label class="field"><span>Task title <b aria-hidden="true">*</b></span><input id="taskTitle" maxlength="180" required placeholder="Design battery enclosure mounting tabs"></label>
+          </div>
           <label class="field"><span>Description / acceptance criteria</span><textarea id="taskDescription" rows="5" maxlength="4000" placeholder="What needs to be done, why it matters, and what finished looks like"></textarea></label>
           <div class="field-grid four-col task-core-fields">
             <label class="field"><span>Task type</span><select id="taskType"></select></label>
@@ -251,7 +257,10 @@
             <label class="field"><span>Start date</span><span class="date-input-wrap"><input id="taskStartDate" type="date"></span></label>
             <label class="field"><span>Due date</span><span class="date-input-wrap"><input id="taskDueDate" type="date"></span></label>
           </div>
-          <label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"><span>Milestone — show this as a key decision, delivery, test, or event</span></label>
+          <div class="task-calendar-flags">
+            <label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"><span>Milestone — show this as a key decision, delivery, test, or event</span></label>
+            <label class="check-field milestone-check"><input id="taskImportantDate" type="checkbox"><span>Important date — include this in the club Important Dates subscription</span></label>
+          </div>
 
           <section id="taskFundingSection" class="task-subsection funding-editor is-hidden">
             <div class="task-subsection-heading"><div><p class="panel-kicker">Funding opportunity</p><h3>Capture eligibility, value, and the official route</h3></div><span>Research fields</span></div>
@@ -316,9 +325,35 @@
     </form>
   </dialog>
 
+
+  <dialog id="calendarSubscriptionsDialog" class="modal modal-wide planner-modal calendar-subscriptions-dialog">
+    <div class="modal-card subscription-modal-card">
+      <button class="modal-close" type="button" data-close-dialog="calendarSubscriptionsDialog" aria-label="Close">×</button>
+      <div class="subscription-heading">
+        <div>
+          <p class="eyebrow">Live calendar subscriptions</p>
+          <h2>Choose only the schedules you need.</h2>
+          <p>Subscribe once and your calendar app will periodically pull new dates and edits from SponsorFlow. Subscriptions are read-only; edit events here in the planner.</p>
+        </div>
+        <span class="live-feed-badge">LIVE .ICS</span>
+      </div>
+      <div class="subscription-callout">
+        <strong>Recommended:</strong> add <b>Club-wide</b> for the full portfolio and <b>Important Dates</b> for critical deadlines. Team members can then add Mechanical, Kart Setup, Wiring Harness, Battery, Software, Manufacturing, or Finance separately.
+      </div>
+      <div id="calendarSubscriptionList" class="calendar-subscription-list"></div>
+      <section class="subscription-help">
+        <div><h3>Apple Calendar</h3><p>Use “Open subscription,” or choose File → New Calendar Subscription on Mac and paste the URL.</p></div>
+        <div><h3>Google Calendar</h3><p>On a computer, open Other calendars → From URL and paste the subscription URL.</p></div>
+        <div><h3>Outlook</h3><p>Use Add calendar → Subscribe from web and paste the URL.</p></div>
+      </section>
+      <p id="calendarSubscriptionStatus" class="form-status" aria-live="polite"></p>
+      <div class="dialog-actions"><button class="button button-secondary" type="button" data-close-dialog="calendarSubscriptionsDialog">Done</button></div>
+    </div>
+  </dialog>
+
   <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=7"></script>
-  <script src="assets/api.js?v=7"></script>
-  <script src="assets/planner.js?v=7"></script>
+  <script src="assets/config.js?v=8"></script>
+  <script src="assets/api.js?v=8"></script>
+  <script src="assets/planner.js?v=8"></script>
 </body>
 </html>

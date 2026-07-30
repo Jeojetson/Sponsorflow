@@ -23,7 +23,7 @@
     { id: "WORK", label: "Work item" },
     { id: "FUNDING", label: "Funding opportunity" },
     { id: "PURCHASE", label: "Purchase / part" },
-    { id: "MEETING", label: "Review / meeting" }
+    { id: "MEETING", label: "Event / meeting" }
   ];
   const SOURCE_CONFIDENCE = [
     { id: "OFFICIAL_CURRENT", label: "Official · current details" },
@@ -42,6 +42,8 @@
     { id: "RECEIVED", label: "Received" }
   ];
   const ACTIVE_STATUSES = new Set(["BACKLOG", "PLANNED", "IN_PROGRESS", "BLOCKED", "REVIEW"]);
+  const CLUB_TEAM_ID = "TEAM-CLUB";
+  const AGGREGATE_BOARD_ID = "BOARD-CLUB-PORTFOLIO";
 
   const state = {
     actorName: "",
@@ -55,7 +57,9 @@
     taskDetail: null,
     draggedTaskId: "",
     insightsScope: "board",
-    calendarMonth: `${todayText().slice(0, 7)}-01`
+    calendarMonth: `${todayText().slice(0, 7)}-01`,
+    calendarFeedBaseUrl: "",
+    pendingTaskId: ""
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -105,6 +109,9 @@
     $("#exportBoardButton").addEventListener("click", exportBoardCsv);
     $("#exportCalendarButton").addEventListener("click", downloadBoardCalendar);
     $("#downloadCalendarButton").addEventListener("click", downloadBoardCalendar);
+    $("#calendarSubscriptionsButton").addEventListener("click", openCalendarSubscriptions);
+    $("#openCalendarSubscriptionsButton").addEventListener("click", openCalendarSubscriptions);
+    $("#addCalendarEventButton").addEventListener("click", () => openTaskDialog("", { taskType: "MEETING", startDate: todayText(), dueDate: todayText(), importantDate: true }));
     $("#calendarPreviousButton").addEventListener("click", () => moveCalendarMonth(-1));
     $("#calendarTodayButton").addEventListener("click", () => { state.calendarMonth = `${todayText().slice(0, 7)}-01`; renderCalendar(); });
     $("#calendarNextButton").addEventListener("click", () => moveCalendarMonth(1));
@@ -123,10 +130,11 @@
     $("#workspaceDirectoryList").addEventListener("click", handleWorkspaceDirectoryClick);
 
     $("#taskForm").addEventListener("submit", saveTask);
+    $("#taskBoardId").addEventListener("change", () => renderDependencyPicker($("#taskId").value, selectedDependencies()));
     $("#archiveTaskButton").addEventListener("click", archiveTask);
     $("#downloadTaskCalendarButton").addEventListener("click", downloadTaskCalendarFromForm);
     $("#addTaskCommentButton").addEventListener("click", addTaskComment);
-    ["taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone", "taskSourceConfidence"].forEach(id => {
+    ["taskType", "taskStatus", "taskPriority", "taskProgress", "taskStartDate", "taskDueDate", "taskOrderStatus", "taskIsMilestone", "taskImportantDate", "taskSourceConfidence"].forEach(id => {
       $("#" + id).addEventListener("change", () => { updateFundingEditor(); updateTaskHealthPreview(); updateTaskCalendarButton(); });
     });
     ["taskTitle", "taskDescription", "taskOwners", "taskTags", "taskRequirements", "taskSourceUrl"].forEach(id => {
@@ -175,6 +183,11 @@
     status.textContent = "Name saved";
     status.classList.remove("is-error");
     updateIdentityUi();
+    if (state.pendingTaskId) {
+      const pending = state.pendingTaskId;
+      state.pendingTaskId = "";
+      window.setTimeout(() => openTaskDialog(pending), 50);
+    }
     return true;
   }
 
@@ -198,16 +211,25 @@
   }
 
   async function loadPlanner(options = {}) {
+    const requestedTask = new URLSearchParams(window.location.search).get("task") || "";
     setLoading(true);
     try {
       const data = await API.post("plannerBootstrap");
       state.teams = Array.isArray(data.teams) ? data.teams : [];
       state.boards = Array.isArray(data.boards) ? data.boards : [];
       state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+      state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || "");
       renderContextOptions();
       chooseInitialBoard(options.boardId);
       renderCurrentBoard();
       hideConnectionError();
+      if (requestedTask) {
+        state.pendingTaskId = requestedTask;
+        if (state.actorName) {
+          window.setTimeout(() => openTaskDialog(requestedTask), 100);
+          state.pendingTaskId = "";
+        }
+      }
     } catch (error) {
       showConnectionError(error.message);
     } finally {
@@ -218,10 +240,16 @@
   function chooseInitialBoard(preferredId = "") {
     const queryBoard = new URLSearchParams(window.location.search).get("board") || "";
     const stored = localStorage.getItem("asmePlannerBoard") || "";
-    const candidate = preferredId || queryBoard || stored;
-    const selected = state.boards.find(board => board.id === candidate) || state.boards[0] || null;
-    state.currentBoardId = selected?.id || "";
-    state.currentTeamId = selected?.teamId || state.teams[0]?.id || "";
+    const fallback = state.teams.some(team => team.id === CLUB_TEAM_ID) ? AGGREGATE_BOARD_ID : state.boards[0]?.id || "";
+    const candidate = preferredId || queryBoard || stored || fallback;
+    if (candidate === AGGREGATE_BOARD_ID) {
+      state.currentBoardId = AGGREGATE_BOARD_ID;
+      state.currentTeamId = CLUB_TEAM_ID;
+    } else {
+      const selected = state.boards.find(board => board.id === candidate) || state.boards[0] || null;
+      state.currentBoardId = selected?.id || "";
+      state.currentTeamId = selected?.teamId || state.teams[0]?.id || "";
+    }
     $("#teamFilter").value = state.currentTeamId;
     renderBoardOptions();
     $("#boardSelect").value = state.currentBoardId;
@@ -235,22 +263,36 @@
     $("#boardTeamId").innerHTML = state.teams.length
       ? state.teams.map(team => `<option value="${escapeHtml(team.id)}">${escapeHtml(team.name)}</option>`).join("")
       : '<option value="">Create a team first</option>';
+    populateTaskBoardOptions();
     renderBoardOptions();
     renderWorkspaceDirectory();
   }
 
+  function populateTaskBoardOptions(selectedId = "") {
+    const grouped = state.teams.map(team => {
+      const boards = state.boards.filter(board => board.teamId === team.id);
+      if (!boards.length) return "";
+      return `<optgroup label="${escapeHtml(team.name)}">${boards.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")}</optgroup>`;
+    }).join("");
+    $("#taskBoardId").innerHTML = grouped || '<option value="">Create a timeline first</option>';
+    if (selectedId && state.boards.some(board => board.id === selectedId)) $("#taskBoardId").value = selectedId;
+  }
+
   function renderBoardOptions() {
     const filtered = state.boards.filter(board => !state.currentTeamId || board.teamId === state.currentTeamId);
-    $("#boardSelect").innerHTML = filtered.length
+    const aggregate = state.currentTeamId === CLUB_TEAM_ID
+      ? `<option value="${AGGREGATE_BOARD_ID}">Club-wide portfolio · all teams</option>`
+      : "";
+    $("#boardSelect").innerHTML = aggregate + (filtered.length
       ? filtered.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")
-      : '<option value="">No timelines for this team</option>';
+      : aggregate ? "" : '<option value="">No timelines for this team</option>');
   }
 
   function handleTeamChange() {
     state.currentTeamId = $("#teamFilter").value;
     renderBoardOptions();
     const available = state.boards.filter(board => board.teamId === state.currentTeamId);
-    state.currentBoardId = available[0]?.id || "";
+    state.currentBoardId = state.currentTeamId === CLUB_TEAM_ID ? AGGREGATE_BOARD_ID : available[0]?.id || "";
     $("#boardSelect").value = state.currentBoardId;
     persistBoardSelection();
     renderCurrentBoard();
@@ -272,12 +314,35 @@
     const url = new URL(window.location.href);
     if (state.currentBoardId) url.searchParams.set("board", state.currentBoardId);
     else url.searchParams.delete("board");
+    url.searchParams.delete("task");
     window.history.replaceState({}, "", url);
   }
 
-  function currentBoard() { return state.boards.find(board => board.id === state.currentBoardId) || null; }
+  function aggregateBoard() {
+    const dated = state.tasks.filter(task => !task.archived && (task.startDate || task.dueDate));
+    const dates = dated.flatMap(task => [task.startDate, task.dueDate]).filter(Boolean).sort();
+    return {
+      id: AGGREGATE_BOARD_ID,
+      teamId: CLUB_TEAM_ID,
+      name: "Club-wide Portfolio",
+      description: "One shared view of every active team timeline, including Finance & Sponsorship opportunities, deadlines, parts, testing, and important club dates.",
+      targetStart: dates[0] || "",
+      targetEnd: dates[dates.length - 1] || "",
+      active: true,
+      isAggregate: true
+    };
+  }
+
+  function isAggregateBoard(board = currentBoard()) { return Boolean(board?.isAggregate || board?.id === AGGREGATE_BOARD_ID); }
+  function currentBoard() { return state.currentBoardId === AGGREGATE_BOARD_ID ? aggregateBoard() : state.boards.find(board => board.id === state.currentBoardId) || null; }
   function currentTeam() { const board = currentBoard(); return state.teams.find(team => team.id === (board?.teamId || state.currentTeamId)) || null; }
-  function boardTasks() { return state.tasks.filter(task => task.boardId === state.currentBoardId && !task.archived); }
+  function boardTasks() { return isAggregateBoard() ? state.tasks.filter(task => !task.archived) : state.tasks.filter(task => task.boardId === state.currentBoardId && !task.archived); }
+  function actualBoardForTask(task) { return state.boards.find(board => board.id === task?.boardId) || null; }
+  function teamForTask(task) { const board = actualBoardForTask(task); return state.teams.find(team => team.id === board?.teamId) || null; }
+  function defaultTaskBoardId() {
+    if (!isAggregateBoard() && state.boards.some(board => board.id === state.currentBoardId)) return state.currentBoardId;
+    return state.boards.find(board => board.teamId === CLUB_TEAM_ID)?.id || state.boards[0]?.id || "";
+  }
 
   function filteredTasks() {
     const search = $("#taskSearch").value.trim().toLowerCase();
@@ -311,10 +376,12 @@
     workspace.classList.remove("is-hidden");
 
     const team = currentTeam();
-    $("#boardTeamBadge").textContent = `${team?.icon || "TEAM"} · ${team?.name || "Team"}`;
+    $("#boardTeamBadge").textContent = isAggregateBoard(board) ? "ALL · CLUB-WIDE" : `${team?.icon || "TEAM"} · ${team?.name || "Team"}`;
     $("#boardTitle").textContent = board.name;
     $("#boardDescription").textContent = board.description || "Shared team timeline.";
     $("#boardDateRange").textContent = formatBoardDateRange(board);
+    $("#editBoardButton").disabled = isAggregateBoard(board);
+    $("#editBoardButton").title = isAggregateBoard(board) ? "The club-wide portfolio is generated from all team timelines." : "Edit this timeline";
     renderOwnerFilter();
     renderMetrics();
     renderKanban();
@@ -412,6 +479,8 @@
         <span class="priority-pill priority-${task.priority}">${priorityLabel(task.priority)}</span>
         <span class="task-type-pill type-${task.taskType || "WORK"}">${taskTypeLabel(task.taskType)}</span>
         ${task.isMilestone ? '<span class="milestone-pill">◆ Milestone</span>' : ""}
+        ${task.importantDate ? '<span class="milestone-pill important-date-pill">★ Important</span>' : ""}
+        ${isAggregateBoard() ? `<span class="task-team-pill">${escapeHtml(teamForTask(task)?.name || "Team")}</span>` : ""}
       </div>
       <h3>${escapeHtml(task.title)}</h3>
       ${task.description ? `<p>${escapeHtml(truncate(task.description, 125))}</p>` : ""}
@@ -465,7 +534,7 @@
       return `<div class="gantt-row" data-task-id="${escapeHtml(task.id)}">
         <button class="gantt-label" type="button" data-open-task="${escapeHtml(task.id)}">
           <span class="priority-dot priority-bg-${task.priority}"></span>
-          <span><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(owners)}${dependencyNames.length ? ` · waits on ${escapeHtml(truncate(dependencyNames.join(", "), 48))}` : ""}</small></span>
+          <span><strong>${escapeHtml(task.title)}</strong><small>${isAggregateBoard() ? `${escapeHtml(teamForTask(task)?.name || "Team")} · ` : ""}${escapeHtml(owners)}${dependencyNames.length ? ` · waits on ${escapeHtml(truncate(dependencyNames.join(", "), 48))}` : ""}</small></span>
         </button>
         <div class="gantt-track" style="width:${trackWidth}px;background-size:${dayWidth * 7}px 100%">
           ${todayOffset >= 0 && todayOffset <= trackWidth ? `<i class="gantt-today-line" style="left:${todayOffset}px"></i>` : ""}
@@ -512,7 +581,7 @@
     tbody.innerHTML = tasks.map(task => {
       const due = dueState(task);
       return `<tr data-table-task="${escapeHtml(task.id)}">
-        <td><div class="table-task-title"><span class="priority-dot priority-bg-${task.priority}"></span><div><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(splitList(task.tags).join(" · ") || task.description || "")}</small></div></div></td>
+        <td><div class="table-task-title"><span class="priority-dot priority-bg-${task.priority}"></span><div><strong>${escapeHtml(task.title)}</strong><small>${isAggregateBoard() ? `${escapeHtml(teamForTask(task)?.name || "Team")} · ` : ""}${escapeHtml(splitList(task.tags).join(" · ") || task.description || "")}</small></div></div></td>
         <td><span class="status-badge task-status-${task.status}">${statusLabel(task.status)}</span></td>
         <td><span class="priority-pill priority-${task.priority}">${priorityLabel(task.priority)}</span></td>
         <td>${escapeHtml(task.ownerNames || "Unassigned")}</td>
@@ -560,7 +629,7 @@
       const isOutside = date.getMonth() !== monthStart.getMonth();
       const isToday = value === todayText();
       cells.push(`<section class="calendar-day${isOutside ? " is-outside" : ""}${isToday ? " is-today" : ""}" data-calendar-date="${value}">
-        <header><time datetime="${value}">${date.getDate()}</time>${isToday ? "<span>Today</span>" : ""}</header>
+        <header><time datetime="${value}">${date.getDate()}</time><div>${isToday ? "<span>Today</span>" : ""}<button class="calendar-day-add" type="button" data-calendar-add="${value}" aria-label="Add event on ${value}">+</button></div></header>
         <div class="calendar-day-events">
           ${shown.map(task => renderCalendarEvent(task, value)).join("")}
           ${dayTasks.length > shown.length ? `<button class="calendar-more-button" type="button" data-calendar-date-focus="${value}">+${dayTasks.length - shown.length} more</button>` : ""}
@@ -569,6 +638,10 @@
     }
     grid.innerHTML = cells.join("");
     grid.querySelectorAll("[data-calendar-task]").forEach(button => button.addEventListener("click", () => openTaskDialog(button.dataset.calendarTask)));
+    grid.querySelectorAll("[data-calendar-add]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      openTaskDialog("", { taskType: "MEETING", startDate: button.dataset.calendarAdd, dueDate: button.dataset.calendarAdd, importantDate: false });
+    }));
     grid.querySelectorAll("[data-calendar-date-focus]").forEach(button => button.addEventListener("click", () => focusCalendarAgendaDate(button.dataset.calendarDateFocus)));
 
     const monthTasks = tasks.filter(task => calendarTaskIntersectsRange(task, monthStartText, monthEndText));
@@ -589,6 +662,7 @@
     return `<button class="calendar-event calendar-status-${task.status}" type="button" data-calendar-task="${escapeHtml(task.id)}" title="${escapeHtml(task.title)}">
       <span class="priority-dot priority-bg-${task.priority}"></span>
       <span>${escapeHtml(label)}</span>
+      ${isAggregateBoard() ? `<small>${escapeHtml(teamForTask(task)?.icon || teamForTask(task)?.name || "TEAM")}</small>` : ""}
     </button>`;
   }
 
@@ -601,7 +675,7 @@
         <span class="calendar-agenda-date">${escapeHtml(dateLabel)}</span>
         <span class="calendar-agenda-copy">
           <strong>${escapeHtml(task.title)}</strong>
-          <small>${escapeHtml(statusLabel(task.status))} · ${escapeHtml(priorityLabel(task.priority))}${task.ownerNames ? ` · ${escapeHtml(task.ownerNames)}` : ""}</small>
+          <small>${isAggregateBoard() ? `${escapeHtml(teamForTask(task)?.name || "Team")} · ` : ""}${escapeHtml(statusLabel(task.status))} · ${escapeHtml(priorityLabel(task.priority))}${task.ownerNames ? ` · ${escapeHtml(task.ownerNames)}` : ""}</small>
         </span>
       </button>
       <button class="calendar-agenda-download" type="button" data-calendar-agenda-download="${escapeHtml(task.id)}" aria-label="Download ${escapeHtml(task.title)} as an iCalendar event">.ics</button>
@@ -703,6 +777,10 @@
     if (!requireActor()) return;
     const board = currentBoard();
     if (!board) return;
+    if (isAggregateBoard(board)) {
+      setPlannerMessage("The Club-wide Portfolio is generated automatically from every team timeline. Edit an individual team timeline instead.", "error");
+      return;
+    }
     openWorkspaceDialog();
     fillBoardForm(board);
   }
@@ -820,14 +898,18 @@
       $("#taskDialogTitle").textContent = "Add work to the timeline";
       $("#taskType").value = defaults.taskType || "WORK";
       $("#taskStatus").value = defaults.status || "PLANNED";
-      $("#taskPriority").value = "MEDIUM";
+      $("#taskPriority").value = defaults.priority || "MEDIUM";
       $("#taskProgress").value = "0";
       $("#taskOrderStatus").value = defaults.taskType === "PURCHASE" ? "NEEDS_SPEC" : "NOT_NEEDED";
       $("#taskSourceConfidence").value = "TEAM_ENTERED";
       $("#taskOwners").value = state.actorName;
-      const board = currentBoard();
-      $("#taskStartDate").value = board.targetStart || todayText();
-      $("#taskDueDate").value = board.targetEnd && board.targetEnd >= todayText() ? board.targetEnd : "";
+      const boardId = defaults.boardId || defaultTaskBoardId();
+      populateTaskBoardOptions(boardId);
+      $("#taskBoardId").disabled = false;
+      const board = state.boards.find(item => item.id === boardId) || null;
+      $("#taskStartDate").value = defaults.startDate || board?.targetStart || todayText();
+      $("#taskDueDate").value = defaults.dueDate || (board?.targetEnd && board.targetEnd >= todayText() ? board.targetEnd : "");
+      $("#taskImportantDate").checked = Boolean(defaults.importantDate);
       renderDependencyPicker("");
       updateFundingEditor();
       updateTaskHealthPreview();
@@ -865,12 +947,17 @@
     $("#taskComments").innerHTML = "";
     $("#taskActivity").innerHTML = "";
     $("#taskFundingSection").classList.add("is-hidden");
+    $("#taskBoardId").disabled = false;
+    $("#taskImportantDate").checked = false;
     setTaskStatus("");
   }
 
   function fillTaskForm(task) {
-    $("#taskDialogEyebrow").textContent = `${currentTeam()?.name || "Team"} · ${statusLabel(task.status)}`;
+    $("#taskDialogEyebrow").textContent = `${teamForTask(task)?.name || "Team"} · ${statusLabel(task.status)}`;
     $("#taskDialogTitle").textContent = "Edit task";
+    populateTaskBoardOptions(task.boardId);
+    $("#taskBoardId").value = task.boardId;
+    $("#taskBoardId").disabled = true;
     $("#taskId").value = task.id;
     $("#taskExpectedUpdatedAt").value = task.updatedAt || "";
     $("#taskTitle").value = task.title || "";
@@ -891,6 +978,7 @@
     $("#taskStartDate").value = task.startDate || "";
     $("#taskDueDate").value = task.dueDate || "";
     $("#taskIsMilestone").checked = Boolean(task.isMilestone);
+    $("#taskImportantDate").checked = Boolean(task.importantDate);
     $("#taskPartName").value = task.partName || "";
     $("#taskPartNumber").value = task.partNumber || "";
     $("#taskVendor").value = task.vendor || "";
@@ -906,7 +994,8 @@
   }
 
   function renderDependencyPicker(currentTaskId, selectedIds = []) {
-    const candidates = boardTasks().filter(task => task.id !== currentTaskId).sort(taskSort);
+    const selectedBoardId = $("#taskBoardId").value || defaultTaskBoardId();
+    const candidates = state.tasks.filter(task => !task.archived && task.boardId === selectedBoardId && task.id !== currentTaskId).sort(taskSort);
     const selected = new Set(selectedIds);
     $("#taskDependencyList").innerHTML = candidates.length ? candidates.map(task => `
       <label class="dependency-option">
@@ -928,7 +1017,7 @@
     const payload = {
       id: $("#taskId").value,
       expectedUpdatedAt: $("#taskExpectedUpdatedAt").value,
-      boardId: state.currentBoardId,
+      boardId: $("#taskBoardId").value || defaultTaskBoardId(),
       title,
       description: $("#taskDescription").value,
       taskType: $("#taskType").value,
@@ -939,6 +1028,7 @@
       dueDate: $("#taskDueDate").value,
       progress: $("#taskProgress").value,
       isMilestone: $("#taskIsMilestone").checked,
+      importantDate: $("#taskImportantDate").checked,
       tags: $("#taskTags").value,
       campus: $("#taskCampus").value,
       fundingMin: $("#taskFundingMin").value,
@@ -1026,7 +1116,9 @@
       orderStatus: $("#taskOrderStatus").value,
       sourceConfidence: $("#taskSourceConfidence").value,
       fundingAmountLabel: $("#taskFundingAmountLabel").value,
-      isMilestone: $("#taskIsMilestone").checked
+      isMilestone: $("#taskIsMilestone").checked,
+      importantDate: $("#taskImportantDate").checked,
+      boardId: $("#taskBoardId").value || defaultTaskBoardId()
     };
     const health = taskHealth(task);
     $("#taskHealthCard").className = `task-health-card health-${health.tone}`;
@@ -1073,7 +1165,9 @@
       requirements: $("#taskRequirements").value,
       partName: $("#taskPartName").value,
       vendor: $("#taskVendor").value,
-      isMilestone: $("#taskIsMilestone").checked
+      isMilestone: $("#taskIsMilestone").checked,
+      importantDate: $("#taskImportantDate").checked,
+      boardId: $("#taskBoardId").value || defaultTaskBoardId()
     };
   }
 
@@ -1100,20 +1194,22 @@
   }
 
   function downloadTasksCalendar(tasks, name) {
-    const board = currentBoard();
-    const team = currentTeam();
+    const selectedBoard = currentBoard();
     const now = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
     const events = tasks.filter(task => task.startDate || task.dueDate).map(task => {
+      const taskBoard = actualBoardForTask(task) || selectedBoard;
+      const taskTeam = teamForTask(task) || currentTeam();
       const { start, end } = calendarTaskBounds(task);
       const exclusiveEnd = addDaysText(end, 1);
       const description = [
         task.description,
-        `Team: ${team?.name || "ASME"}`,
-        `Timeline: ${board?.name || "Project planner"}`,
+        `Team: ${taskTeam?.name || "ASME"}`,
+        `Timeline: ${taskBoard?.name || "Project planner"}`,
         `Status: ${statusLabel(task.status)}`,
         `Priority: ${priorityLabel(task.priority)}`,
         task.ownerNames ? `Owners: ${task.ownerNames}` : "",
         task.fundingAmountLabel ? `Funding: ${task.fundingAmountLabel}` : "",
+        task.campus ? `Campus / eligibility: ${task.campus}` : "",
         task.partName ? `Part / material: ${task.partName}` : "",
         task.vendor ? `Vendor: ${task.vendor}` : "",
         task.requirements ? `Requirements / next action: ${task.requirements}` : "",
@@ -1128,7 +1224,7 @@
         `DTEND;VALUE=DATE:${icsDate(exclusiveEnd)}`,
         `SUMMARY:${icsEscape(task.title || "ASME task")}`,
         `DESCRIPTION:${icsEscape(description)}`,
-        `CATEGORIES:${icsEscape([team?.name, taskTypeLabel(task.taskType), priorityLabel(task.priority)].filter(Boolean).join(","))}`,
+        `CATEGORIES:${icsEscape([taskTeam?.name, taskBoard?.name, taskTypeLabel(task.taskType), priorityLabel(task.priority)].filter(Boolean).join(","))}`,
         task.sourceUrl ? `URL:${icsEscape(task.sourceUrl)}` : "",
         "TRANSP:TRANSPARENT",
         "END:VEVENT"
@@ -1141,12 +1237,12 @@
       "PRODID:-//Purdue Indianapolis ASME//SponsorFlow Project Planner//EN",
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
-      `X-WR-CALNAME:${icsEscape(name || board?.name || "ASME Project Planner")}`,
+      `X-WR-CALNAME:${icsEscape(name || selectedBoard?.name || "ASME Project Planner")}`,
       events,
       "END:VCALENDAR",
       ""
     ].join("\r\n");
-    downloadTextFile(`${slugify(name || board?.name || "asme-project-calendar")}.ics`, calendar, "text/calendar;charset=utf-8");
+    downloadTextFile(`${slugify(name || selectedBoard?.name || "asme-project-calendar")}.ics`, calendar, "text/calendar;charset=utf-8");
   }
 
   function downloadTextFile(filename, contents, type) {
@@ -1173,6 +1269,111 @@
       .replace(/;/g, "\\;");
   }
 
+  function openCalendarSubscriptions() {
+    if (!state.calendarFeedBaseUrl) {
+      setPlannerMessage("Redeploy the v8 Apps Script backend before creating live calendar subscriptions.", "error");
+      return;
+    }
+    renderCalendarSubscriptions();
+    setSubscriptionStatus("");
+    showPlannerDialog($("#calendarSubscriptionsDialog"));
+  }
+
+  function renderCalendarSubscriptions() {
+    const items = [
+      {
+        key: "club",
+        scope: "club",
+        id: "",
+        name: "Club-wide",
+        badge: "Recommended",
+        description: "Every dated task across every team, including Finance & Sponsorship opportunities and deadlines."
+      },
+      {
+        key: "important",
+        scope: "important",
+        id: "",
+        name: "Important Dates",
+        badge: "Recommended",
+        description: "Milestones, critical priorities, funding deadlines, meetings, competitions, inspections, and events."
+      },
+      ...state.teams.filter(team => team.id !== CLUB_TEAM_ID).map(team => ({
+        key: `team-${team.id}`,
+        scope: "team",
+        id: team.id,
+        name: team.name,
+        badge: "Team calendar",
+        description: team.description || `All dated work owned by ${team.name}.`
+      }))
+    ];
+    const board = currentBoard();
+    if (board && !isAggregateBoard(board)) {
+      items.push({
+        key: `board-${board.id}`,
+        scope: "board",
+        id: board.id,
+        name: board.name,
+        badge: "Current timeline",
+        description: board.description || "Only dates from the timeline currently open in SponsorFlow."
+      });
+    }
+
+    $("#calendarSubscriptionList").innerHTML = items.map(item => {
+      const url = calendarFeedUrl(item.scope, item.id);
+      return `<article class="calendar-subscription-card">
+        <div class="subscription-card-copy">
+          <div><span class="subscription-type-badge">${escapeHtml(item.badge)}</span><h3>${escapeHtml(item.name)}</h3></div>
+          <p>${escapeHtml(item.description)}</p>
+          <label><span>Subscription URL</span><input type="text" readonly value="${escapeHtml(url)}" data-subscription-input="${escapeHtml(item.key)}"></label>
+        </div>
+        <div class="subscription-card-actions">
+          <button class="button button-secondary button-small" type="button" data-copy-subscription="${escapeHtml(item.key)}">Copy URL</button>
+          <button class="button button-primary button-small" type="button" data-open-subscription="${escapeHtml(item.key)}">Open subscription</button>
+        </div>
+      </article>`;
+    }).join("");
+
+    const host = $("#calendarSubscriptionList");
+    host.querySelectorAll("[data-copy-subscription]").forEach(button => button.addEventListener("click", () => {
+      const input = host.querySelector(`[data-subscription-input="${CSS.escape(button.dataset.copySubscription)}"]`);
+      if (input) copySubscriptionUrl(input.value);
+    }));
+    host.querySelectorAll("[data-open-subscription]").forEach(button => button.addEventListener("click", () => {
+      const input = host.querySelector(`[data-subscription-input="${CSS.escape(button.dataset.openSubscription)}"]`);
+      if (!input) return;
+      window.location.href = input.value.replace(/^https:/i, "webcal:");
+      setSubscriptionStatus("Your calendar app should open. If it does not, use Copy URL and add it manually.", "success");
+    }));
+  }
+
+  function calendarFeedUrl(scope, id = "") {
+    const url = new URL(state.calendarFeedBaseUrl);
+    url.searchParams.set("feed", "calendar");
+    url.searchParams.set("scope", scope);
+    if (id) url.searchParams.set("id", id);
+    const app = new URL(window.location.href);
+    app.search = "";
+    app.hash = "";
+    url.searchParams.set("app", app.toString());
+    return url.toString();
+  }
+
+  function copySubscriptionUrl(value) {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(value)
+        .then(() => setSubscriptionStatus("Subscription URL copied.", "success"))
+        .catch(() => window.prompt("Copy this calendar subscription URL:", value));
+    } else {
+      window.prompt("Copy this calendar subscription URL:", value);
+    }
+  }
+
+  function setSubscriptionStatus(message, tone = "") {
+    const element = $("#calendarSubscriptionStatus");
+    element.textContent = message || "";
+    element.className = `form-status${tone ? ` is-${tone}` : ""}`;
+  }
+
   function shareBoard() {
     const board = currentBoard();
     if (!board) return;
@@ -1187,8 +1388,12 @@
   function exportBoardCsv() {
     const board = currentBoard();
     if (!board) return;
-    const headers = ["Task", "Task Type", "Status", "Priority", "Owners", "Start", "Due", "Progress", "Milestone", "Tags", "Campus", "Funding Minimum", "Funding Maximum", "Funding Amount Label", "Source URL", "Source Confidence", "Requirements", "Part", "Part Number", "Vendor", "Quantity", "Estimated Cost", "Order Status", "Dependencies", "Updated By", "Updated At"];
-    const rows = boardTasks().map(task => [task.title, taskTypeLabel(task.taskType), statusLabel(task.status), priorityLabel(task.priority), task.ownerNames, task.startDate, task.dueDate, task.progress, task.isMilestone ? "Yes" : "No", task.tags, task.campus, task.fundingMin, task.fundingMax, task.fundingAmountLabel, task.sourceUrl, sourceConfidenceLabel(task.sourceConfidence), task.requirements, task.partName, task.partNumber, task.vendor, task.quantity, task.estimatedCost, orderLabel(task.orderStatus), splitList(task.dependencyIds).map(id => state.tasks.find(item => item.id === id)?.title || id).join("; "), task.updatedBy, task.updatedAt]);
+    const headers = ["Team", "Timeline", "Task", "Task Type", "Status", "Priority", "Owners", "Start", "Due", "Progress", "Milestone", "Important Date", "Tags", "Campus", "Funding Minimum", "Funding Maximum", "Funding Amount Label", "Source URL", "Source Confidence", "Requirements", "Part", "Part Number", "Vendor", "Quantity", "Estimated Cost", "Order Status", "Dependencies", "Updated By", "Updated At"];
+    const rows = boardTasks().map(task => {
+      const taskBoard = actualBoardForTask(task);
+      const taskTeam = teamForTask(task);
+      return [taskTeam?.name || "", taskBoard?.name || "", task.title, taskTypeLabel(task.taskType), statusLabel(task.status), priorityLabel(task.priority), task.ownerNames, task.startDate, task.dueDate, task.progress, task.isMilestone ? "Yes" : "No", task.importantDate ? "Yes" : "No", task.tags, task.campus, task.fundingMin, task.fundingMax, task.fundingAmountLabel, task.sourceUrl, sourceConfidenceLabel(task.sourceConfidence), task.requirements, task.partName, task.partNumber, task.vendor, task.quantity, task.estimatedCost, orderLabel(task.orderStatus), splitList(task.dependencyIds).map(id => state.tasks.find(item => item.id === id)?.title || id).join("; "), task.updatedBy, task.updatedAt];
+    });
     const csv = [headers, ...rows].map(row => row.map(csvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
     const link = document.createElement("a");

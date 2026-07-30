@@ -1,54 +1,74 @@
-# SponsorFlow v7 — definitive layout repair + calendar exports
+# SponsorFlow v8 upgrade
 
-This is a frontend-only update. It does not change the Google Sheet schema, sponsor records, planner tasks, or Apps Script backend.
+Version 8 adds live calendar subscriptions, editable calendar events, separate team calendars, an Important Dates feed, and a club-wide portfolio that includes Finance & Sponsorship.
 
-## What v7 fixes
+## Back up first
 
-- Permanently removes the oversized Overall Progress overlay by renaming the card tone to `metric-completion`. This remains safe even if a browser briefly retains an older stylesheet.
-- Bumps all public asset URLs to `v=7`, forcing GitHub Pages and browsers to retrieve the corrected CSS and JavaScript.
-- Makes the task editor dialog size itself at the dialog level instead of placing a 1,180-pixel form inside a narrower 930-pixel dialog.
-- Eliminates the clipped left side, horizontal form drift, and unusable submenu layouts shown in the screenshots.
-- Makes task and workspace dialogs responsive, centered, internally scrollable, and bounded to the visible browser height.
-- Adds a sticky task footer so Save, Archive, and calendar controls remain reachable.
-- Improves close-button hitboxes, focus rings, long text wrapping, workspace lists, and mobile dialog stacking.
+In the SponsorFlow Google Sheet, choose **File → Make a copy**.
 
-## New Calendar view
+## 1. Update GitHub Pages
 
-The Project Planner now has a fifth view: **Calendar**.
+Upload the contents of `asme-sponsorflow-v8-update.zip` to the root of the GitHub repository and replace matching files.
 
-It includes:
+The update intentionally does **not** include `assets/config.js`, so the working Apps Script URL will not be overwritten.
 
-- A responsive monthly calendar populated from task start and due dates
-- Clickable events that open the task editor
-- A month agenda with owners, statuses, priorities, and date ranges
-- Previous month, Today, and next month controls
-- A `.ics` download for the entire selected timeline
-- A per-task `.ics` download from the agenda
-- An **Add to calendar (.ics)** button inside the task editor
+Important frontend files:
 
-The exported iCalendar files work with Apple Calendar, Outlook, and Google Calendar import. Events are exported as all-day events; multi-day tasks use their start and due dates.
+- `planner.html`
+- `index.html`
+- `admin.html`
+- `assets/app.css`
+- `assets/planner.js`
 
-## Install
+Commit to `main`, then wait for **Actions → pages build and deployment** to finish.
 
-1. Make a backup or download a ZIP of your GitHub repository.
-2. Extract the v7 update ZIP.
-3. Upload its contents to the root of the GitHub repository, replacing matching files.
-4. Keep your existing `assets/config.js`. The update ZIP intentionally does not contain it.
-5. Commit the changes to `main`.
-6. Wait for **Actions → pages build and deployment** to show a green check.
-7. Open the live planner. The HTML now requests `app.css?v=7` and `planner.js?v=7`, so a normal reload should retrieve the fix. On Safari, use **Command + Shift + R** once.
+## 2. Replace Code.gs
 
-## No Apps Script work is required
+Open the SponsorFlow Google Sheet and choose:
 
-Do not replace `Code.gs`, run a Sheet migration, or redeploy Apps Script. V7 uses the existing task dates already stored in the planner.
+**Extensions → Apps Script**
 
-## Verification checklist
+Replace all content in `Code.gs` with the v8 source from:
 
-- The Overall Progress card is the same size as the other summary cards.
-- The timeline title remains fully visible above the summary cards.
-- Opening a task shows the complete left and right columns with no horizontal page scrollbar.
-- The task dialog is centered and remains within the browser window.
-- At narrower widths, the task editor becomes one column instead of clipping.
-- The Calendar tab displays dated tasks.
-- **Download calendar** produces an `.ics` file.
-- A task with a start or due date shows **Add to calendar (.ics)** in its editor.
+- `apps-script/Code.gs`, or
+- `SponsorFlow-v8-Code.txt`
+
+Save the project.
+
+`Admin.html` does not need to change for this upgrade.
+
+## 3. Run the v8 migration
+
+Reload the Google Sheet. Choose:
+
+**SponsorFlow → Upgrade to v8 + live calendar subscriptions**
+
+This safely adds the new `importantDate` planner field and preserves existing contacts, requests, teams, timelines, tasks, comments, and activity history.
+
+## 4. Redeploy Apps Script
+
+In Apps Script choose:
+
+**Deploy → Manage deployments → pencil icon → Version: New version → Deploy**
+
+Keep the same deployment and the same `/exec` URL. No change to `assets/config.js` is required.
+
+## 5. Refresh the website
+
+After the GitHub Pages deployment is complete, reload the planner. A hard refresh on macOS is:
+
+`Command + Shift + R`
+
+## First test
+
+1. Open **Project planner → Club-wide → Club-wide portfolio · all teams**.
+2. Confirm Finance & Sponsorship tasks appear with the other teams.
+3. Open **Calendar** and click a date to create an event.
+4. Mark it **Important date**, save it, and reopen it to confirm editing works.
+5. Select **Live subscriptions**.
+6. Copy the Important Dates URL and open it in a browser. It should display iCalendar text beginning with `BEGIN:VCALENDAR`.
+7. Subscribe using Apple Calendar, Outlook, or Google Calendar.
+
+## Important limitation
+
+Live calendar subscriptions are read-only in external calendar apps. Edit the event in SponsorFlow; the calendar app will retrieve the updated feed on its own refresh schedule. Refresh timing is controlled by Apple, Google, Microsoft, or the user's calendar client and is not instant.

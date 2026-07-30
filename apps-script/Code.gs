@@ -1,11 +1,11 @@
 /**
  * ASME Indy SponsorFlow — Google Apps Script backend
- * Version 5: sponsor outreach plus collaborative team timelines, task boards,
- * parts tracking, dependencies, comments, and activity history.
+ * Version 8: sponsor outreach, collaborative timelines, editable calendar views,
+ * and live read-only iCalendar subscription feeds for teams and important dates.
  */
 
 const SF = Object.freeze({
-  VERSION: '5.0.0',
+  VERSION: '8.0.0',
   RESEARCH_VALIDATED_AT: '2026-07-29',
   SESSION_SECONDS: 3600,
   SHEETS: {
@@ -41,7 +41,7 @@ const SF = Object.freeze({
     'Planner Boards': ['id', 'teamId', 'name', 'description', 'targetStart', 'targetEnd', 'active', 'createdBy', 'updatedBy', 'createdAt', 'updatedAt'],
     'Planner Tasks': [
       'id', 'boardId', 'title', 'description', 'status', 'priority', 'ownerNames',
-      'startDate', 'dueDate', 'progress', 'isMilestone', 'tags', 'taskType',
+      'startDate', 'dueDate', 'progress', 'isMilestone', 'importantDate', 'tags', 'taskType',
       'campus', 'fundingMin', 'fundingMax', 'fundingAmountLabel', 'sourceUrl',
       'sourceConfidence', 'requirements', 'partName', 'partNumber', 'vendor', 'quantity', 'estimatedCost', 'orderStatus',
       'dependencyIds', 'sortOrder', 'commentCount', 'createdBy', 'updatedBy',
@@ -919,6 +919,7 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('SponsorFlow')
     .addItem('Initial setup', 'showInitialSetup')
+    .addItem('Upgrade to v8 + live calendar subscriptions', 'upgradeSponsorFlowV8')
     .addItem('Upgrade to v5 + team planner & funding calendar', 'upgradeSponsorFlowV5')
     .addItem('Import or refresh validated sponsors', 'seedValidatedSponsors')
     .addItem('Refresh polished templates', 'refreshPolishedTemplates')
@@ -952,6 +953,20 @@ function showInitialSetup() {
   seedValidatedSponsors_();
   seedDefaultPlannerStructure_();
   ui.alert('SponsorFlow setup is complete. Sponsor opportunities, team workspaces, analytics, and the Purdue funding calendar were added. Next, deploy this script as a web app.');
+}
+
+
+function upgradeSponsorFlowV8() {
+  setupSponsorFlow_();
+  refreshDefaultTemplates_();
+  const sponsorResult = seedValidatedSponsors_();
+  const plannerResult = seedDefaultPlannerStructure_();
+  SpreadsheetApp.getUi().alert(
+    `SponsorFlow was upgraded to version 8. Existing sponsor and planner data were preserved. ` +
+    `Live read-only calendar feeds are now available for the whole club, important dates, each team, and each timeline. ` +
+    `${plannerResult.teamsCreated} teams and ${plannerResult.boardsCreated} timelines were added where missing; ` +
+    `${sponsorResult.created} sponsor opportunities were added and ${sponsorResult.updated} refreshed.`
+  );
 }
 
 function upgradeSponsorFlowV5() {
@@ -1033,10 +1048,23 @@ function openAdminDashboard() {
 }
 
 function doGet(e) {
-  if (e && e.parameter && e.parameter.view === 'admin') {
+  const p = (e && e.parameter) || {};
+  if (p.view === 'admin') {
     return HtmlService.createHtmlOutputFromFile('Admin')
       .setTitle('ASME Indy SponsorFlow Admin')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  }
+  if (p.feed === 'calendar') {
+    try {
+      ensureConfigured_();
+      return ContentService
+        .createTextOutput(buildPlannerCalendarFeed_(p))
+        .setMimeType(ContentService.MimeType.ICAL);
+    } catch (error) {
+      return ContentService
+        .createTextOutput(buildPlannerCalendarErrorFeed_(cleanError_(error)))
+        .setMimeType(ContentService.MimeType.ICAL);
+    }
   }
   return ContentService.createTextOutput('ASME Indy SponsorFlow data service is running.');
 }
@@ -1926,7 +1954,7 @@ function plannerBootstrap_() {
     .map(row => plannerTaskPublic_(row, commentCounts[row.id] || Number(row.commentCount || 0)))
     .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0) || a.title.localeCompare(b.title));
 
-  return { teams: teams, boards: boards, tasks: tasks, version: SF.VERSION };
+  return { teams: teams, boards: boards, tasks: tasks, version: SF.VERSION, calendarFeedBaseUrl: ScriptApp.getService().getUrl() || '' };
 }
 
 function savePlannerTeam_(p) {
@@ -2040,6 +2068,7 @@ function savePlannerTask_(p) {
       dueDate: dueDate,
       progress: String(progress),
       isMilestone: String(toBool_(p.isMilestone)),
+      importantDate: String(toBool_(p.importantDate)),
       tags: normalizePlannerList_(p.tags, 300),
       taskType: taskType,
       campus: optionalText_(p.campus, 120),
@@ -2188,6 +2217,7 @@ function plannerTaskPublic_(row, commentCount) {
     dueDate: row.dueDate || '',
     progress: Number(row.progress || 0),
     isMilestone: toBool_(row.isMilestone),
+    importantDate: toBool_(row.importantDate),
     tags: row.tags || '',
     taskType: row.taskType || 'WORK',
     campus: row.campus || '',
@@ -2249,7 +2279,7 @@ function requireFreshPlannerRecord_(existing, expectedUpdatedAt) {
 function summarizeTaskChanges_(before, after) {
   const labels = {
     title: 'title', description: 'description', status: 'status', priority: 'priority', ownerNames: 'owners',
-    startDate: 'start date', dueDate: 'due date', progress: 'progress', isMilestone: 'milestone', tags: 'tags',
+    startDate: 'start date', dueDate: 'due date', progress: 'progress', isMilestone: 'milestone', importantDate: 'important calendar date', tags: 'tags',
     taskType: 'task type', campus: 'campus', fundingMin: 'funding minimum', fundingMax: 'funding maximum',
     fundingAmountLabel: 'funding label', sourceUrl: 'source URL', sourceConfidence: 'source confidence', requirements: 'requirements',
     partName: 'part', partNumber: 'part number', vendor: 'vendor', quantity: 'quantity', estimatedCost: 'estimated cost',
@@ -2346,6 +2376,184 @@ function makePlannerId_(prefix, sheetName) {
   return id;
 }
 
+
+// -------------------------- Live planner calendar feeds --------------------------
+
+function buildPlannerCalendarFeed_(p) {
+  const scope = String(p.scope || 'club').trim().toLowerCase();
+  const scopeId = String(p.id || '').trim();
+  const appUrl = validatedPlannerAppUrl_(p.app || '');
+  const teams = readObjects_(SF.SHEETS.PLANNER_TEAMS).filter(row => toBool_(row.active));
+  const teamById = {};
+  teams.forEach(team => teamById[team.id] = team);
+  const boards = readObjects_(SF.SHEETS.PLANNER_BOARDS).filter(row => toBool_(row.active) && teamById[row.teamId]);
+  const boardById = {};
+  boards.forEach(board => boardById[board.id] = board);
+
+  let calendarName = 'ASME Indy · Club-wide';
+  let calendarDescription = 'All dated work across Purdue Indianapolis ASME, including Finance & Sponsorship.';
+  let allowedBoardIds = new Set(boards.map(board => board.id));
+  let importantOnly = false;
+
+  if (scope === 'important') {
+    calendarName = 'ASME Indy · Important Dates';
+    calendarDescription = 'Milestones, critical deadlines, meetings, competitions, and funding opportunities across the club.';
+    importantOnly = true;
+  } else if (scope === 'team') {
+    const team = teamById[scopeId];
+    if (!team) throw new Error('The requested team calendar is unavailable.');
+    calendarName = `ASME Indy · ${team.name}`;
+    calendarDescription = team.description || `Dated work for the ${team.name} team.`;
+    allowedBoardIds = new Set(boards.filter(board => board.teamId === team.id).map(board => board.id));
+  } else if (scope === 'board') {
+    const board = boardById[scopeId];
+    if (!board) throw new Error('The requested timeline calendar is unavailable.');
+    const team = teamById[board.teamId];
+    calendarName = `ASME Indy · ${board.name}`;
+    calendarDescription = board.description || `Dated work for ${board.name}.`;
+    allowedBoardIds = new Set([board.id]);
+  } else if (scope !== 'club') {
+    throw new Error('The requested calendar scope is invalid.');
+  }
+
+  const tasks = readObjects_(SF.SHEETS.PLANNER_TASKS)
+    .filter(row => !toBool_(row.archived) && allowedBoardIds.has(row.boardId) && (row.startDate || row.dueDate))
+    .filter(row => !importantOnly || isImportantPlannerTask_(row))
+    .sort((a, b) => String(a.startDate || a.dueDate).localeCompare(String(b.startDate || b.dueDate)) || String(a.title).localeCompare(String(b.title)));
+
+  const events = tasks.map(task => plannerTaskIcsEvent_(task, boardById, teamById, appUrl)).join('\r\n');
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Purdue Indianapolis ASME//SponsorFlow Live Calendar v8//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsEscapeServer_(calendarName)}`,
+    `X-WR-CALDESC:${icsEscapeServer_(calendarDescription)}`,
+    'REFRESH-INTERVAL;VALUE=DURATION:PT2H',
+    'X-PUBLISHED-TTL:PT2H',
+    events,
+    'END:VCALENDAR',
+    ''
+  ].filter(value => value !== '').join('\r\n');
+}
+
+function plannerTaskIcsEvent_(task, boardById, teamById, appUrl) {
+  const board = boardById[task.boardId] || {};
+  const team = teamById[board.teamId] || {};
+  const start = String(task.startDate || task.dueDate);
+  const end = String(task.dueDate || task.startDate);
+  const exclusiveEnd = addIsoDaysServer_(end, 1);
+  const updated = icsTimestampServer_(task.updatedAt || task.createdAt || new Date().toISOString());
+  const sequence = Math.max(0, Math.floor(new Date(task.updatedAt || task.createdAt || 0).getTime() / 1000));
+  const taskUrl = appUrl ? plannerTaskUrlServer_(appUrl, task.boardId, task.id) : String(task.sourceUrl || '');
+  const description = [
+    task.description || '',
+    `Team: ${team.name || 'ASME'}`,
+    `Timeline: ${board.name || 'Project planner'}`,
+    `Status: ${plannerStatusLabelServer_(task.status)}`,
+    `Priority: ${plannerPriorityLabelServer_(task.priority)}`,
+    task.ownerNames ? `Owners: ${task.ownerNames}` : '',
+    task.fundingAmountLabel ? `Funding: ${task.fundingAmountLabel}` : '',
+    task.campus ? `Campus / eligibility: ${task.campus}` : '',
+    task.partName ? `Part / material: ${task.partName}` : '',
+    task.vendor ? `Vendor: ${task.vendor}` : '',
+    task.requirements ? `Requirements / next action: ${task.requirements}` : '',
+    task.sourceUrl ? `Official source: ${task.sourceUrl}` : '',
+    appUrl ? `Edit in SponsorFlow: ${taskUrl}` : ''
+  ].filter(Boolean).join('\n');
+  const categories = [team.name, board.name, task.taskType, task.priority, isImportantPlannerTask_(task) ? 'Important Date' : ''].filter(Boolean).join(',');
+  return [
+    'BEGIN:VEVENT',
+    `UID:${icsEscapeServer_(String(task.id || Utilities.getUuid()))}@asmeindy.purdue.edu`,
+    `DTSTAMP:${icsTimestampServer_(new Date().toISOString())}`,
+    `LAST-MODIFIED:${updated}`,
+    `SEQUENCE:${sequence}`,
+    `DTSTART;VALUE=DATE:${icsDateServer_(start)}`,
+    `DTEND;VALUE=DATE:${icsDateServer_(exclusiveEnd)}`,
+    `SUMMARY:${icsEscapeServer_(task.title || 'ASME task')}`,
+    `DESCRIPTION:${icsEscapeServer_(description)}`,
+    task.campus ? `LOCATION:${icsEscapeServer_(task.campus)}` : '',
+    categories ? `CATEGORIES:${icsEscapeServer_(categories)}` : '',
+    taskUrl ? `URL:${icsEscapeServer_(taskUrl)}` : '',
+    'STATUS:CONFIRMED',
+    'TRANSP:TRANSPARENT',
+    'END:VEVENT'
+  ].filter(Boolean).join('\r\n');
+}
+
+function buildPlannerCalendarErrorFeed_(message) {
+  const today = Utilities.formatDate(new Date(), 'UTC', 'yyyyMMdd');
+  const tomorrow = Utilities.formatDate(new Date(Date.now() + 86400000), 'UTC', 'yyyyMMdd');
+  return [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Purdue Indianapolis ASME//SponsorFlow Calendar Error//EN',
+    'CALSCALE:GREGORIAN',
+    'BEGIN:VEVENT',
+    'UID:sponsorflow-calendar-error@asmeindy.purdue.edu',
+    `DTSTAMP:${icsTimestampServer_(new Date().toISOString())}`,
+    `DTSTART;VALUE=DATE:${today}`,
+    `DTEND;VALUE=DATE:${tomorrow}`,
+    'SUMMARY:SponsorFlow calendar connection needs attention',
+    `DESCRIPTION:${icsEscapeServer_(message)}`,
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+    'END:VCALENDAR',
+    ''
+  ].join('\r\n');
+}
+
+function isImportantPlannerTask_(task) {
+  const tags = String(task.tags || '').toLowerCase();
+  return toBool_(task.importantDate) || toBool_(task.isMilestone) || String(task.priority || '').toUpperCase() === 'CRITICAL' ||
+    ['FUNDING', 'MEETING'].indexOf(String(task.taskType || '').toUpperCase()) !== -1 ||
+    /(^|[,;\s])(important|deadline|competition|race|event|inspection|presentation)([,;\s]|$)/i.test(tags);
+}
+
+function validatedPlannerAppUrl_(value) {
+  const clean = String(value || '').trim();
+  if (!clean) return '';
+  const allowed = PropertiesService.getScriptProperties().getProperty('FRONTEND_ORIGIN') || '';
+  if (!allowed || (clean !== allowed && clean.indexOf(allowed + '/') !== 0)) return '';
+  return clean.split('#')[0];
+}
+
+function plannerTaskUrlServer_(appUrl, boardId, taskId) {
+  const separator = appUrl.indexOf('?') === -1 ? '?' : '&';
+  return `${appUrl}${separator}board=${encodeURIComponent(boardId)}&task=${encodeURIComponent(taskId)}`;
+}
+
+function addIsoDaysServer_(value, days) {
+  const date = new Date(String(value) + 'T12:00:00Z');
+  date.setUTCDate(date.getUTCDate() + Number(days || 0));
+  return Utilities.formatDate(date, 'UTC', 'yyyy-MM-dd');
+}
+
+function icsDateServer_(value) {
+  return String(value || '').replace(/-/g, '');
+}
+
+function icsTimestampServer_(value) {
+  const date = new Date(value);
+  return Utilities.formatDate(isNaN(date.getTime()) ? new Date() : date, 'UTC', "yyyyMMdd'T'HHmmss'Z'");
+}
+
+function icsEscapeServer_(value) {
+  return String(value == null ? '' : value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function plannerStatusLabelServer_(value) {
+  return ({ BACKLOG: 'Backlog', PLANNED: 'Planned', IN_PROGRESS: 'In progress', BLOCKED: 'Blocked', REVIEW: 'Review / test', DONE: 'Done' })[String(value || '').toUpperCase()] || String(value || 'Planned');
+}
+
+function plannerPriorityLabelServer_(value) {
+  return ({ CRITICAL: 'Critical', HIGH: 'High', MEDIUM: 'Medium', LOW: 'Low' })[String(value || '').toUpperCase()] || String(value || 'Medium');
+}
 
 // -------------------------- Storage helpers --------------------------
 
