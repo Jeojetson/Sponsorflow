@@ -1,47 +1,48 @@
-# Upgrade to SponsorFlow 1.8
+# Upgrade to SponsorFlow 1.9
 
-SponsorFlow 1.8 is a frontend-only attendance analytics update.
+## 1. Back up the Sheet
+Use **File → Make a copy** in the SponsorFlow Google Sheet.
 
-## 1. Back up your current GitHub repository
+## 2. Update GitHub Pages
+Upload the 1.9 update files and replace matching files.
 
-Optional but recommended before replacing files.
-
-## 2. Upload the 1.8 update to GitHub
-
-Replace the matching files in the repository root with:
-
-- `attendance-admin.html` (new)
-- `attendance.html`
+The important public files are:
 - `admin.html`
-- `assets/attendance-admin.js` (new)
-- `assets/app.css`
+- `attendance.html`
+- `attendance-admin.html`
 - `assets/theme.js`
 
-Do **not** delete or replace `assets/config.js`.
+Do **not** replace `assets/config.js`.
 
-Commit the files to `main` and wait for GitHub Pages to finish deploying.
+The old `attendance-admin.html` now redirects to the main admin dashboard, so existing bookmarks do not strand officers on a second dashboard.
 
-## 3. Google Apps Script
+## 3. Update Google Apps Script Code.gs
+Open **Google Sheet → Extensions → Apps Script → Code.gs** and replace the file with `SponsorFlow-1.9-Code.gs`.
 
-No Google-side changes are needed for 1.8.
+## 4. Update Google Apps Script Admin.html
+This release DOES change the Google Apps Script `Admin.html` file.
 
-Do not replace `Code.gs`, modify the Google Apps Script `Admin.html`, run a Sheet migration, or redeploy the Apps Script web app.
+Open **Apps Script → Admin.html** and replace its entire contents with `SponsorFlow-1.9-Admin.html`.
 
-## 4. Open Attendance Insights
+## 5. Run the 1.9 upgrade
+Reload the Google Sheet and choose:
 
-Use either:
+**SponsorFlow → Upgrade to SponsorFlow 1.9**
 
-- `Attendance → Manage meetings → Attendance analytics`, or
-- `Admin → Open attendance analytics`.
+This is additive/safe. Existing sponsor outreach, attendance meetings, attendance records, planner data, calendars, and comments are preserved.
 
-Enter the same SponsorFlow admin password used for meeting management. If you already unlocked the meeting tools in the same browser tab, the analytics page can reuse that session.
+## 6. Redeploy the existing Apps Script web app
+Go to:
 
-## 5. Verify
+**Deploy → Manage deployments → pencil icon → Version → New version → Deploy**
 
-Check that:
+Update the existing deployment so the `/exec` URL does not change.
 
-1. the latest completed meeting shows the correct turnout;
-2. the meeting history matches the `Attendance Meetings` sheet;
-3. member counts match the `Attendance Records` sheet;
-4. changing the time-range and meeting-group filters updates the metrics;
-5. CSV export downloads the filtered attendance records.
+## 7. Test
+Open the normal SponsorFlow Admin dashboard and sign in once. The sidebar should now contain:
+- Review queue
+- Sponsor contacts
+- Email templates
+- Attendance
+
+Open **Attendance** and verify that the latest meeting headcount, trend chart, member participation table, and team comparison render.

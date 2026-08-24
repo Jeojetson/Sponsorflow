@@ -1,7 +1,7 @@
-# ASME Indy SponsorFlow 1.8
+# ASME Indy SponsorFlow 1.9
 
-SponsorFlow is the Purdue Indianapolis ASME shared workspace for sponsor outreach, project planning, club calendars, and meeting attendance.
+SponsorFlow combines sponsor outreach, project planning, shared calendars, attendance check-in, and officer analytics for Purdue Indianapolis ASME.
 
-Version 1.8 is a frontend-only UI hardening release with corrected modal sizing/centering, stronger light/dark contrast, consistent controls, and safer responsive dialog layouts.
+Version 1.9 consolidates attendance analytics into the primary Google Apps Script Admin dashboard so officers use one authenticated workspace for sponsor review and attendance metrics.
 
-See `UPGRADE.md` for installation instructions and `CHANGELOG-1.8.md` for details.
+See `UPGRADE.md` for deployment steps.
