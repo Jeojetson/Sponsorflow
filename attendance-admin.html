@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Officer-only ASME Indy attendance analytics and meeting turnout dashboard.">
+  <meta name="theme-color" content="#111111">
+  <script>
+    try {
+      const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
+      const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch (_) {}
+  </script>
+  <title>Attendance Insights · ASME Indy Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/app.css?v=18">
+</head>
+<body class="attendance-insights-page">
+  <a class="skip-link" href="#attendanceInsightsMain">Skip to attendance analytics</a>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="ASME Indy Workspace home">
+      <span class="brand-mark">ASME</span>
+      <span class="brand-copy"><strong>Attendance Insights</strong><small>Officer workspace</small></span>
+    </a>
+    <nav class="top-nav" aria-label="Primary navigation">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="attendance.html">Attendance</a>
+      <a class="nav-link" href="planner.html">Planner</a>
+      <a class="nav-link" href="calendar.html">Calendar</a>
+      <a class="nav-link nav-link-admin is-active" href="admin.html">Admin</a>
+    </nav>
+  </header>
+
+  <main id="attendanceInsightsMain" class="attendance-insights-shell">
+    <section class="attendance-insights-hero">
+      <div>
+        <p class="eyebrow">Officer analytics</p>
+        <h1>Who is actually showing up?</h1>
+        <p>Track meeting turnout, repeat attendance, member participation, and team-level trends from the check-ins already collected by SponsorFlow.</p>
+      </div>
+      <div class="attendance-insights-hero-actions">
+        <a class="button button-secondary" href="attendance.html">Manage meetings</a>
+        <button id="attendanceInsightsRefresh" class="button button-primary" type="button">Refresh data</button>
+      </div>
+    </section>
+
+    <div id="attendanceInsightsConnectionBanner" class="connection-banner is-hidden" role="status"></div>
+
+    <section id="attendanceInsightsLogin" class="attendance-insights-login-card">
+      <div>
+        <p class="panel-kicker">Secure officer access</p>
+        <h2>Unlock attendance analytics</h2>
+        <p>This page uses the same shared SponsorFlow admin password as meeting management.</p>
+      </div>
+      <div class="attendance-insights-login-controls">
+        <label class="field"><span>Admin password</span><input id="attendanceInsightsPassword" type="password" autocomplete="current-password" placeholder="SponsorFlow admin password"></label>
+        <button id="attendanceInsightsLoginButton" class="button button-primary" type="button">Unlock dashboard</button>
+      </div>
+      <p id="attendanceInsightsLoginStatus" class="form-status" aria-live="polite"></p>
+    </section>
+
+    <section id="attendanceInsightsWorkspace" class="attendance-insights-workspace is-hidden">
+      <div class="attendance-insights-toolbar">
+        <div class="attendance-insights-filter-grid">
+          <label class="field compact-field"><span>Time window</span>
+            <select id="attendanceInsightsRange">
+              <option value="30">Last 30 days</option>
+              <option value="90" selected>Last 90 days</option>
+              <option value="180">Last 180 days</option>
+              <option value="365">Last year</option>
+              <option value="all">All time</option>
+            </select>
+          </label>
+          <label class="field compact-field"><span>Meeting group</span><select id="attendanceInsightsTeam"><option value="all">All meetings</option></select></label>
+        </div>
+        <div class="attendance-insights-toolbar-actions">
+          <button id="attendanceInsightsExport" class="button button-secondary button-small" type="button">Export CSV</button>
+          <button id="attendanceInsightsLock" class="button button-ghost button-small" type="button">Lock dashboard</button>
+        </div>
+      </div>
+
+      <p class="attendance-insights-note">SponsorFlow measures check-ins, not official club membership. “Coverage” below means the share of meetings in the current filter that a person checked into.</p>
+
+      <section class="attendance-kpi-grid" aria-label="Attendance summary">
+        <article class="attendance-kpi attendance-kpi-primary"><span>Latest turnout</span><strong id="attendanceMetricLatest">—</strong><small id="attendanceMetricLatestMeta">No completed meetings yet</small></article>
+        <article class="attendance-kpi"><span>Average turnout</span><strong id="attendanceMetricAverage">—</strong><small id="attendanceMetricAverageMeta">Across selected meetings</small></article>
+        <article class="attendance-kpi"><span>Unique people</span><strong id="attendanceMetricUnique">—</strong><small id="attendanceMetricUniqueMeta">Distinct names checked in</small></article>
+        <article class="attendance-kpi"><span>Total check-ins</span><strong id="attendanceMetricCheckins">—</strong><small id="attendanceMetricCheckinsMeta">Across selected meetings</small></article>
+        <article class="attendance-kpi"><span>Repeat attendees</span><strong id="attendanceMetricRepeat">—</strong><small id="attendanceMetricRepeatMeta">People with 2+ check-ins</small></article>
+        <article class="attendance-kpi"><span>Meetings tracked</span><strong id="attendanceMetricMeetings">—</strong><small id="attendanceMetricMeetingsMeta">Completed meetings in view</small></article>
+      </section>
+
+      <section class="attendance-insights-grid attendance-insights-grid-main">
+        <article class="attendance-insight-panel attendance-trend-panel">
+          <header class="attendance-insight-heading">
+            <div><p class="panel-kicker">Turnout trend</p><h2>People per meeting</h2></div>
+            <div id="attendanceTrendSummary" class="attendance-trend-summary"></div>
+          </header>
+          <div id="attendanceTurnoutChart" class="attendance-turnout-chart" role="img" aria-label="Attendance turnout trend"></div>
+        </article>
+
+        <article class="attendance-insight-panel">
+          <header class="attendance-insight-heading"><div><p class="panel-kicker">Meeting pulse</p><h2>Recent turnout</h2></div></header>
+          <div id="attendanceRecentMeetings" class="attendance-recent-meetings"></div>
+        </article>
+      </section>
+
+      <section class="attendance-insights-grid attendance-insights-grid-secondary">
+        <article class="attendance-insight-panel">
+          <header class="attendance-insight-heading"><div><p class="panel-kicker">Member participation</p><h2>Attendance leaders</h2></div><label class="attendance-member-search"><span class="sr-only">Search members</span><input id="attendanceMemberSearch" type="search" placeholder="Search members…"></label></header>
+          <div class="attendance-member-table-wrap">
+            <table class="attendance-member-table">
+              <thead><tr><th>Member</th><th>Check-ins</th><th>Coverage</th><th>Last seen</th></tr></thead>
+              <tbody id="attendanceMemberTableBody"></tbody>
+            </table>
+          </div>
+          <div id="attendanceMemberEmpty" class="attendance-empty compact is-hidden"><span>◇</span><strong>No matching members</strong><p>Try another search or filter.</p></div>
+        </article>
+
+        <article class="attendance-insight-panel">
+          <header class="attendance-insight-heading"><div><p class="panel-kicker">Team comparison</p><h2>Average turnout</h2></div></header>
+          <div id="attendanceTeamBreakdown" class="attendance-team-breakdown"></div>
+        </article>
+      </section>
+
+      <section class="attendance-insight-panel attendance-meeting-history-panel">
+        <header class="attendance-insight-heading">
+          <div><p class="panel-kicker">Meeting history</p><h2>Every selected meeting</h2></div>
+          <span id="attendanceHistoryCount" class="calendar-count-badge">0</span>
+        </header>
+        <div id="attendanceMeetingHistory" class="attendance-meeting-history"></div>
+      </section>
+    </section>
+  </main>
+
+  <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
+  <script src="assets/config.js?v=18"></script>
+  <script src="assets/api.js?v=18"></script>
+  <script src="assets/attendance-admin.js?v=18"></script>
+  <script src="assets/theme.js?v=18"></script>
+</body>
+</html>

@@ -1,31 +1,47 @@
-# SponsorFlow 1.8 upgrade
+# Upgrade to SponsorFlow 1.8
 
-SponsorFlow 1.8 is a frontend-only UI hardening release. It does not change the Google Sheet schema or Apps Script backend.
+SponsorFlow 1.8 is a frontend-only attendance analytics update.
 
-## 1. Update GitHub Pages
+## 1. Back up your current GitHub repository
 
-Upload the 1.8 update files to the root of the existing SponsorFlow repository and replace matching files.
+Optional but recommended before replacing files.
 
-Changed files:
+## 2. Upload the 1.8 update to GitHub
 
-- `index.html`
-- `outreach.html`
-- `planner.html`
-- `calendar.html`
+Replace the matching files in the repository root with:
+
+- `attendance-admin.html` (new)
 - `attendance.html`
 - `admin.html`
+- `assets/attendance-admin.js` (new)
 - `assets/app.css`
+- `assets/theme.js`
 
-Do **not** replace `assets/config.js`; it contains the deployed Apps Script URL.
+Do **not** delete or replace `assets/config.js`.
 
-All HTML pages now request version `v=18` assets to force browsers and GitHub Pages to load the refreshed stylesheet.
+Commit the files to `main` and wait for GitHub Pages to finish deploying.
 
-## 2. Google changes
+## 3. Google Apps Script
 
-None.
+No Google-side changes are needed for 1.8.
 
-Do not replace `Code.gs`, do not change the Apps Script `Admin.html`, do not run a migration, and do not redeploy Apps Script.
+Do not replace `Code.gs`, modify the Google Apps Script `Admin.html`, run a Sheet migration, or redeploy the Apps Script web app.
 
-## 3. Refresh
+## 4. Open Attendance Insights
 
-After GitHub Pages finishes deploying, hard-refresh the site with **Command + Shift + R**. On iPhone/Safari, close and reopen the SponsorFlow tab if an older stylesheet remains cached.
+Use either:
+
+- `Attendance → Manage meetings → Attendance analytics`, or
+- `Admin → Open attendance analytics`.
+
+Enter the same SponsorFlow admin password used for meeting management. If you already unlocked the meeting tools in the same browser tab, the analytics page can reuse that session.
+
+## 5. Verify
+
+Check that:
+
+1. the latest completed meeting shows the correct turnout;
+2. the meeting history matches the `Attendance Meetings` sheet;
+3. member counts match the `Attendance Records` sheet;
+4. changing the time-range and meeting-group filters updates the metrics;
+5. CSV export downloads the filtered attendance records.

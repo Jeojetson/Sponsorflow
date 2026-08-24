@@ -81,7 +81,7 @@
       mobileLink("planner.html", "Planner", "planner", ["planner.html"]),
       mobileLink("calendar.html", "Calendar", "calendar", ["calendar.html"]),
       mobileLink("attendance.html", "Attend", "attendance", ["attendance.html"]),
-      mobileLink("admin.html", "Admin", "admin", ["admin.html"])
+      mobileLink("admin.html", "Admin", "admin", ["admin.html", "attendance-admin.html"])
     ].join("");
     document.body.appendChild(nav);
   }

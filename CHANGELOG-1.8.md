@@ -1,30 +1,33 @@
-# SponsorFlow 1.8 UI hardening
+# SponsorFlow 1.8 — Attendance Insights
 
-SponsorFlow 1.8 is a frontend-only polish release focused on modal geometry, contrast, control consistency, and responsive containment.
+## New officer analytics page
 
-## Modal fixes
+SponsorFlow now includes `attendance-admin.html`, an admin-only attendance analytics dashboard using the same shared SponsorFlow admin password as meeting management.
 
-- Fixed several dialogs whose inner card was wider than the native `<dialog>` container.
-- Calendar event editor now uses a correctly sized 1120px desktop dialog.
-- Attendance administration now uses a correctly sized 1180px desktop dialog.
-- Calendar manager and subscription dialogs are contained by their parent dialogs.
-- Planner quick-event editor remains intentionally compact instead of inheriting the wide calendar editor width.
-- Close buttons, headings, sticky footers, and form columns reserve enough space and cannot push a modal off-center.
-- Large editors become full-screen app sheets on phones; small confirmation/identity dialogs remain centered cards.
+The dashboard includes:
 
-## Contrast fixes
+- latest meeting turnout
+- average and median turnout
+- unique people checked in
+- total check-ins
+- repeat attendees
+- completed meetings tracked
+- recent-meeting turnout trend
+- meeting-by-meeting turnout history
+- member participation leaderboard
+- selected-meeting coverage per member
+- team-level average turnout comparison
+- date-range and meeting-group filters
+- filtered CSV export
 
-- Rebuilt the final light/dark semantic color tokens with stronger text contrast.
-- Raised contrast for muted text, faint metadata, eyebrow labels, and Purdue-gold text on light surfaces.
-- Added dark-mode-safe red, green, amber, and blue semantic colors used by errors, success states, status badges, and due-date warnings.
-- Reworked dark-mode priority/status pills so light pastel backgrounds no longer clash with dark surfaces.
-- Inputs, selects, textareas, sticky editor footers, modal surfaces, and secondary buttons now remain visually distinct in both themes.
+Attendance Insights intentionally reports check-ins rather than an official attendance percentage because SponsorFlow does not know the club's required membership roster or which subteam meetings each person is expected to attend.
 
-## Alignment and controls
+## Navigation
 
-- Standardized primary hit targets to at least 44px.
-- Normalized button, icon-button, navigation, and theme-toggle vertical alignment.
-- Fixed dialog action rows and modal header padding.
-- Added missing `--gray-300` legacy token used by neutral health cards.
-- Strengthened borders around active segmented controls and planner tabs.
-- Preserved existing SponsorFlow 1.7 data, attendance, calendars, planner behavior, and Apps Script backend.
+- The Attendance meeting-management tools now include an **Attendance analytics** button.
+- The GitHub Pages Admin landing page now includes **Open attendance analytics**.
+- Existing admin sessions are reused through the same session token when possible.
+
+## Data and backend
+
+No spreadsheet schema or Apps Script changes are required. The analytics page reads the existing `Attendance Meetings` and `Attendance Records` data through the already-protected `attendanceAdminData` endpoint.

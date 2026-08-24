@@ -5196,484 +5196,161 @@ html[data-theme="dark"] .is-pass { color: #7fe0a9; }
 }
 .attendance-state-pill.is-archived { color: var(--sf-faint); background: var(--sf-surface-3); text-decoration: line-through; }
 
-/* ========================================================================== 
-   SponsorFlow 1.8 — UI hardening, modal centering, and contrast pass
-   ========================================================================== */
+/* ========================================================================== */
+/* SponsorFlow 1.8 · Attendance Insights                                     */
+/* ========================================================================== */
+.attendance-insights-page { min-height: 100vh; background: var(--sf-bg); }
+.attendance-insights-shell { width: min(1540px, calc(100% - 36px)); margin: 0 auto; padding: 40px 0 88px; }
+.attendance-insights-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 24px;
+  padding: clamp(28px, 4vw, 48px);
+  color: var(--sf-header-text);
+  background:
+    radial-gradient(circle at 14% 12%, color-mix(in srgb, var(--sf-gold) 18%, transparent), transparent 32%),
+    linear-gradient(135deg, #11130f 0%, #171a18 58%, #11161a 100%);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: var(--sf-radius-lg);
+  box-shadow: var(--sf-shadow);
+}
+.attendance-insights-hero h1 { margin: 0; max-width: 840px; font-family: "Source Serif 4", Georgia, serif; font-size: clamp(42px, 5vw, 72px); line-height: .98; letter-spacing: -.035em; }
+.attendance-insights-hero p:not(.eyebrow) { max-width: 760px; margin: 16px 0 0; color: rgba(255,255,255,.68); font-size: 16px; }
+.attendance-insights-hero-actions { display: flex; flex-wrap: wrap; gap: 10px; flex: 0 0 auto; }
+.attendance-insights-login-card,
+.attendance-insight-panel,
+.attendance-insights-toolbar,
+.attendance-kpi { color: var(--sf-text); background: var(--sf-surface); border: 1px solid var(--sf-border); box-shadow: var(--sf-shadow); }
+.attendance-insights-login-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(360px, .65fr); gap: 24px; align-items: end; padding: 26px; border-radius: var(--sf-radius); }
+.attendance-insights-login-card h2 { margin: 2px 0 8px; font-size: 25px; }
+.attendance-insights-login-card p:not(.form-status) { margin: 0; color: var(--sf-muted); }
+.attendance-insights-login-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
+.attendance-insights-login-card .form-status { grid-column: 1 / -1; margin: 0; }
+.attendance-insights-workspace { display: grid; gap: 18px; }
+.attendance-insights-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 18px; padding: 15px; border-radius: 16px; }
+.attendance-insights-filter-grid { display: grid; grid-template-columns: 210px 270px; gap: 10px; }
+.attendance-insights-toolbar-actions { display: flex; gap: 8px; }
+.attendance-insights-note { margin: -4px 2px 0; color: var(--sf-muted); font-size: 11px; }
+.attendance-kpi-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+.attendance-kpi { position: relative; min-width: 0; min-height: 132px; padding: 18px; overflow: hidden; border-radius: 16px; }
+.attendance-kpi::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--sf-slate); }
+.attendance-kpi-primary::before { background: var(--sf-gold-strong); }
+.attendance-kpi > span { display: block; margin-bottom: 11px; color: var(--sf-faint); font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.attendance-kpi > strong { display: block; overflow: hidden; color: var(--sf-text); font-family: "Source Serif 4", Georgia, serif; font-size: clamp(32px, 3vw, 48px); line-height: .95; text-overflow: ellipsis; white-space: nowrap; }
+.attendance-kpi > small { display: block; margin-top: 10px; overflow: hidden; color: var(--sf-muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; }
+.attendance-insights-grid { display: grid; gap: 14px; align-items: stretch; }
+.attendance-insights-grid-main { grid-template-columns: minmax(0, 1.65fr) minmax(330px, .75fr); }
+.attendance-insights-grid-secondary { grid-template-columns: minmax(0, 1.35fr) minmax(340px, .65fr); }
+.attendance-insight-panel { min-width: 0; padding: 20px; border-radius: 18px; }
+.attendance-insight-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.attendance-insight-heading h2 { margin: 2px 0 0; color: var(--sf-text); font-size: 22px; line-height: 1.15; }
+.attendance-trend-summary { min-height: 30px; }
+.attendance-trend-chip { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 9px; color: var(--sf-muted); background: var(--sf-surface-2); border: 1px solid var(--sf-border); border-radius: 999px; font-size: 10px; font-weight: 750; }
+.attendance-trend-chip.is-up { color: var(--sf-green); background: color-mix(in srgb, var(--sf-green) 10%, var(--sf-surface)); }
+.attendance-trend-chip.is-down { color: var(--sf-red); background: color-mix(in srgb, var(--sf-red) 10%, var(--sf-surface)); }
+.attendance-turnout-chart { min-height: 300px; display: grid; align-items: center; }
+.attendance-chart-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.attendance-chart-grid { stroke: var(--sf-border); stroke-width: 1; }
+.attendance-chart-line { fill: none; stroke: var(--sf-gold-strong); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.attendance-chart-dot { fill: var(--sf-surface); stroke: var(--sf-gold-strong); stroke-width: 4; }
+.attendance-chart-axis { fill: var(--sf-faint); font: 9px Inter, sans-serif; }
+.attendance-chart-value { fill: var(--sf-text); font: 700 10px Inter, sans-serif; }
+.attendance-recent-meetings { display: grid; gap: 8px; }
+.attendance-recent-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 11px; min-height: 64px; padding: 9px; background: var(--sf-surface-2); border: 1px solid var(--sf-border); border-radius: 12px; }
+.attendance-recent-date { display: grid; place-items: center; min-height: 44px; color: var(--sf-text); background: var(--sf-gold-soft); border-radius: 10px; }
+.attendance-recent-date strong { font-family: "Source Serif 4", Georgia, serif; font-size: 20px; line-height: 1; }
+.attendance-recent-date small { color: var(--sf-gold-strong); font-size: 7px; font-weight: 800; letter-spacing: .11em; }
+.attendance-recent-copy { display: grid; min-width: 0; gap: 2px; }
+.attendance-recent-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attendance-recent-copy small { color: var(--sf-muted); font-size: 9px; }
+.attendance-recent-count { display: grid; min-width: 62px; justify-items: end; }
+.attendance-recent-count strong { font-family: "Source Serif 4", Georgia, serif; font-size: 28px; line-height: 1; }
+.attendance-recent-count small { color: var(--sf-muted); font-size: 8px; white-space: nowrap; }
+.attendance-member-search { width: min(230px, 100%); }
+.attendance-member-search input { min-height: 38px; padding-block: 8px; }
+.attendance-member-table-wrap { overflow-x: auto; border: 1px solid var(--sf-border); border-radius: 12px; }
+.attendance-member-table { width: 100%; border-collapse: collapse; }
+.attendance-member-table th { padding: 9px 11px; text-align: left; color: var(--sf-faint); background: var(--sf-surface-2); border-bottom: 1px solid var(--sf-border); font-size: 8px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; }
+.attendance-member-table td { padding: 11px; border-bottom: 1px solid var(--sf-border); font-size: 11px; vertical-align: middle; }
+.attendance-member-table tr:last-child td { border-bottom: 0; }
+.attendance-member-table td:first-child { min-width: 170px; }
+.attendance-member-table td:first-child strong,
+.attendance-member-table td:first-child small { display: block; }
+.attendance-member-table td:first-child small { margin-top: 2px; color: var(--sf-muted); font-size: 8px; }
+.attendance-coverage { display: grid; grid-template-columns: minmax(72px, 1fr) 36px; align-items: center; gap: 8px; min-width: 120px; }
+.attendance-coverage > span { height: 7px; overflow: hidden; background: var(--sf-surface-3); border-radius: 999px; }
+.attendance-coverage i { display: block; height: 100%; background: var(--sf-gold-strong); border-radius: inherit; }
+.attendance-coverage b { color: var(--sf-muted); font-size: 9px; }
+.attendance-team-breakdown { display: grid; gap: 12px; }
+.attendance-team-row { display: grid; grid-template-columns: minmax(130px, .8fr) minmax(90px, 1fr) 42px; align-items: center; gap: 10px; }
+.attendance-team-row-copy { display: grid; min-width: 0; gap: 2px; }
+.attendance-team-row-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.attendance-team-row-copy small { color: var(--sf-muted); font-size: 8px; }
+.attendance-team-bar { height: 9px; overflow: hidden; background: var(--sf-surface-3); border-radius: 999px; }
+.attendance-team-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--sf-gold-strong), var(--sf-gold)); border-radius: inherit; }
+.attendance-team-average { text-align: right; font-family: "Source Serif 4", Georgia, serif; font-size: 19px; }
+.attendance-meeting-history-panel { padding-bottom: 10px; }
+.attendance-meeting-history { border: 1px solid var(--sf-border); border-radius: 12px; overflow: hidden; }
+.attendance-history-row { display: grid; grid-template-columns: 150px minmax(0, 1fr) 90px; align-items: center; gap: 14px; min-height: 64px; padding: 11px 14px; background: var(--sf-surface-2); border-bottom: 1px solid var(--sf-border); }
+.attendance-history-row:last-child { border-bottom: 0; }
+.attendance-history-date,
+.attendance-history-copy,
+.attendance-history-count { display: grid; min-width: 0; gap: 2px; }
+.attendance-history-date strong,
+.attendance-history-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.attendance-history-date small,
+.attendance-history-copy small { overflow: hidden; color: var(--sf-muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.attendance-history-count { justify-items: end; }
+.attendance-history-count strong { font-family: "Source Serif 4", Georgia, serif; font-size: 26px; line-height: 1; }
+.attendance-history-count span { color: var(--sf-muted); font-size: 8px; }
 
-/* High-contrast semantic tokens. Keep these last so older component rules
-   inherit readable values in both themes. */
-:root,
-html[data-theme="light"] {
-  --sf-bg: #f4f2ec;
-  --sf-bg-elevated: rgba(255, 255, 255, .94);
-  --sf-surface: #ffffff;
-  --sf-surface-2: #f7f5ef;
-  --sf-surface-3: #e9e5dc;
-  --sf-text: #171813;
-  --sf-text-strong: #0b0c09;
-  --sf-muted: #585b53;
-  --sf-faint: #74766f;
-  --sf-border: rgba(22, 24, 18, .14);
-  --sf-border-strong: rgba(22, 24, 18, .27);
-  --sf-gold: #cfb991;
-  --sf-gold-strong: #76531d;
-  --sf-gold-soft: #f3e7cf;
-  --sf-control: #ffffff;
-  --sf-control-hover: #f7f4ed;
-  --sf-control-active: #eee9df;
-  --red: #9f2929;
-  --green: #236344;
-  --amber: #744700;
-  --blue: #285985;
-  --gray-300: #b9b7ae;
+@media (max-width: 1180px) {
+  .attendance-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .attendance-insights-grid-main,
+  .attendance-insights-grid-secondary { grid-template-columns: 1fr; }
 }
 
-html[data-theme="dark"] {
-  --sf-bg: #090c11;
-  --sf-bg-elevated: rgba(18, 22, 28, .96);
-  --sf-surface: #14191f;
-  --sf-surface-2: #1c222a;
-  --sf-surface-3: #28303a;
-  --sf-text: #f3f4ef;
-  --sf-text-strong: #ffffff;
-  --sf-muted: #bbc0c5;
-  --sf-faint: #a0a7ad;
-  --sf-border: rgba(241, 243, 238, .14);
-  --sf-border-strong: rgba(241, 243, 238, .27);
-  --sf-gold: #dcc592;
-  --sf-gold-strong: #f0d48e;
-  --sf-gold-soft: rgba(220, 197, 146, .16);
-  --sf-control: #10151b;
-  --sf-control-hover: #1d242d;
-  --sf-control-active: #29323d;
-  --red: #ff9292;
-  --green: #80d7a7;
-  --amber: #ffc56d;
-  --blue: #94c8ff;
-  --gray-300: #59636d;
+@media (max-width: 760px) {
+  .attendance-insights-shell { width: 100%; padding: 10px 12px calc(96px + env(safe-area-inset-bottom)); }
+  .attendance-insights-hero { align-items: stretch; flex-direction: column; gap: 18px; padding: 24px 20px; border-radius: 20px; }
+  .attendance-insights-hero h1 { font-size: clamp(38px, 12vw, 52px); }
+  .attendance-insights-hero p:not(.eyebrow) { font-size: 13px; }
+  .attendance-insights-hero-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .attendance-insights-hero-actions .button { width: 100%; }
+  .attendance-insights-login-card { grid-template-columns: 1fr; gap: 16px; padding: 18px; border-radius: 18px; }
+  .attendance-insights-login-controls { grid-template-columns: 1fr; }
+  .attendance-insights-toolbar { align-items: stretch; flex-direction: column; padding: 12px; }
+  .attendance-insights-filter-grid { grid-template-columns: 1fr 1fr; }
+  .attendance-insights-toolbar-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .attendance-insights-toolbar-actions .button { width: 100%; }
+  .attendance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .attendance-kpi { min-height: 112px; padding: 14px; border-radius: 14px; }
+  .attendance-kpi > strong { font-size: 34px; }
+  .attendance-kpi > small { white-space: normal; }
+  .attendance-insight-panel { padding: 15px; border-radius: 16px; }
+  .attendance-insight-heading { align-items: flex-start; flex-direction: column; gap: 9px; }
+  .attendance-member-search { width: 100%; }
+  .attendance-turnout-chart { min-height: 220px; margin-inline: -8px; overflow-x: auto; }
+  .attendance-chart-svg { min-width: 680px; }
+  .attendance-recent-row { grid-template-columns: 44px minmax(0, 1fr) 58px; }
+  .attendance-member-table th:nth-child(3),
+  .attendance-member-table td:nth-child(3) { display: none; }
+  .attendance-member-table td:first-child { min-width: 150px; }
+  .attendance-team-row { grid-template-columns: minmax(120px, .8fr) minmax(80px, 1fr) 36px; gap: 8px; }
+  .attendance-history-row { grid-template-columns: minmax(0, 1fr) 62px; gap: 8px; }
+  .attendance-history-date { grid-column: 1; }
+  .attendance-history-copy { grid-column: 1; }
+  .attendance-history-count { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 }
 
-/* Readable labels and muted text. Accent text is deliberately darker in light
-   mode instead of placing low-contrast Purdue gold directly on white. */
-.eyebrow,
-.panel-kicker,
-.field > span:first-child,
-.compact-field > span:first-child,
-.calendar-agenda-date,
-.attendance-meeting-date small {
-  color: var(--sf-gold-strong);
-}
-
-.form-status,
-.field-help,
-.field small,
-.check-field,
-.verification-note,
-.request-meta,
-.task-updated-meta,
-.calendar-app-header p:not(.eyebrow),
-.board-overview-copy > p,
-.attendance-admin-header p:not(.eyebrow),
-.attendance-login-copy span {
-  color: var(--sf-muted);
-}
-
-.form-status.is-error { color: var(--red); font-weight: 650; }
-.form-status.is-success { color: var(--green); font-weight: 650; }
-
-/* Inputs should never blend into the surface they sit on. */
-input,
-select,
-textarea,
-.date-input-wrap {
-  color: var(--sf-text);
-  background: var(--sf-control);
-  border-color: var(--sf-border-strong);
-}
-input::placeholder,
-textarea::placeholder { color: var(--sf-faint); opacity: 1; }
-input:focus,
-select:focus,
-textarea:focus,
-.date-input-wrap:focus-within {
-  border-color: var(--sf-gold-strong);
-  box-shadow: 0 0 0 3px var(--sf-focus);
-}
-select option { color: var(--sf-text); background: var(--sf-surface); }
-
-/* Consistent, explicit control geometry across every workspace. */
-.button,
-.icon-button,
-.calendar-nav-button,
-.theme-toggle,
-.nav-link,
-.nav-button,
-.calendar-agenda-reset,
-.calendar-menu-action,
-.kanban-add,
-.workspace-team-button,
-.workspace-board-list button {
-  min-height: 44px;
-}
-.button,
-.icon-button,
-.calendar-nav-button,
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.15;
-}
-.button-small { min-height: 38px; }
-.button-secondary {
-  color: var(--sf-text-strong);
-  background: var(--sf-surface);
-  border-color: var(--sf-border-strong);
-}
-.button-secondary:hover {
-  color: var(--sf-text-strong);
-  background: var(--sf-control-hover);
-  border-color: var(--sf-gold-strong);
-}
-.button-ghost { color: var(--sf-text); }
-.button-ghost:hover { color: var(--sf-text-strong); background: var(--sf-control-hover); }
-
-/* Priority/status pills now remain legible in dark mode instead of using light
-   pastel fills from the original light-only palette. */
-html[data-theme="dark"] .priority-CRITICAL,
-html[data-theme="dark"] .task-status-BLOCKED { color: #ffb2b2; background: rgba(224, 78, 78, .18); }
-html[data-theme="dark"] .priority-HIGH,
-html[data-theme="dark"] .task-status-IN_PROGRESS { color: #ffd08b; background: rgba(213, 151, 54, .18); }
-html[data-theme="dark"] .priority-MEDIUM,
-html[data-theme="dark"] .task-status-PLANNED { color: #acd4ff; background: rgba(91, 145, 201, .18); }
-html[data-theme="dark"] .priority-LOW,
-html[data-theme="dark"] .task-status-DONE { color: #a6e2bf; background: rgba(74, 157, 111, .18); }
-html[data-theme="dark"] .task-status-REVIEW { color: #cfb8f4; background: rgba(139, 103, 191, .18); }
-html[data-theme="dark"] .task-status-BACKLOG { color: #d3d6d8; background: rgba(154, 160, 166, .14); }
-html[data-theme="dark"] .milestone-pill { color: var(--sf-gold-strong); background: var(--sf-gold-soft); }
-
-/* -------- Definitive modal geometry -------------------------------------
-   Several earlier versions sized the card wider than its parent dialog.
-   That made otherwise centered dialogs appear shifted or clipped. */
-dialog.modal {
-  position: fixed;
-  inset: 0;
-  width: min(720px, calc(100vw - 32px));
-  max-width: none;
-  max-height: calc(100dvh - 32px);
-  height: fit-content;
-  margin: auto;
-  padding: 0;
-  overflow: visible;
-  color: var(--sf-text);
-  background: transparent;
-  border: 0;
-}
-
-dialog.modal-wide,
-#workspaceDialog,
-#requestDialog,
-#calendarSubscriptionsDialog {
-  width: min(1040px, calc(100vw - 32px));
-}
-
-#calendarManagerDialog {
-  width: min(1120px, calc(100vw - 32px));
-}
-
-#calendarEventDialog {
-  width: min(1120px, calc(100vw - 32px));
-}
-
-#attendanceAdminDialog {
-  width: min(1180px, calc(100vw - 32px));
-}
-
-#taskDialog {
-  width: min(1180px, calc(100vw - 32px));
-}
-
-/* Planner's quick-event modal is intentionally compact. */
-#eventDialog {
-  width: min(700px, calc(100vw - 32px));
-}
-
-/* No child card is allowed to be wider than its dialog. */
-dialog.modal > .modal-card,
-dialog.modal > form.modal-card,
-#calendarEventDialog > .event-modal-card,
-#calendarManagerDialog > .calendar-manager-card,
-#attendanceAdminDialog > .attendance-admin-card,
-#eventDialog > .event-modal-card,
-#calendarSubscriptionsDialog > .subscription-modal-card {
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  margin: 0 auto;
-}
-
-.modal-card,
-.task-modal-card,
-.event-modal-card,
-.calendar-manager-card,
-.subscription-modal-card,
-.attendance-admin-card {
-  color: var(--sf-text);
-  background: var(--sf-surface);
-  border: 1px solid var(--sf-border-strong);
-  box-shadow: var(--sf-shadow-lg);
-}
-
-.modal::backdrop {
-  background: rgba(8, 10, 12, .68);
-  backdrop-filter: blur(8px) saturate(105%);
-}
-html[data-theme="dark"] .modal::backdrop { background: rgba(0, 0, 0, .78); }
-
-.modal-close {
-  color: var(--sf-text);
-  background: var(--sf-surface-2);
-  border-color: var(--sf-border-strong);
-  box-shadow: 0 6px 18px rgba(0,0,0,.12);
-}
-.modal-close:hover {
-  color: var(--sf-text-strong);
-  background: var(--sf-gold-soft);
-  border-color: var(--sf-gold-strong);
-}
-.modal-close:focus-visible {
-  outline: 3px solid var(--sf-focus);
-  outline-offset: 2px;
-}
-
-/* Theme-aware sticky/footer layers inside editors. */
-.task-tabs,
-.task-dialog-footer,
-.task-dialog-footer-1,
-.event-modal-footer,
-.event-dialog-footer,
-.event-form-status,
-.attendance-admin-header,
-.attendance-admin-toolbar {
-  color: var(--sf-text);
-  background: color-mix(in srgb, var(--sf-surface) 96%, transparent);
-  border-color: var(--sf-border);
-}
-.task-tabs { background: var(--sf-surface-2); }
-.task-tab { color: var(--sf-muted); }
-.task-tab:hover { color: var(--sf-text-strong); background: var(--sf-control-hover); }
-.task-tab.is-active { color: #171711; background: var(--sf-gold); }
-
-/* Header padding must always reserve the close-button hitbox. */
-.task-modal-header,
-.event-modal-header,
-.attendance-admin-header,
-.calendar-manager-header,
-.workspace-dialog-header {
-  min-width: 0;
-  padding-right: 76px;
-}
-.task-modal-header > div,
-.event-modal-header > div,
-.attendance-admin-header > div,
-.calendar-manager-header > div,
-.workspace-dialog-header > div { min-width: 0; }
-.task-modal-header h2,
-.event-modal-header h2,
-.attendance-admin-header h2,
-.calendar-manager-header h2,
-.workspace-dialog-header h2 {
-  max-width: 100%;
-  overflow-wrap: break-word;
-}
-
-/* Editor columns remain contained instead of forcing the dialog off-center. */
-.task-editor-layout,
-.event-form-layout,
-.calendar-manager-layout,
-.workspace-dialog-grid,
-.attendance-admin-grid,
-.field-grid,
-.schedule-grid,
-.collaboration-grid {
-  min-width: 0;
-}
-.task-editor-layout > *,
-.event-form-layout > *,
-.calendar-manager-layout > *,
-.workspace-dialog-grid > *,
-.attendance-admin-grid > * { min-width: 0; }
-
-/* Dialog action rows should look intentional rather than drifting with content. */
-.dialog-actions,
-.calendar-manager-actions,
-.event-modal-footer,
-.event-dialog-footer,
-.attendance-form-actions,
-.attendance-roster-actions {
-  align-items: center;
-  gap: 10px;
-}
-.dialog-actions { justify-content: flex-end; }
-
-/* More distinct surfaces reduce the washed-out appearance in both modes. */
-.panel,
-.stats-panel,
-.lookup-card,
-.request-card,
-.planner-control-deck,
-.planner-metric,
-.planner-toolbar,
-.timeline-toolbar,
-.gantt-host,
-.task-table-wrap,
-.insight-panel,
-.insight-card,
-.calendar-control-bar,
-.calendar-month-panel,
-.calendar-agenda-panel,
-.attendance-checkin-card,
-.attendance-open-card,
-.attendance-meeting-form,
-.attendance-admin-list-panel,
-.attendance-roster-panel {
-  border-color: var(--sf-border);
-}
-
-/* Active segmented controls should never be indistinguishable from neighbors. */
-.planner-view-controls,
-.segmented-control,
-.task-tabs {
-  border: 1px solid var(--sf-border);
-}
-.planner-view-button.is-active {
-  color: var(--sf-text-strong);
-  background: var(--sf-surface);
-  box-shadow: 0 2px 10px rgba(0,0,0,.12), inset 0 0 0 1px var(--sf-border-strong);
-}
-html[data-theme="dark"] .planner-view-button.is-active {
-  color: #171711;
-  background: var(--sf-gold);
-  box-shadow: none;
-}
-
-/* Make compact status chips readable instead of relying on hue alone. */
-.status-badge,
-.verification-badge,
-.priority-pill,
-.milestone-pill,
-.team-badge,
-.attendance-state-pill {
-  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
-}
-
-/* -------- Responsive modal treatment ----------------------------------- */
-@media (max-width: 900px) {
-  dialog.modal,
-  dialog.modal-wide,
-  #workspaceDialog,
-  #requestDialog,
-  #calendarSubscriptionsDialog,
-  #calendarManagerDialog,
-  #calendarEventDialog,
-  #attendanceAdminDialog,
-  #taskDialog,
-  #eventDialog {
-    width: calc(100vw - 20px);
-    max-height: calc(100dvh - 20px);
-  }
-
-  .modal-card,
-  .task-modal-card,
-  .event-modal-card,
-  .calendar-manager-card,
-  .subscription-modal-card,
-  .attendance-admin-card {
-    max-height: calc(100dvh - 20px);
-    border-radius: 18px;
-  }
-}
-
-@media (max-width: 720px) {
-  /* Large editors become intentional app-style sheets on phones. */
-  #calendarEventDialog,
-  #attendanceAdminDialog,
-  #taskDialog,
-  #workspaceDialog,
-  #calendarManagerDialog,
-  #calendarSubscriptionsDialog {
-    inset: 0;
-    width: 100vw;
-    height: 100dvh;
-    max-height: 100dvh;
-    margin: 0;
-  }
-
-  #calendarEventDialog > .event-modal-card,
-  #attendanceAdminDialog > .attendance-admin-card,
-  #taskDialog > .task-modal-card,
-  #workspaceDialog > .modal-card,
-  #calendarManagerDialog > .calendar-manager-card,
-  #calendarSubscriptionsDialog > .subscription-modal-card {
-    width: 100%;
-    min-height: 100dvh;
-    max-height: 100dvh;
-    border: 0;
-    border-radius: 0;
-  }
-
-  /* Small prompts remain centered cards rather than giant empty sheets. */
-  #identityDialog,
-  #calendarIdentityDialog,
-  #submittedDialog,
-  #requestDialog,
-  #eventDialog {
-    width: calc(100vw - 24px);
-    height: fit-content;
-    max-height: calc(100dvh - 24px);
-    margin: auto;
-  }
-
-  .task-modal-header,
-  .event-modal-header,
-  .attendance-admin-header,
-  .calendar-manager-header,
-  .workspace-dialog-header {
-    padding-right: 68px;
-  }
-
-  .modal-close {
-    top: max(12px, env(safe-area-inset-top));
-    right: max(12px, env(safe-area-inset-right));
-  }
-
-  .dialog-actions,
-  .calendar-manager-actions,
-  .event-modal-footer,
-  .event-dialog-footer,
-  .attendance-form-actions,
-  .attendance-roster-actions {
-    align-items: stretch;
-  }
-
-  .dialog-actions .button,
-  .event-modal-footer .button,
-  .event-dialog-footer .button {
-    min-height: 46px;
-  }
-}
-
-/* Very small phones: avoid labels or controls compressing into unreadable
-   columns. */
-@media (max-width: 390px) {
-  .field-grid.two-col,
-  .field-grid.three-col,
-  .attendance-form-grid,
-  .calendar-manager-layout,
-  .workspace-dialog-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .button { min-height: 46px; }
-  .button-small { min-height: 40px; }
+@media (max-width: 440px) {
+  .attendance-insights-filter-grid,
+  .attendance-insights-hero-actions { grid-template-columns: 1fr; }
+  .attendance-kpi-grid { grid-template-columns: 1fr 1fr; }
+  .attendance-kpi { min-height: 106px; }
+  .attendance-kpi > span { margin-bottom: 7px; font-size: 8px; }
+  .attendance-kpi > strong { font-size: 30px; }
+  .attendance-kpi > small { margin-top: 7px; font-size: 8px; }
 }
