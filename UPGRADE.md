@@ -1,84 +1,81 @@
-# Upgrade to SponsorFlow 1.3
+# SponsorFlow 1.7 upgrade
 
-SponsorFlow 1.3 adds member-created calendars, a complete light/dark theme system, and a phone-specific application layout.
+SponsorFlow 1.7 adds a shared attendance tracker and simplifies ranged calendar items so long-running work no longer fills every day of the month view.
 
-## 1. Back up the Google Sheet
+## Before you upgrade
 
-Open the SponsorFlow Sheet and choose:
+Make a backup of the Google Sheet with **File → Make a copy**.
 
-`File → Make a copy`
+## 1. Update GitHub Pages
 
-The migration is additive, but keeping a backup before any Apps Script upgrade is good practice.
+Upload the 1.7 update files to the root of your existing repository and replace matching files.
 
-## 2. Update the GitHub Pages files
-
-Extract the GitHub update ZIP and upload its contents to the root of the existing GitHub repository, replacing matching files.
-
-Replace:
+Important changed files:
 
 - `index.html`
 - `outreach.html`
 - `planner.html`
 - `calendar.html`
 - `admin.html`
+- `attendance.html` (new)
 - `assets/app.css`
+- `assets/api.js`
 - `assets/calendar.js`
-
-Add:
-
+- `assets/attendance.js` (new)
 - `assets/theme.js`
 
-Do not replace or delete:
+Do **not** replace your existing `assets/config.js`; it contains your deployed Apps Script URL.
 
-- `assets/config.js`
-- `assets/img/`
+Commit to `main` and wait for GitHub Pages to finish deploying.
 
-Commit the changes to `main` and wait for the Pages deployment action to finish.
+## 2. Replace Google Apps Script `Code.gs`
 
-## 3. Replace Google Apps Script Code.gs
+In the SponsorFlow Google Sheet, open **Extensions → Apps Script**. Replace the entire contents of `Code.gs` with the SponsorFlow 1.7 Code.gs file and save.
 
-Open:
+The Google Apps Script `Admin.html` file does **not** change in this release.
 
-`Google Sheet → Extensions → Apps Script → Code.gs`
-
-Replace the complete contents with `SponsorFlow-1.3-Code.txt`, then save.
-
-The Google Apps Script `Admin.html` file does not change in this release.
-
-## 4. Run the additive Sheet migration
+## 3. Run the additive migration
 
 Reload the Google Sheet and choose:
 
-`SponsorFlow → Upgrade to SponsorFlow 1.3`
+**SponsorFlow → Upgrade to SponsorFlow 1.7**
 
-This creates the `Planner Calendars` sheet. It does not rewrite existing tasks, dates, sponsors, requests, comments, teams, timelines, or funding opportunities.
+This creates two new tabs if they do not already exist:
 
-## 5. Redeploy the existing Apps Script web app
+- `Attendance Meetings`
+- `Attendance Records`
 
-In Apps Script choose:
+Existing sponsor outreach, planner, calendar, funding, comments, and task data are preserved.
 
-`Deploy → Manage deployments → Pencil icon → Version: New version → Deploy`
+## 4. Redeploy Apps Script
 
-Edit the existing deployment rather than creating a second deployment. This preserves the `/exec` URL already stored in `assets/config.js`.
+Open **Deploy → Manage deployments → Edit (pencil) → Version → New version → Deploy**.
 
-## 6. Refresh the website
+Update the existing deployment so the `/exec` URL stays the same. You do not need to edit `assets/config.js`.
 
-After GitHub Pages finishes deploying, open the site and use:
+## 5. Refresh the website
 
-`Command + Shift + R`
+After GitHub Pages finishes deploying, hard-refresh with **Command + Shift + R** or reopen the site.
 
-The website should display a theme button in the header. On phones it should also show the bottom application navigation.
+The new `Attendance` workspace will appear in the site navigation and on the home page.
 
-## Acceptance test
+## Attendance workflow
 
-1. Open Calendar and enter your name.
-2. Select **Manage calendars**.
-3. Create a calendar named `Race Readiness`.
-4. Select Mechanical Design, Kart Setup, Wiring Harness, and Battery.
-5. Include the general timeline and save.
-6. Confirm the new calendar appears in the selector.
-7. Open **Subscribe** and confirm the custom feed appears.
-8. Edit the custom calendar and change its teams or accent.
-9. Remove it and confirm the underlying tasks remain visible in their original team calendars.
-10. Switch between light and dark mode, then reload the page.
-11. Open the site on a phone and confirm the bottom navigation and full-screen editors work.
+1. An officer opens **Attendance → Manage meetings**.
+2. The officer unlocks the meeting tools with the shared SponsorFlow admin password.
+3. Create a meeting, choose its date/team, and set a meeting-specific password.
+4. Leave **Check-in is open** enabled while attendance is being collected.
+5. Members open Attendance, enter their name, choose the meeting, and enter the meeting password.
+6. Duplicate check-ins by the same normalized name are prevented.
+7. Officers can view the roster, export CSV, remove accidental records, close check-in, rotate the meeting password, or archive the meeting.
+
+Meeting passwords are stored as salted hashes rather than readable text in the Google Sheet.
+
+## Calendar behavior change
+
+A ranged item now appears only at meaningful endpoints:
+
+- once on its start date as **Starts**
+- once on its due/end date as **Due** or **Ends**
+
+It no longer creates a marker on every date between those endpoints. The agenda and `.ics` data still preserve the full date range.

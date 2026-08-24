@@ -12,6 +12,7 @@
     outreach: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H7l-3 3V4Z"></path><path d="m7 8 5 3 5-3"></path></svg>',
     planner: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M8 2v4M16 2v4M7 10h4M7 14h7"></path></svg>',
     calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path><path d="M8 14h2M12 14h2M16 14h1M8 17h2M12 17h2"></path></svg>',
+    attendance: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 19c.8-3.5 2.7-5.2 5.5-5.2s4.7 1.7 5.5 5.2"></path><path d="m15.5 12 2 2 3.5-4"></path></svg>',
     admin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6l-8-3Z"></path><path d="M9 12l2 2 4-5"></path></svg>'
   };
 
@@ -19,24 +20,34 @@
     try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
   }
 
+  function systemTheme() {
+    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+
   function preferredTheme() {
     const saved = readSavedTheme();
-    if (saved === "light" || saved === "dark") return saved;
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    return saved === "light" || saved === "dark" ? saved : systemTheme();
+  }
+
+  function renderToggle(button, theme) {
+    const dark = theme === "dark";
+    button.innerHTML = `${dark ? icons.moon : icons.sun}<span>${dark ? "Dark" : "Light"}</span>`;
+    button.setAttribute("aria-label", `Current theme: ${dark ? "dark" : "light"}. Switch to ${dark ? "light" : "dark"} mode.`);
+    button.title = `Switch to ${dark ? "light" : "dark"} mode`;
+    button.setAttribute("aria-pressed", String(dark));
   }
 
   function applyTheme(theme, persist = false) {
-    root.dataset.theme = theme;
-    root.style.colorScheme = theme;
-    if (persist) { try { localStorage.setItem(STORAGE_KEY, theme); } catch (_) {} }
+    const safeTheme = theme === "dark" ? "dark" : "light";
+    root.dataset.theme = safeTheme;
+    root.style.colorScheme = safeTheme;
+    root.classList.add("theme-ready");
+    if (persist) {
+      try { localStorage.setItem(STORAGE_KEY, safeTheme); } catch (_) {}
+    }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = theme === "dark" ? "#090b10" : "#f4f2ec";
-    document.querySelectorAll("[data-theme-toggle]").forEach(button => {
-      const dark = theme === "dark";
-      button.innerHTML = `${dark ? icons.sun : icons.moon}<span>${dark ? "Light" : "Dark"}</span>`;
-      button.setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} mode`);
-      button.title = `Switch to ${dark ? "light" : "dark"} mode`;
-    });
+    if (meta) meta.content = safeTheme === "dark" ? "#0b0e13" : "#f5f3ed";
+    document.querySelectorAll("[data-theme-toggle]").forEach(button => renderToggle(button, safeTheme));
   }
 
   function toggleTheme() {
@@ -69,22 +80,44 @@
       mobileLink("outreach.html", "Outreach", "outreach", ["outreach.html"]),
       mobileLink("planner.html", "Planner", "planner", ["planner.html"]),
       mobileLink("calendar.html", "Calendar", "calendar", ["calendar.html"]),
+      mobileLink("attendance.html", "Attend", "attendance", ["attendance.html"]),
       mobileLink("admin.html", "Admin", "admin", ["admin.html"])
     ].join("");
     document.body.appendChild(nav);
   }
 
   applyTheme(preferredTheme());
+
+  function enableMobileNavAutoHide() {
+    const nav = document.querySelector(".mobile-app-nav");
+    if (!nav || !window.matchMedia?.("(max-width: 720px)").matches) return;
+    let lastY = Math.max(0, window.scrollY);
+    let ticking = false;
+    const update = () => {
+      const currentY = Math.max(0, window.scrollY);
+      const nearTop = currentY < 80;
+      const nearBottom = currentY + window.innerHeight >= document.documentElement.scrollHeight - 60;
+      const movingDown = currentY > lastY + 10;
+      const movingUp = currentY < lastY - 8;
+      if (nearTop || nearBottom || movingUp) nav.classList.remove("is-hidden-by-scroll");
+      else if (movingDown && !document.body.classList.contains("dialog-open")) nav.classList.add("is-hidden-by-scroll");
+      lastY = currentY;
+      ticking = false;
+    };
+    window.addEventListener("scroll", () => {
+      if (!ticking) { ticking = true; requestAnimationFrame(update); }
+    }, { passive: true });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     injectThemeToggle();
     injectMobileNavigation();
+    enableMobileNavAutoHide();
     applyTheme(root.dataset.theme || preferredTheme());
   });
 
-  if (window.matchMedia) {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    media.addEventListener?.("change", () => {
-      if (!readSavedTheme()) applyTheme(media.matches ? "dark" : "light");
-    });
-  }
+  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+  media?.addEventListener?.("change", event => {
+    if (!readSavedTheme()) applyTheme(event.matches ? "dark" : "light");
+  });
 })();

@@ -25,6 +25,7 @@
     calendarFeedBaseUrl: "",
     month: `${todayText().slice(0, 7)}-01`,
     scope: "all",
+    selectedDate: "",
     editingTask: null,
     dirty: false,
     saving: false
@@ -57,6 +58,7 @@
     });
     $("#calendarScopeSelect").addEventListener("change", event => {
       state.scope = event.currentTarget.value;
+      state.selectedDate = "";
       localStorage.setItem("asmeCalendarScope", state.scope);
       renderCalendar();
     });
@@ -64,13 +66,18 @@
     $("#calendarNext").addEventListener("click", () => moveMonth(1));
     $("#calendarToday").addEventListener("click", () => {
       state.month = `${todayText().slice(0, 7)}-01`;
+      state.selectedDate = isCompactCalendar() ? todayText() : "";
       localStorage.setItem("asmeCalendarMonth", state.month);
       renderCalendar();
     });
-    $("#calendarNewEventTop").addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
-    $("#calendarSubscribe").addEventListener("click", openSubscriptions);
-    $("#calendarSnapshot").addEventListener("click", downloadCurrentCalendar);
-    [$("#calendarManage"), $("#calendarManageTop")].forEach(button => button.addEventListener("click", openCalendarManager));
+    $("#calendarAgendaReset")?.addEventListener("click", () => {
+      state.selectedDate = "";
+      renderCalendar();
+    });
+    $("#calendarNewEventTop")?.addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
+    $("#calendarSubscribe").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); openSubscriptions(); });
+    $("#calendarSnapshot").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); downloadCurrentCalendar(); });
+    [$("#calendarManage"), $("#calendarManageTop")].filter(Boolean).forEach(button => button.addEventListener("click", openCalendarManager));
     $("#calendarManagerNew").addEventListener("click", resetCalendarManagerForm);
     $("#customCalendarReset").addEventListener("click", resetCalendarManagerForm);
     $("#calendarManagerForm").addEventListener("submit", saveCustomCalendar);
@@ -240,7 +247,7 @@
     if (state.scope === "important") {
       return {
         name: "Important club events",
-        description: "Races, milestones, meetings, critical deadlines, and dates explicitly marked important."
+        description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded."
       };
     }
     if (state.scope === "general") {
@@ -295,7 +302,8 @@
   }
 
   function isImportantTask(task) {
-    return task.importantDate || task.isMilestone || task.priority === "CRITICAL" || task.taskType === "FUNDING" || task.taskType === "MEETING";
+    if (task.taskType === "FUNDING") return false;
+    return task.importantDate || task.isMilestone || task.priority === "CRITICAL" || task.taskType === "MEETING";
   }
 
   function renderCalendar() {
@@ -307,9 +315,12 @@
     const gridStart = new Date(monthStart);
     gridStart.setDate(gridStart.getDate() - gridStart.getDay());
     const meta = scopeMeta();
+    const compact = isCompactCalendar();
     $("#calendarTitle").textContent = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
     $("#calendarScopeName").textContent = meta.name;
     $("#calendarScopeDescription").textContent = meta.description;
+
+    if (state.selectedDate && !state.selectedDate.startsWith(state.month.slice(0, 7))) state.selectedDate = "";
 
     const tasks = tasksForScope().sort((a, b) => (taskBounds(a).start || "").localeCompare(taskBounds(b).start || "") || a.title.localeCompare(b.title));
     const cells = [];
@@ -317,12 +328,16 @@
       const day = new Date(gridStart);
       day.setDate(gridStart.getDate() + index);
       const value = dateText(day);
-      const dayTasks = tasks.filter(task => touchesDate(task, value));
+      const dayTasks = tasks.filter(task => marksDate(task, value));
       const outside = day.getMonth() !== monthStart.getMonth();
       const today = value === todayText();
-      cells.push(`<section class="calendar-day${outside ? " is-outside" : ""}${today ? " is-today" : ""}" data-date="${value}">
+      const selected = value === state.selectedDate;
+      const eventButtons = dayTasks.slice(0, 4).map((task, eventIndex) => calendarEventHtml(task, value, eventIndex)).join("");
+      const desktopMore = dayTasks.length > 4 ? `<button class="calendar-more-button" type="button" data-focus-date="${value}">+${dayTasks.length - 4} more</button>` : "";
+      const mobileMore = dayTasks.length > 2 ? `<button class="calendar-mobile-count" type="button" data-focus-date="${value}" aria-label="Show all ${dayTasks.length} items on ${value}">+${dayTasks.length - 2}</button>` : "";
+      cells.push(`<section class="calendar-day${outside ? " is-outside" : ""}${today ? " is-today" : ""}${selected ? " is-selected" : ""}" data-date="${value}" data-select-date="${value}" aria-label="${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dayTasks.length ? `, ${dayTasks.length} scheduled item${dayTasks.length === 1 ? "" : "s"}` : ""}">
         <header><time datetime="${value}">${day.getDate()}</time><div>${today ? "<span>Today</span>" : ""}<button class="calendar-day-add" type="button" data-add-date="${value}" aria-label="Add event on ${value}">+</button></div></header>
-        <div class="calendar-day-events">${dayTasks.slice(0, 4).map(task => calendarEventHtml(task, value)).join("")}${dayTasks.length > 4 ? `<button class="calendar-more-button" type="button" data-focus-date="${value}">+${dayTasks.length - 4} more</button>` : ""}</div>
+        <div class="calendar-day-events">${eventButtons}${desktopMore}${mobileMore}</div>
       </section>`);
     }
     $("#calendarGrid").innerHTML = cells.join("");
@@ -330,14 +345,31 @@
       event.stopPropagation();
       openEventDialog("", { startDate: button.dataset.addDate });
     }));
-    $("#calendarGrid").querySelectorAll("[data-task-id]").forEach(button => button.addEventListener("click", () => openEventDialog(button.dataset.taskId)));
-    $("#calendarGrid").querySelectorAll("[data-focus-date]").forEach(button => button.addEventListener("click", () => focusAgenda(button.dataset.focusDate)));
+    $("#calendarGrid").querySelectorAll("[data-task-id]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      openEventDialog(button.dataset.taskId);
+    }));
+    $("#calendarGrid").querySelectorAll("[data-focus-date]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      selectCalendarDate(button.dataset.focusDate, true);
+    }));
+    $("#calendarGrid").querySelectorAll("[data-select-date]").forEach(cell => {
+      cell.addEventListener("click", event => {
+        if (!compact || event.target.closest("button")) return;
+        selectCalendarDate(cell.dataset.selectDate, true);
+      });
+    });
 
     const startText = dateText(monthStart);
     const endText = dateText(monthEnd);
     const monthTasks = tasks.filter(task => intersects(task, startText, endText));
-    $("#calendarAgendaCount").textContent = String(monthTasks.length);
-    $("#calendarAgenda").innerHTML = monthTasks.length ? monthTasks.map(agendaHtml).join("") : `<div class="calendar-empty"><span>◇</span><strong>No dated work this month</strong><p>Use + Event or click a day to add one.</p></div>`;
+    const agendaTasks = compact && state.selectedDate
+      ? monthTasks.filter(task => marksDate(task, state.selectedDate))
+      : monthTasks;
+    updateAgendaHeading(agendaTasks.length);
+    $("#calendarAgenda").innerHTML = agendaTasks.length
+      ? agendaTasks.map(agendaHtml).join("")
+      : `<div class="calendar-empty"><span>◇</span><strong>${state.selectedDate ? "Nothing scheduled" : "No dated work this month"}</strong><p>${state.selectedDate ? "Tap + on this date to add an event." : "Use + Event or click a day to add one."}</p></div>`;
     $("#calendarAgenda").querySelectorAll("[data-agenda-task]").forEach(button => button.addEventListener("click", () => openEventDialog(button.dataset.agendaTask)));
     $("#calendarAgenda").querySelectorAll("[data-agenda-download]").forEach(button => button.addEventListener("click", event => {
       event.stopPropagation();
@@ -346,17 +378,59 @@
     }));
   }
 
-  function calendarEventHtml(task, value) {
-    const bounds = taskBounds(task);
-    let label = task.title;
-    if (bounds.start !== bounds.end) {
-      if (value === bounds.start) label = `↦ ${task.title}`;
-      else if (value === bounds.end) label = `↤ ${task.title}`;
+  function isCompactCalendar() {
+    return window.matchMedia("(max-width: 720px)").matches;
+  }
+
+  function selectCalendarDate(value, scrollToAgenda = false) {
+    state.selectedDate = validDateOnly(value);
+    renderCalendar();
+    if (scrollToAgenda) {
+      requestAnimationFrame(() => $("#calendarAgenda")?.closest(".calendar-agenda-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
     }
-    const time = task.allDay === false && task.startTime ? formatClock(task.startTime) : "";
-    return `<button class="calendar-event calendar-status-${escapeHtml(task.status)}" type="button" data-task-id="${escapeHtml(task.id)}" title="${escapeHtml(task.title)}">
-      <span class="priority-dot priority-bg-${escapeHtml(task.priority)}"></span><span>${time ? `<b>${escapeHtml(time)}</b> ` : ""}${escapeHtml(label)}</span>
+  }
+
+  function updateAgendaHeading(count) {
+    const selected = validDateOnly(state.selectedDate);
+    const reset = $("#calendarAgendaReset");
+    $("#calendarAgendaCount").textContent = String(count);
+    if (isCompactCalendar() && selected) {
+      const date = parseDateOnly(selected);
+      $("#calendarAgendaKicker").textContent = "Selected day";
+      $("#calendarAgendaTitle").textContent = date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+      reset?.classList.remove("is-hidden");
+    } else {
+      $("#calendarAgendaKicker").textContent = "Month agenda";
+      $("#calendarAgendaTitle").textContent = "Upcoming work";
+      reset?.classList.add("is-hidden");
+    }
+  }
+
+  function calendarEventHtml(task, value, eventIndex = 0) {
+    const bounds = taskBounds(task);
+    const multiDay = Boolean(bounds.start && bounds.end && bounds.start !== bounds.end);
+    const marker = multiDay ? (value === bounds.start ? "start" : value === bounds.end ? "due" : "") : "single";
+    let label = task.title;
+    const endWord = task.taskType === "MEETING" ? "Ends" : "Due";
+    if (marker === "start") label = `Starts · ${task.title}`;
+    if (marker === "due") label = `${endWord} · ${task.title}`;
+    const time = task.allDay === false && task.startTime && marker !== "due" ? formatClock(task.startTime) : "";
+    const mobileBase = compactEventLabel(task.title);
+    const mobileEnd = task.taskType === "MEETING" ? "E" : "D";
+    const mobileLabel = marker === "start" ? `S · ${mobileBase}` : marker === "due" ? `${mobileEnd} · ${mobileBase}` : mobileBase;
+    return `<button class="calendar-event calendar-status-${escapeHtml(task.status)} calendar-marker-${marker}${eventIndex >= 2 ? " is-mobile-extra" : ""}" type="button" data-task-id="${escapeHtml(task.id)}" title="${escapeHtml(label)}">
+      <span class="priority-dot priority-bg-${escapeHtml(task.priority)}"></span><span class="calendar-event-full-label">${time ? `<b>${escapeHtml(time)}</b> ` : ""}${escapeHtml(label)}</span><span class="calendar-event-mobile-label">${escapeHtml(mobileLabel)}</span>
     </button>`;
+  }
+
+  function compactEventLabel(title) {
+    const words = String(title || "Event").trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return "Event";
+    const first = words[0].replace(/[^A-Za-z0-9&-]/g, "");
+    if (first && first.length <= 7) return first;
+    const acronym = words.slice(0, 4).map(word => word.replace(/[^A-Za-z0-9]/g, "").charAt(0)).join("").toUpperCase();
+    if (acronym.length >= 2) return acronym;
+    return String(title).slice(0, 7);
   }
 
   function agendaHtml(task) {
@@ -374,6 +448,10 @@
   }
 
   function focusAgenda(value) {
+    if (isCompactCalendar()) {
+      selectCalendarDate(value, true);
+      return;
+    }
     const item = $("#calendarAgenda").querySelector(`[data-agenda-date="${CSS.escape(value)}"]`);
     if (!item) return;
     item.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -385,6 +463,7 @@
     const date = parseDateOnly(state.month) || new Date();
     date.setMonth(date.getMonth() + offset, 1);
     state.month = dateText(date);
+    state.selectedDate = "";
     renderCalendar();
   }
 
@@ -538,6 +617,7 @@
       const verified = state.tasks.find(item => item.id === saved.id);
       if (!verified || verified.startDate !== task.startDate || verified.dueDate !== task.dueDate) throw new Error("The event was saved, but its dates did not verify correctly. Refresh and try once more.");
       state.month = `${verified.startDate.slice(0, 7)}-01`;
+      state.selectedDate = isCompactCalendar() ? verified.startDate : "";
       localStorage.setItem("asmeCalendarMonth", state.month);
       state.dirty = false;
       $("#calendarEventDialog").close();
@@ -604,7 +684,7 @@
     if (!state.calendarFeedBaseUrl) return setPageMessage("The live calendar backend is unavailable. Redeploy the current Apps Script version.", "error");
     const feeds = [
       { name: "All calendars", description: "Every dated item across the entire workspace.", url: feedUrl("club") },
-      { name: "Important club events", description: "Milestones, meetings, races, critical deadlines, and important dates.", url: feedUrl("important") },
+      { name: "Important club events", description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded.", url: feedUrl("important") },
       { name: "General timeline", description: "Shared club-level planning and cross-team milestones.", url: feedUrl("team", GENERAL_TEAM_ID) },
       ...calendarTeams().map(team => ({ name: team.name, description: team.description || "This subteam's dated work.", url: feedUrl("team", team.id) })),
       ...state.calendars.map(calendar => ({ name: calendar.name, description: calendar.description || "Member-created calendar.", url: feedUrl("custom", calendar.id), custom: true, color: calendar.color }))
@@ -837,6 +917,15 @@
     return Boolean(start && end && value >= start && value <= end);
   }
 
+  // Month cells deliberately mark only meaningful endpoints for ranged work.
+  // A task that runs for weeks no longer paints every day in the calendar.
+  function marksDate(task, value) {
+    const { start, end } = taskBounds(task);
+    if (!start || !end) return false;
+    if (start === end) return value === start;
+    return value === start || value === end;
+  }
+
   function intersects(task, startRange, endRange) {
     const { start, end } = taskBounds(task);
     return Boolean(start && end && start <= endRange && end >= startRange);
@@ -889,7 +978,20 @@
 
   function showDialog(dialog) { document.body.classList.add("dialog-open"); dialog.showModal(); }
   function setLoading(active) { $("#calendarLoading").classList.toggle("is-hidden", !active); }
-  function showConnectionError(message) { const host = $("#calendarConnectionBanner"); host.textContent = message || ""; host.classList.toggle("is-hidden", !message); }
+  function showConnectionError(message) {
+    const host = $("#calendarConnectionBanner");
+    host.replaceChildren();
+    host.classList.toggle("is-hidden", !message);
+    if (!message) return;
+    const text = document.createElement("span");
+    text.textContent = message;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "button button-secondary button-small connection-retry";
+    retry.textContent = "Retry";
+    retry.addEventListener("click", loadCalendar, { once: true });
+    host.append(text, retry);
+  }
   function setPageMessage(message, tone = "") { const host = $("#calendarMessage"); host.textContent = message || ""; host.className = `form-status calendar-page-message${tone ? ` is-${tone}` : ""}`; }
   function setEventStatus(message, tone = "") { const host = $("#calendarEventFormStatus"); host.textContent = message || ""; host.className = `form-status event-form-status${tone ? ` is-${tone}` : ""}`; }
   function setSubscriptionStatus(message, tone = "") { const host = $("#calendarSubscriptionStatus"); host.textContent = message || ""; host.className = `form-status${tone ? ` is-${tone}` : ""}`; }

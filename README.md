@@ -1,21 +1,14 @@
-# ASME Indy Workspace — SponsorFlow 1.3
+# ASME Indy SponsorFlow 1.7
 
-A free GitHub Pages and Google Apps Script workspace for Purdue Indianapolis ASME.
+SponsorFlow is the Purdue Indianapolis ASME shared workspace for sponsor outreach, project planning, club calendars, and meeting attendance.
 
-## Main modules
+## Main workspaces
 
-- Sponsor outreach and officer approval
-- Collaborative project planning
-- Shared calendar and live iCalendar subscriptions
-- Member-created custom calendar views
-- Sponsor and funding research
-- Light and dark themes
-- Desktop, tablet, and mobile application layouts
+- Sponsor Outreach — sponsor contacts, polished templates, approval workflow, duplicate-outreach warnings, and outreach statistics.
+- Project Planner — subteam timelines, task boards, Gantt timelines, parts/purchasing, funding opportunities, comments, and insights.
+- Club Calendar — shared and custom calendars, editable events, live `.ics` subscription feeds, and snapshots.
+- Attendance — password-based meeting check-in, officer-managed meeting windows, rosters, and CSV export.
 
-## Hosting
+The public site is hosted on GitHub Pages. Shared data is stored in a Google Sheet through Google Apps Script.
 
-- GitHub Pages serves the static interface.
-- Google Apps Script provides the shared data service and live calendar feeds.
-- Google Sheets stores sponsor, request, planner, event, and custom calendar data.
-
-See `UPGRADE.md` for installation instructions and `SECURITY.md` for the limitations of the name-based, shared-editing model.
+See `UPGRADE.md` for 1.7 installation steps.
