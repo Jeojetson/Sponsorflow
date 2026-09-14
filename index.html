@@ -8,9 +8,7 @@
   <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "light" || savedTheme === "dark"
-        ? savedTheme
-        : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const theme = savedTheme === "dark" ? "dark" : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
@@ -19,7 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=18">
+  <link rel="stylesheet" href="assets/app.css?v=20">
+  <link rel="stylesheet" href="assets/ui-20.css?v=20">
 </head>
 <body class="home-page">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -42,53 +41,53 @@
   <main id="main" class="home-main">
     <section class="home-hero">
       <div class="home-hero-copy">
-        <p class="eyebrow">One shared operating system for the club</p>
-        <h1>Plan the build. Coordinate the team. Grow the program.</h1>
-        <p>ASME Indy Workspace brings sponsor outreach, engineering timelines, parts, deadlines, attendance, and live calendar subscriptions into one clear place.</p>
+        <p class="eyebrow">ASME Indianapolis</p>
+        <h1>The club workspace.</h1>
+        <p>Sponsor outreach, project work, calendars, and attendance in one place.</p>
         <div class="home-hero-actions">
-          <a class="button button-primary" href="planner.html">Open project planner</a>
-          <a class="button button-secondary" href="calendar.html">Open club calendar</a>
-          <a class="button button-secondary" href="attendance.html">Meeting check-in</a>
+          <a class="button button-primary" href="planner.html">Project planner</a>
+          <a class="button button-secondary" href="calendar.html">Club calendar</a>
+          <a class="button button-secondary" href="attendance.html">Attendance</a>
         </div>
       </div>
       <div class="home-hero-visual" aria-label="ASME EV-Kart team highlights">
         <img src="assets/img/team.jpg" alt="Purdue Indianapolis ASME EV-Kart team with their kart">
-        <div class="home-hero-stat"><strong>5th of 27</strong><span>Recent EV Grand Prix finish</span></div>
+        <div class="home-hero-stat"><strong>5th of 27</strong><span>EV Grand Prix finish</span></div>
       </div>
     </section>
 
     <section class="home-modules" aria-labelledby="workspaceHeading">
       <div class="home-section-heading">
-        <p class="eyebrow">Choose a workspace</p>
-        <h2 id="workspaceHeading">Everything has a clear home.</h2>
+        <p class="eyebrow">Tools</p>
+        <h2 id="workspaceHeading">Choose what you need.</h2>
       </div>
       <div class="home-module-grid">
         <a class="home-module-card" href="outreach.html">
           <span class="home-module-index">01</span>
           <div class="home-module-icon" aria-hidden="true">↗</div>
           <h3>Sponsor outreach</h3>
-          <p>Build polished sponsor messages, avoid duplicate outreach, submit for officer review, and track club results.</p>
+          <p>Draft sponsor emails, avoid duplicate outreach, and send requests to officers for review.</p>
           <span class="home-module-link">Open outreach <b>→</b></span>
         </a>
         <a class="home-module-card" href="planner.html">
           <span class="home-module-index">02</span>
           <div class="home-module-icon" aria-hidden="true">✓</div>
           <h3>Project planner</h3>
-          <p>Manage team timelines, engineering tasks, priorities, dependencies, purchasing, funding, and progress.</p>
+          <p>Track team tasks, deadlines, dependencies, parts, funding, and progress.</p>
           <span class="home-module-link">Open planner <b>→</b></span>
         </a>
         <a class="home-module-card" href="calendar.html">
           <span class="home-module-index">03</span>
           <div class="home-module-icon" aria-hidden="true">□</div>
           <h3>Club calendar</h3>
-          <p>Create and edit events, view every team’s dated work, and subscribe to live calendars that update automatically.</p>
+          <p>Create events, view team deadlines, and subscribe to live calendars.</p>
           <span class="home-module-link">Open calendar <b>→</b></span>
         </a>
         <a class="home-module-card" href="attendance.html">
           <span class="home-module-index">04</span>
           <div class="home-module-icon" aria-hidden="true">◎</div>
           <h3>Attendance</h3>
-          <p>Check into meetings with a shared meeting password while officers manage rosters and exports in the same workspace.</p>
+          <p>Check in to meetings with your name and the meeting password. Officers can manage rosters and exports.</p>
           <span class="home-module-link">Open attendance <b>→</b></span>
         </a>
       </div>
@@ -96,13 +95,13 @@
 
     <section class="home-operations">
       <div>
-        <p class="eyebrow">Built for shared ownership</p>
-        <h2>Simple enough for the whole team. Structured enough to stay reliable.</h2>
+        <p class="eyebrow">How it works</p>
+        <h2>Shared tools, with a record of who changed what.</h2>
       </div>
       <div class="home-operation-list">
-        <article><strong>Name-based attribution</strong><p>Changes and comments are connected to the name entered by each member.</p></article>
-        <article><strong>Team-specific views</strong><p>Mechanical, setup, wiring, battery, software, manufacturing, finance, and club-wide work stay organized.</p></article>
-        <article><strong>Portable calendars</strong><p>Subscribe to live team feeds or download individual events as standard .ics files.</p></article>
+        <article><strong>Names, not accounts</strong><p>Your name is attached to task edits, comments, outreach requests, and attendance.</p></article>
+        <article><strong>Team views</strong><p>Each subteam gets its own project and calendar views, with club-wide views when needed.</p></article>
+        <article><strong>Calendar subscriptions</strong><p>Subscribe to a team calendar or download individual events as .ics files.</p></article>
       </div>
     </section>
   </main>
@@ -111,6 +110,6 @@
     <span>Purdue University Indianapolis ASME</span>
     <span>Club email: asmeindy@purdue.edu</span>
   </footer>
-  <script src="assets/theme.js?v=18"></script>
+  <script src="assets/theme.js?v=20"></script>
 </body>
 </html>

@@ -16,42 +16,31 @@
     admin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6l-8-3Z"></path><path d="M9 12l2 2 4-5"></path></svg>'
   };
 
-  function readSavedTheme() {
+  function savedTheme() {
     try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
   }
 
-  function systemTheme() {
-    return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }
-
-  function preferredTheme() {
-    const saved = readSavedTheme();
-    return saved === "light" || saved === "dark" ? saved : systemTheme();
+  function currentTheme() {
+    return savedTheme() === "dark" ? "dark" : "light";
   }
 
   function renderToggle(button, theme) {
     const dark = theme === "dark";
     button.innerHTML = `${dark ? icons.moon : icons.sun}<span>${dark ? "Dark" : "Light"}</span>`;
-    button.setAttribute("aria-label", `Current theme: ${dark ? "dark" : "light"}. Switch to ${dark ? "light" : "dark"} mode.`);
-    button.title = `Switch to ${dark ? "light" : "dark"} mode`;
-    button.setAttribute("aria-pressed", String(dark));
+    button.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+    button.title = dark ? "Switch to light mode" : "Switch to dark mode";
   }
 
   function applyTheme(theme, persist = false) {
-    const safeTheme = theme === "dark" ? "dark" : "light";
-    root.dataset.theme = safeTheme;
-    root.style.colorScheme = safeTheme;
-    root.classList.add("theme-ready");
+    const safe = theme === "dark" ? "dark" : "light";
+    root.dataset.theme = safe;
+    root.style.colorScheme = safe;
     if (persist) {
-      try { localStorage.setItem(STORAGE_KEY, safeTheme); } catch (_) {}
+      try { localStorage.setItem(STORAGE_KEY, safe); } catch (_) {}
     }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = safeTheme === "dark" ? "#0b0e13" : "#f5f3ed";
-    document.querySelectorAll("[data-theme-toggle]").forEach(button => renderToggle(button, safeTheme));
-  }
-
-  function toggleTheme() {
-    applyTheme(root.dataset.theme === "dark" ? "light" : "dark", true);
+    if (meta) meta.content = safe === "dark" ? "#080a0d" : "#111310";
+    document.querySelectorAll("[data-theme-toggle]").forEach(button => renderToggle(button, safe));
   }
 
   function injectThemeToggle() {
@@ -61,7 +50,7 @@
     button.type = "button";
     button.className = "theme-toggle";
     button.dataset.themeToggle = "";
-    button.addEventListener("click", toggleTheme);
+    button.addEventListener("click", () => applyTheme(root.dataset.theme === "dark" ? "light" : "dark", true));
     header.appendChild(button);
   }
 
@@ -86,8 +75,6 @@
     document.body.appendChild(nav);
   }
 
-  applyTheme(preferredTheme());
-
   function enableMobileNavAutoHide() {
     const nav = document.querySelector(".mobile-app-nav");
     if (!nav || !window.matchMedia?.("(max-width: 720px)").matches) return;
@@ -95,12 +82,10 @@
     let ticking = false;
     const update = () => {
       const currentY = Math.max(0, window.scrollY);
-      const nearTop = currentY < 80;
-      const nearBottom = currentY + window.innerHeight >= document.documentElement.scrollHeight - 60;
-      const movingDown = currentY > lastY + 10;
-      const movingUp = currentY < lastY - 8;
-      if (nearTop || nearBottom || movingUp) nav.classList.remove("is-hidden-by-scroll");
-      else if (movingDown && !document.body.classList.contains("dialog-open")) nav.classList.add("is-hidden-by-scroll");
+      const nearTop = currentY < 70;
+      const nearBottom = currentY + window.innerHeight >= document.documentElement.scrollHeight - 48;
+      if (nearTop || nearBottom || currentY < lastY - 8) nav.classList.remove("is-hidden-by-scroll");
+      else if (currentY > lastY + 12 && !document.body.classList.contains("dialog-open")) nav.classList.add("is-hidden-by-scroll");
       lastY = currentY;
       ticking = false;
     };
@@ -109,15 +94,11 @@
     }, { passive: true });
   }
 
+  applyTheme(currentTheme());
   document.addEventListener("DOMContentLoaded", () => {
     injectThemeToggle();
     injectMobileNavigation();
     enableMobileNavAutoHide();
-    applyTheme(root.dataset.theme || preferredTheme());
-  });
-
-  const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-  media?.addEventListener?.("change", event => {
-    if (!readSavedTheme()) applyTheme(event.matches ? "dark" : "light");
+    applyTheme(currentTheme());
   });
 })();

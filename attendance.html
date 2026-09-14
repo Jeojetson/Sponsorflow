@@ -8,7 +8,7 @@
   <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "light" || savedTheme === "dark" ? savedTheme : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const theme = savedTheme === "dark" ? "dark" : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
@@ -17,7 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=19">
+  <link rel="stylesheet" href="assets/app.css?v=20">
+  <link rel="stylesheet" href="assets/ui-20.css?v=20">
 </head>
 <body class="attendance-page">
   <a class="skip-link" href="#attendanceMain">Skip to attendance</a>
@@ -40,9 +41,9 @@
   <main id="attendanceMain" class="attendance-shell">
     <section class="attendance-hero">
       <div>
-        <p class="eyebrow">Fast meeting check-in</p>
-        <h1>Attendance without another account.</h1>
-        <p>Choose the meeting, enter your name and the meeting password, and SponsorFlow records your attendance.</p>
+        <p class="eyebrow">Attendance</p>
+        <h1>Meeting check-in</h1>
+        <p>Enter your name and the meeting password to check in.</p>
       </div>
       <button id="attendanceManageOpen" class="button button-secondary" type="button">Manage meetings</button>
     </section>
@@ -52,7 +53,7 @@
     <section class="attendance-layout">
       <article class="attendance-checkin-card">
         <header class="attendance-card-heading">
-          <div><p class="panel-kicker">Member check-in</p><h2>Mark yourself present</h2></div>
+          <div><p class="panel-kicker">Check in</p><h2>Meeting check-in</h2></div>
           <span class="attendance-live-dot" aria-label="Live shared attendance"></span>
         </header>
         <form id="attendanceCheckInForm" class="attendance-checkin-form" novalidate>
@@ -67,7 +68,7 @@
 
       <aside class="attendance-open-card">
         <div class="attendance-card-heading">
-          <div><p class="panel-kicker">Open meetings</p><h2>Available now</h2></div>
+          <div><p class="panel-kicker">Meetings</p><h2>Open for check-in</h2></div>
           <span id="attendanceMeetingCount" class="calendar-count-badge">0</span>
         </div>
         <div id="attendanceMeetingList" class="attendance-meeting-list"></div>
@@ -75,34 +76,47 @@
     </section>
   </main>
 
+  <dialog id="attendanceSuccessDialog" class="attendance-success-dialog" aria-labelledby="attendanceSuccessTitle">
+    <div class="attendance-success-card">
+      <div class="attendance-success-icon" aria-hidden="true">✓</div>
+      <h2 id="attendanceSuccessTitle">You’re checked in</h2>
+      <p id="attendanceSuccessMessage">Attendance was recorded.</p>
+      <div class="attendance-success-details">
+        <strong id="attendanceSuccessMeeting">Meeting</strong>
+        <span id="attendanceSuccessMeta"></span>
+      </div>
+      <button id="attendanceSuccessDone" class="button button-primary button-full" type="button">Done</button>
+    </div>
+  </dialog>
+
   <dialog id="attendanceAdminDialog" class="modal planner-modal attendance-admin-dialog">
     <div class="modal-card attendance-admin-card">
       <header class="attendance-admin-header">
-        <div><p class="eyebrow">Officer tools</p><h2>Meeting attendance</h2><p>Create check-in windows, set the meeting password, review the roster, and close check-in when the meeting ends.</p></div>
+        <div><p class="eyebrow">Admin</p><h2>Manage attendance</h2><p>Create meetings, set the check-in password, and review rosters.</p></div>
         <button class="modal-close" type="button" data-attendance-admin-close aria-label="Close">×</button>
       </header>
 
       <section id="attendanceAdminLogin" class="attendance-admin-login">
-        <div class="attendance-login-copy"><strong>Use the shared SponsorFlow admin password.</strong><span>The meeting password is separate and can be different for every meeting.</span></div>
+        <div class="attendance-login-copy"><strong>Enter the SponsorFlow admin password.</strong><span>Meeting passwords are separate from the admin password.</span></div>
         <label class="field"><span>Admin password</span><input id="attendanceAdminPassword" type="password" autocomplete="current-password" placeholder="SponsorFlow admin password"></label>
-        <button id="attendanceAdminLoginButton" class="button button-primary" type="button">Unlock meeting tools</button>
+        <button id="attendanceAdminLoginButton" class="button button-primary" type="button">Sign in</button>
         <p id="attendanceAdminLoginStatus" class="form-status" aria-live="polite"></p>
       </section>
 
       <section id="attendanceAdminWorkspace" class="attendance-admin-workspace is-hidden">
         <div class="attendance-admin-toolbar">
-          <label class="field compact-field"><span>Officer name</span><input id="attendanceAdminName" maxlength="80" placeholder="Name recorded with changes"></label>
+          <label class="field compact-field"><span>Officer name</span><input id="attendanceAdminName" maxlength="80" placeholder="Officer name"></label>
           <div class="attendance-admin-toolbar-actions">
-            <a class="button button-secondary button-small" href="admin.html#attendance">Attendance metrics</a>
+            <a class="button button-secondary button-small" href="admin.html#attendance">View attendance stats</a>
             <button id="attendanceNewMeeting" class="button button-primary button-small" type="button">+ New meeting</button>
-            <button id="attendanceAdminLogout" class="button button-ghost button-small" type="button">Lock admin tools</button>
+            <button id="attendanceAdminLogout" class="button button-ghost button-small" type="button">Sign out</button>
           </div>
         </div>
 
         <div class="attendance-admin-grid">
           <form id="attendanceMeetingForm" class="attendance-meeting-form" novalidate>
             <input id="attendanceMeetingId" type="hidden">
-            <div class="attendance-form-title"><div><p class="panel-kicker">Meeting setup</p><h3 id="attendanceMeetingFormTitle">New meeting</h3></div><span id="attendanceMeetingFormBadge" class="team-badge">Open</span></div>
+            <div class="attendance-form-title"><div><p class="panel-kicker">Meeting</p><h3 id="attendanceMeetingFormTitle">New meeting</h3></div><span id="attendanceMeetingFormBadge" class="team-badge">Open</span></div>
             <label class="field"><span>Meeting title</span><input id="attendanceMeetingTitle" maxlength="140" placeholder="Weekly EV team meeting" required></label>
             <div class="attendance-form-grid">
               <label class="field"><span>Date</span><input id="attendanceMeetingDate" type="date" required></label>
@@ -112,7 +126,7 @@
             </div>
             <label class="field"><span>Location</span><input id="attendanceMeetingLocation" maxlength="200" placeholder="ET 202 or Teams"></label>
             <label class="field"><span>Meeting password</span><input id="attendanceMeetingCode" type="password" maxlength="80" placeholder="Set a password members will enter"></label>
-            <p id="attendanceMeetingCodeHelp" class="field-help">Required for a new meeting. Leave blank while editing to keep the current password.</p>
+            <p id="attendanceMeetingCodeHelp" class="field-help">Required for new meetings. Leave blank when editing to keep the current password.</p>
             <label class="field"><span>Notes</span><textarea id="attendanceMeetingNotes" rows="3" maxlength="1200" placeholder="Optional context for members"></textarea></label>
             <label class="form-check form-switch"><input id="attendanceMeetingActive" class="form-check-input" type="checkbox" checked><span class="form-check-label">Check-in is open</span></label>
             <div class="attendance-form-actions">
@@ -123,14 +137,14 @@
           </form>
 
           <section class="attendance-admin-list-panel">
-            <div class="attendance-list-heading"><div><p class="panel-kicker">Meeting history</p><h3>Meetings & rosters</h3></div></div>
+            <div class="attendance-list-heading"><div><p class="panel-kicker">Meetings</p><h3>Meeting list</h3></div></div>
             <div id="attendanceAdminMeetingList" class="attendance-admin-meeting-list"></div>
           </section>
         </div>
 
         <section id="attendanceRosterPanel" class="attendance-roster-panel is-hidden">
           <div class="attendance-roster-heading">
-            <div><p class="panel-kicker">Attendance roster</p><h3 id="attendanceRosterTitle">Meeting roster</h3><p id="attendanceRosterMeta"></p></div>
+            <div><p class="panel-kicker">Roster</p><h3 id="attendanceRosterTitle">Meeting roster</h3><p id="attendanceRosterMeta"></p></div>
             <div class="attendance-roster-actions"><button id="attendanceRosterCsv" class="button button-secondary button-small" type="button">Export CSV</button><button id="attendanceRosterClose" class="button button-ghost button-small" type="button">Close roster</button></div>
           </div>
           <div id="attendanceRosterList" class="attendance-roster-list"></div>
@@ -140,9 +154,9 @@
   </dialog>
 
   <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=19"></script>
-  <script src="assets/api.js?v=19"></script>
-  <script src="assets/attendance.js?v=19"></script>
-  <script src="assets/theme.js?v=19"></script>
+  <script src="assets/config.js?v=20"></script>
+  <script src="assets/api.js?v=20"></script>
+  <script src="assets/attendance.js?v=20"></script>
+  <script src="assets/theme.js?v=20"></script>
 </body>
 </html>

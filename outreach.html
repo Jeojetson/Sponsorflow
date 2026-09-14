@@ -8,9 +8,7 @@
   <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "light" || savedTheme === "dark"
-        ? savedTheme
-        : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const theme = savedTheme === "dark" ? "dark" : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
@@ -19,7 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=18">
+  <link rel="stylesheet" href="assets/app.css?v=20">
+  <link rel="stylesheet" href="assets/ui-20.css?v=20">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -42,13 +41,13 @@
   <main id="main">
     <section class="hero">
       <div class="hero-copy">
-        <p class="eyebrow">Sponsor outreach, organized</p>
-        <h1>Write the request. Build the relationship. Move the team forward.</h1>
-        <p class="hero-lede">Start with a polished template, personalize it for a real company, and submit it for officer review. Use your full name consistently so your requests and club impact stay together.</p>
+        <p class="eyebrow">Sponsor outreach</p>
+        <h1>Sponsor outreach</h1>
+        <p class="hero-lede">Choose a sponsor, start from a template, edit the message, and submit it for officer review. Use the same name each time so your requests stay together.</p>
         <div class="hero-actions">
           <button class="button button-primary" type="button" data-view-button="compose">Start a request</button>
-          <a class="button button-dark-outline" href="planner.html">Open project planner</a>
-          <button class="button button-dark-outline" type="button" data-view-button="stats">See club momentum</button>
+          <a class="button button-dark-outline" href="planner.html">Project planner</a>
+          <button class="button button-dark-outline" type="button" data-view-button="stats">View stats</button>
         </div>
         <div class="hero-proof">
           <div><strong>5th</strong><span>of 27 EVGP teams</span></div>
@@ -58,7 +57,7 @@
       </div>
       <div class="hero-media">
         <img src="assets/img/team.jpg" alt="Purdue Indianapolis ASME EV-Kart team gathered with their kart">
-        <div class="hero-media-card"><span class="status-dot"></span><div><strong>Student-led engineering</strong><small>Design, fabrication, testing, and racing</small></div></div>
+        <div class="hero-media-card"><span class="status-dot"></span><div><strong>ASME EV-Kart</strong><small>Purdue Indianapolis</small></div></div>
       </div>
     </section>
 
@@ -67,15 +66,15 @@
 
       <section class="app-view" data-view="compose">
         <div class="section-heading">
-          <div><p class="eyebrow">New outreach request</p><h2>Build a sponsor-ready message</h2></div>
-          <div class="identity-chip"><span>✦</span><strong>Your full name is your request key</strong></div>
+          <div><p class="eyebrow">New request</p><h2>Draft the email</h2></div>
+          <div class="identity-chip"><span>✦</span><strong>Your name identifies your requests</strong></div>
         </div>
 
         <form id="composeForm" novalidate>
           <div class="compose-grid">
             <div class="form-stack">
               <article class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Identity and credit</p><h3>Who is leading this outreach?</h3></div><span class="panel-number">01</span></div>
+                <div class="panel-heading"><div><p class="panel-kicker">Your name</p><h3>Who is sending this request?</h3></div><span class="panel-number">01</span></div>
                 <div class="field-grid two-col">
                   <label class="field">
                     <span>Your full name <b aria-hidden="true">*</b></span>
@@ -84,21 +83,21 @@
                   </label>
                   <label class="field"><span>Your club role</span><input id="requesterRole" name="requesterRole" maxlength="80" placeholder="EVK Project Lead"></label>
                 </div>
-                <div class="name-guidance"><strong>Use the same spelling every time.</strong><span>Your name groups your requests and contributes to the club leaderboard. No account or cookie is required.</span></div>
+                <div class="name-guidance"><strong>Use the same name each time.</strong><span>We use your name to group your requests. No account is required.</span></div>
               </article>
 
               <article class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Recipient and approach</p><h3>Choose or suggest a sponsor</h3></div><span class="panel-number">02</span></div>
+                <div class="panel-heading"><div><p class="panel-kicker">Sponsor</p><h3>Choose a contact or add one</h3></div><span class="panel-number">02</span></div>
 
                 <div id="revisionBanner" class="revision-banner is-hidden">
-                  <div><span class="verification-badge" id="revisionSponsorBadge"></span><strong id="revisionSponsorName"></strong><small>The recipient is locked while you revise the approved draft content.</small></div>
+                  <div><span class="verification-badge" id="revisionSponsorBadge"></span><strong id="revisionSponsorName"></strong><small>The recipient stays fixed while a submitted draft is under review.</small></div>
                   <button id="cancelRevisionButton" class="button button-ghost button-small" type="button">Cancel revision</button>
                 </div>
 
                 <div id="sponsorChooser">
                   <div class="segmented-control" role="group" aria-label="Sponsor source">
-                    <button class="segment is-active" type="button" data-sponsor-mode="directory"><strong>Verified directory</strong><small>Use an officer-approved contact</small></button>
-                    <button class="segment" type="button" data-sponsor-mode="custom"><strong>Suggest a sponsor</strong><small>Enter a company and email yourself</small></button>
+                    <button class="segment is-active" type="button" data-sponsor-mode="directory"><strong>Verified directory</strong><small>Officer-verified contact</small></button>
+                    <button class="segment" type="button" data-sponsor-mode="custom"><strong>Suggest a sponsor</strong><small>Add a company and email</small></button>
                   </div>
 
                   <div id="verifiedSponsorFields" class="sponsor-fields">
@@ -124,20 +123,20 @@
                     <div class="sponsor-insight-grid">
                       <div><span>Suggested ask</span><p id="sponsorSuggestedAsk"></p></div>
                       <div><span>Eligibility / route</span><p id="sponsorEligibility"></p></div>
-                      <div class="sponsor-insight-wide"><span>Strong personalization angle</span><p id="sponsorPersonalizationIdea"></p></div>
+                      <div class="sponsor-insight-wide"><span>Useful context</span><p id="sponsorPersonalizationIdea"></p></div>
                     </div>
-                    <button id="useSponsorResearchButton" class="button button-secondary button-small" type="button">Use these research notes</button>
+                    <button id="useSponsorResearchButton" class="button button-secondary button-small" type="button">Reference these notes</button>
                   </div>
 
                   <div id="sponsorHistoryCard" class="outreach-history is-hidden" aria-live="polite">
                     <div class="outreach-history-icon" id="sponsorHistoryIcon">✓</div>
                     <div class="outreach-history-copy">
                       <div class="badge-row"><span id="sponsorHistoryBadge" class="verification-badge available">No prior outreach</span></div>
-                      <strong id="sponsorHistoryTitle">No prior SponsorFlow requests found</strong>
-                      <p id="sponsorHistoryText">This sponsor appears available for a new first-touch request.</p>
+                      <strong id="sponsorHistoryTitle">No previous requests found</strong>
+                      <p id="sponsorHistoryText">No earlier outreach to this sponsor is recorded.</p>
                       <label id="duplicateAckWrap" class="check-field duplicate-check is-hidden">
                         <input id="duplicateAcknowledged" type="checkbox">
-                        <span>I reviewed the existing outreach and confirm this is an intentional follow-up, new contact, or separate opportunity.</span>
+                        <span>I checked the existing outreach and this is an intentional follow-up, new contact, or separate request.</span>
                       </label>
                     </div>
                   </div>
@@ -147,9 +146,9 @@
               </article>
 
               <article id="substancePanel" class="panel">
-                <div class="panel-heading"><div><p class="panel-kicker">Sponsor-specific substance</p><h3>Make the request worth reading</h3></div><span class="panel-number">03</span></div>
+                <div class="panel-heading"><div><p class="panel-kicker">Message details</p><h3>Add the company-specific details</h3></div><span class="panel-number">03</span></div>
                 <div class="form-stack compact">
-                  <label class="field"><span>Why is this company a strong fit? <b aria-hidden="true">*</b></span><textarea id="personalizedConnection" rows="4" maxlength="900" required placeholder="Connect a product, facility, mission, industry, or Indianapolis presence to the work our students are doing."></textarea><small>Specific beats flattering. Name something real about the company.</small></label>
+                  <label class="field"><span>Why is this company a strong fit? <b aria-hidden="true">*</b></span><textarea id="personalizedConnection" rows="4" maxlength="900" required placeholder="Connect a product, facility, mission, industry, or Indianapolis presence to the work our students are doing."></textarea><small>Mention a real product, program, location, or connection.</small></label>
                   <div class="field-grid two-col">
                     <label class="field"><span>What are you asking for? <b aria-hidden="true">*</b></span><textarea id="specificRequest" rows="4" maxlength="700" required placeholder="A $750 sponsorship, high-voltage connectors, machining support, software licenses…"></textarea></label>
                     <label class="field"><span>What will it enable? <b aria-hidden="true">*</b></span><textarea id="specificUse" rows="4" maxlength="700" required placeholder="Explain the engineering milestone, student experience, or event this support unlocks."></textarea></label>
@@ -167,7 +166,7 @@
                   </label>
                   <label class="field"><span>Optional detail or fallback</span><textarea id="customMessage" rows="3" maxlength="900" placeholder="Add a flexible alternative, attachment note, deadline, or relevant technical detail."></textarea></label>
                 </div>
-                <button id="generateDraftButton" class="button button-secondary" type="button">Generate polished draft</button>
+                <button id="generateDraftButton" class="button button-secondary" type="button">Build draft</button>
               </article>
             </div>
 
@@ -175,15 +174,15 @@
               <article class="panel sticky-panel">
                 <div class="panel-heading"><div><p class="panel-kicker">Editable output</p><h3>Your draft</h3></div><span id="qualityScore" class="quality-score">0</span></div>
                 <label class="field"><span>Subject <b aria-hidden="true">*</b></span><input id="emailSubject" maxlength="200" required placeholder="Select a template and generate a draft"></label>
-                <label class="field"><span>Email body <b aria-hidden="true">*</b></span><textarea id="emailBody" class="email-editor" rows="22" maxlength="12000" required placeholder="Your polished email will appear here."></textarea></label>
+                <label class="field"><span>Email body <b aria-hidden="true">*</b></span><textarea id="emailBody" class="email-editor" rows="22" maxlength="12000" required placeholder="Your draft will appear here."></textarea></label>
                 <div class="quality-card">
                   <div class="quality-heading"><strong>Draft quality</strong><span id="qualityLabel">Needs content</span></div>
                   <div class="quality-bar"><span id="qualityBar"></span></div>
                   <ul id="qualityChecks" class="quality-checks"></ul>
                 </div>
                 <div class="submit-box">
-                  <label class="check-field"><input id="accuracyCheck" type="checkbox" required><span>I verified the facts, request, and benefits in this draft.</span></label>
-                  <button id="submitRequestButton" class="button button-primary button-full" type="submit">Submit for admin review</button>
+                  <label class="check-field"><input id="accuracyCheck" type="checkbox" required><span>I checked the facts, request, and sponsor benefits in this draft.</span></label>
+                  <button id="submitRequestButton" class="button button-primary button-full" type="submit">Submit for review</button>
                   <p id="formStatus" class="form-status" aria-live="polite"></p>
                 </div>
               </article>
@@ -193,18 +192,18 @@
       </section>
 
       <section class="app-view is-hidden" data-view="requests">
-        <div class="section-heading"><div><p class="eyebrow">Name-based access</p><h2>Find your requests</h2><p>Enter the same full name used when you submitted. Requests remain available even after browser data is cleared.</p></div></div>
+        <div class="section-heading"><div><p class="eyebrow">Name-based access</p><h2>Your requests</h2><p>Enter the same name you used when you submitted.</p></div></div>
         <form id="requestsLookupForm" class="lookup-card">
           <label class="field"><span>Your full name</span><input id="requestLookupName" list="memberNameSuggestions" maxlength="80" required placeholder="Enter the same name used at submission"></label>
           <button class="button button-primary" type="submit">Load my requests</button>
           <p id="requestLookupStatus" class="form-status" aria-live="polite"></p>
         </form>
-        <div id="requestsEmpty" class="empty-state"><div class="empty-icon">✦</div><h3>Enter your name to load requests</h3><p>Your request history is stored in the club sheet—not in browser cookies.</p></div>
+        <div id="requestsEmpty" class="empty-state"><div class="empty-icon">✦</div><h3>Enter your name to view requests</h3><p>Request history is stored in the club sheet.</p></div>
         <div id="requestList" class="request-list request-list-wide"></div>
       </section>
 
       <section class="app-view is-hidden" data-view="stats">
-        <div class="section-heading"><div><p class="eyebrow">Club momentum</p><h2>Outreach statistics</h2><p>Celebrate the members moving sponsor conversations forward and see the club's cumulative outreach over time.</p></div><span class="live-data-pill"><span class="status-dot"></span>Updated from SponsorFlow</span></div>
+        <div class="section-heading"><div><p class="eyebrow">Club totals</p><h2>Outreach stats</h2><p>See sent requests, pending requests, and participation by member.</p></div><span class="live-data-pill"><span class="status-dot"></span>Live data</span></div>
         <div class="stats-summary">
           <article><span>Total requests</span><strong id="statTotalRequests">0</strong></article>
           <article><span>Sent by the club</span><strong id="statTotalSent">0</strong></article>
@@ -214,30 +213,30 @@
         <div class="stats-grid">
           <article class="stats-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Leaderboard</p><h3>Emails sent</h3></div><span class="verification-badge verified">Completed outreach</span></div><ol id="sentLeaders" class="leaderboard"></ol></article>
           <article class="stats-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Leaderboard</p><h3>Active requests</h3></div><span class="verification-badge pending">In progress</span></div><ol id="pendingLeaders" class="leaderboard"></ol></article>
-          <article class="stats-panel chart-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Cumulative progress</p><h3>Sponsor emails sent over time</h3></div><strong id="chartTotal" class="chart-total">0 sent</strong></div><div id="timelineChart" class="timeline-chart" role="img" aria-label="Cumulative sponsor emails sent over time"></div></article>
+          <article class="stats-panel chart-panel"><div class="stats-panel-heading"><div><p class="panel-kicker">Sent over time</p><h3>Sponsor emails sent</h3></div><strong id="chartTotal" class="chart-total">0 sent</strong></div><div id="timelineChart" class="timeline-chart" role="img" aria-label="Cumulative sponsor emails sent over time"></div></article>
         </div>
       </section>
     </section>
 
     <section class="process-section">
-      <div><p class="eyebrow">Simple by design</p><h2>Members write. Officers verify. The club sends.</h2></div>
+      <div><p class="eyebrow">Simple by design</p><h2>How it works</h2></div>
       <div class="process-grid">
-        <article><span>01</span><h3>Compose</h3><p>Use a verified contact or suggest a new sponsor, then build from a polished template.</p></article>
-        <article><span>02</span><h3>Review</h3><p>An officer verifies new addresses, comments, approves, rejects, or requests a revision.</p></article>
+        <article><span>01</span><h3>Compose</h3><p>Choose a verified contact or suggest a new one, then edit a template.</p></article>
+        <article><span>02</span><h3>Review</h3><p>An officer checks the recipient and message, then approves it or sends it back with comments.</p></article>
         <article><span>03</span><h3>Send manually</h3><p>The officer copies the approved message into <strong>asmeindy@purdue.edu</strong> and records the send.</p></article>
       </div>
     </section>
 
     <section class="engineering-banner">
       <img src="assets/img/battery.jpg" alt="Student-designed modular EV-Kart battery pack">
-      <div><p class="eyebrow">Built around real engineering</p><h2>Specific work creates credible sponsorship.</h2><p>The strongest requests connect a company to concrete student work: battery systems, electrical architecture, fabrication, testing, race operations, and the next generation of engineers.</p></div>
+      <div><p class="eyebrow">What to include</p><h2>Keep the request specific.</h2><p>Explain what the team is building, what you need, and what the sponsor receives in return.</p></div>
     </section>
   </main>
 
   <dialog id="submittedDialog" class="modal">
     <form method="dialog" class="modal-card">
       <button class="modal-close" value="cancel" aria-label="Close">×</button>
-      <p class="eyebrow">Added to the review queue</p>
+      <p class="eyebrow">Submitted for review</p>
       <h2>Request submitted</h2>
       <p>The request is filed under <strong id="submittedName"></strong>. Use that same name on any browser to see it again.</p>
       <div class="submission-summary"><span>Request ID</span><strong id="submittedRequestId"></strong><span id="submittedVerification" class="verification-badge"></span></div>
@@ -252,13 +251,13 @@
   <iframe id="apiFrame" name="sponsorflow-api-frame" title="SponsorFlow data connection" hidden></iframe>
 
   <footer class="site-footer">
-    <div><strong>Purdue University Indianapolis ASME</strong><span>Student-led engineering and electric racing</span></div>
+    <div><strong>Purdue University Indianapolis ASME</strong><span>ASME EV-Kart and electric racing</span></div>
     <div><a href="planner.html">Project planner</a><a href="mailto:asmeindy@purdue.edu">asmeindy@purdue.edu</a><a href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">asmevk.webflow.io</a></div>
   </footer>
 
-  <script src="assets/config.js?v=18"></script>
-  <script src="assets/api.js?v=18"></script>
-  <script src="assets/member.js?v=18"></script>
-  <script src="assets/theme.js?v=18"></script>
+  <script src="assets/config.js?v=20"></script>
+  <script src="assets/api.js?v=20"></script>
+  <script src="assets/member.js?v=20"></script>
+  <script src="assets/theme.js?v=20"></script>
 </body>
 </html>

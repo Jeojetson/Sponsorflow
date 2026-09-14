@@ -1,48 +1,60 @@
-# Upgrade to SponsorFlow 1.9
+# SponsorFlow 2.0 upgrade
 
-## 1. Back up the Sheet
-Use **File → Make a copy** in the SponsorFlow Google Sheet.
+SponsorFlow 2.0 is a UI and copy cleanup release. It does not change the Google Sheet schema or `Code.gs`.
+
+## 1. Back up the current site
+
+Keep a copy of your current GitHub repository before replacing files.
 
 ## 2. Update GitHub Pages
-Upload the 1.9 update files and replace matching files.
 
-The important public files are:
-- `admin.html`
+Upload the contents of `asme-sponsorflow-2.0-update.zip` to the repository root and replace matching files.
+
+The update changes:
+
+- `index.html`
+- `outreach.html`
+- `planner.html`
+- `calendar.html`
 - `attendance.html`
-- `attendance-admin.html`
+- `admin.html`
 - `assets/theme.js`
+- `assets/attendance.js`
+- `assets/planner.js`
+- `assets/ui-20.css` (new)
 
-Do **not** replace `assets/config.js`.
+Do **not** replace `assets/config.js`. The update ZIP does not include it.
 
-The old `attendance-admin.html` now redirects to the main admin dashboard, so existing bookmarks do not strand officers on a second dashboard.
+Commit to `main` and wait for the GitHub Pages deployment to finish.
 
-## 3. Update Google Apps Script Code.gs
-Open **Google Sheet → Extensions → Apps Script → Code.gs** and replace the file with `SponsorFlow-1.9-Code.gs`.
+## 3. Update the Google Apps Script Admin.html
 
-## 4. Update Google Apps Script Admin.html
-This release DOES change the Google Apps Script `Admin.html` file.
+`Code.gs` does **not** change in this release.
 
-Open **Apps Script → Admin.html** and replace its entire contents with `SponsorFlow-1.9-Admin.html`.
+Open the Google Sheet, then:
 
-## 5. Run the 1.9 upgrade
-Reload the Google Sheet and choose:
+1. **Extensions → Apps Script**
+2. Open `Admin.html`
+3. Replace the entire file with `SponsorFlow-2.0-Admin.html`
+4. Save
+5. **Deploy → Manage deployments → Edit → New version → Deploy**
 
-**SponsorFlow → Upgrade to SponsorFlow 1.9**
+Keep the existing deployment so the `/exec` URL does not change.
 
-This is additive/safe. Existing sponsor outreach, attendance meetings, attendance records, planner data, calendars, and comments are preserved.
+No Sheet migration is required.
 
-## 6. Redeploy the existing Apps Script web app
-Go to:
+## 4. Refresh
 
-**Deploy → Manage deployments → pencil icon → Version → New version → Deploy**
+After GitHub Pages and Apps Script finish deploying, reload the site. On Safari, use **Command + Shift + R** once if an old stylesheet is cached.
 
-Update the existing deployment so the `/exec` URL does not change.
+## Attendance confirmation test
 
-## 7. Test
-Open the normal SponsorFlow Admin dashboard and sign in once. The sidebar should now contain:
-- Review queue
-- Sponsor contacts
-- Email templates
-- Attendance
+1. Open Attendance.
+2. Enter a name, meeting, and correct meeting password.
+3. Submit.
+4. A large confirmation dialog should say **You're checked in** and show the meeting and check-in time.
+5. Submitting the same name again should show **Already checked in** instead of creating a second record.
 
-Open **Attendance** and verify that the latest meeting headcount, trend chart, member participation table, and team comparison render.
+## Theme test
+
+Check both Light and Dark on Home, Outreach, Planner, Calendar, Attendance, and the public Admin link page. The theme now stays on the selected mode until the user changes it; it no longer changes automatically when the device appearance changes.

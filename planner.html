@@ -8,9 +8,7 @@
   <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "light" || savedTheme === "dark"
-        ? savedTheme
-        : (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      const theme = savedTheme === "dark" ? "dark" : "light";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
@@ -19,7 +17,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=18">
+  <link rel="stylesheet" href="assets/app.css?v=20">
+  <link rel="stylesheet" href="assets/ui-20.css?v=20">
 </head>
 <body class="planner-page">
   <a class="skip-link" href="#plannerMain">Skip to planner</a>
@@ -42,9 +41,9 @@
   <main id="plannerMain" class="planner-shell">
     <section class="planner-intro planner-intro-compact">
       <div class="planner-intro-copy">
-        <p class="eyebrow">Shared engineering workspace</p>
-        <h1>ASME Project Planner</h1>
-        <p>Plan builds, parts, funding, tests, and club dates in one shared workspace.</p>
+        <p class="eyebrow">Project planner</p>
+        <h1>Project planner</h1>
+        <p>Track work by team: tasks, parts, funding, tests, deadlines, and handoffs.</p>
       </div>
       <div class="planner-intro-actions">
         <button id="newTaskTopButton" class="button button-primary" type="button">+ Task</button>
@@ -77,8 +76,8 @@
 
     <section id="boardEmptyState" class="planner-empty is-hidden">
       <span>◇</span>
-      <h2>No timeline selected</h2>
-      <p>Create a team timeline or choose an existing one to begin planning.</p>
+      <h2>Choose a timeline</h2>
+      <p>Select a team and timeline, or create a new one.</p>
       <button class="button button-primary" type="button" data-open-workspace>Set up a timeline</button>
     </section>
 
@@ -125,7 +124,7 @@
         </div>
       </section>
 
-      <div id="plannerLoading" class="planner-loading" role="status"><span></span><p>Loading the shared timeline…</p></div>
+      <div id="plannerLoading" class="planner-loading" role="status"><span></span><p>Loading timeline…</p></div>
       <div id="plannerMessage" class="form-status" aria-live="polite"></div>
 
       <section id="boardView" class="planner-view-panel" data-planner-panel="board">
@@ -136,7 +135,7 @@
         <div class="timeline-toolbar">
           <div>
             <strong>Schedule view</strong>
-            <span>Milestones, date ranges, overdue work, and cross-team dependencies</span>
+            <span>Schedule, milestones, deadlines, and dependencies</span>
           </div>
           <label class="field compact-field"><span>Scale</span><select id="timelineScale"><option value="compact">Compact</option><option value="normal" selected>Standard</option><option value="wide">Detailed</option></select></label>
         </div>
@@ -147,7 +146,7 @@
         <div class="calendar-toolbar calendar-toolbar-simple">
           <div class="calendar-toolbar-title">
             <strong>Calendar</strong>
-            <span>Click any day for a quick event. Team calendars stay live through subscription links.</span>
+            <span>Use the Calendar page for events and live calendar subscriptions.</span>
           </div>
           <div class="calendar-toolbar-actions">
             <div class="calendar-navigation">
@@ -196,8 +195,8 @@
       <section id="insightsView" class="planner-view-panel is-hidden" data-planner-panel="insights">
         <div class="insights-toolbar">
           <div>
-            <strong>Planner intelligence</strong>
-            <span>Explore workload, schedule health, funding, purchasing, status, and priority from the shared task data.</span>
+            <strong>Insights</strong>
+            <span>Review workload, deadlines, funding, purchasing, status, and priority.</span>
           </div>
           <label class="field compact-field"><span>Scope</span><select id="insightsScope"><option value="board">Current timeline</option><option value="all">All teams</option></select></label>
         </div>
@@ -209,8 +208,8 @@
   <dialog id="identityDialog" class="modal planner-modal">
     <div class="modal-card identity-dialog-card">
       <p class="eyebrow">Before you edit</p>
-      <h2>Put your name on the work.</h2>
-      <p>Everyone can edit this planner. Your name appears in task history and comments so the team can coordinate changes.</p>
+      <h2>Your name</h2>
+      <p>Your name is recorded in task history and comments.</p>
       <label class="field"><span>Your full name</span><input id="identityDialogName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
       <div class="dialog-actions"><button id="identityDialogSave" class="button button-primary" type="button">Enter planner</button></div>
       <p id="identityDialogStatus" class="form-status" aria-live="polite"></p>
@@ -220,14 +219,14 @@
   <dialog id="workspaceDialog" class="modal modal-wide planner-modal">
     <div class="modal-card">
       <button class="modal-close" type="button" data-close-dialog="workspaceDialog" aria-label="Close">×</button>
-      <div class="workspace-dialog-header"><div><p class="eyebrow">Planner setup</p><h2>Teams and timelines</h2><p>Create a home for each workstream. Teams can maintain multiple timelines for builds, testing, purchasing, events, or research.</p></div></div>
+      <div class="workspace-dialog-header"><div><p class="eyebrow">Planner setup</p><h2>Teams & timelines</h2><p>Create teams and timelines for builds, testing, purchasing, or other work.</p></div></div>
       <div class="workspace-dialog-grid">
         <form id="teamForm" class="workspace-form" novalidate>
           <input id="teamId" type="hidden">
           <div class="panel-heading"><div><p class="panel-kicker">Team</p><h3 id="teamFormTitle">Create a team</h3></div><span class="panel-number">01</span></div>
           <label class="field"><span>Team name</span><input id="teamName" maxlength="100" required placeholder="Battery Systems"></label>
           <label class="field"><span>Description</span><textarea id="teamDescription" rows="3" maxlength="600" placeholder="What this team owns and delivers"></textarea></label>
-          <label class="field"><span>Short label / icon</span><input id="teamIcon" maxlength="8" placeholder="BATT"></label>
+          <label class="field"><span>Short label</span><input id="teamIcon" maxlength="8" placeholder="BATT"></label>
           <div class="dialog-actions"><button class="button button-primary" type="submit">Save team</button><button id="resetTeamForm" class="button button-ghost" type="button">New</button></div>
         </form>
 
@@ -245,7 +244,7 @@
         </form>
       </div>
       <div class="workspace-directory">
-        <div class="workspace-directory-heading"><h3>Existing workspace</h3><span>Choose an item to edit it</span></div>
+        <div class="workspace-directory-heading"><h3>Existing team or timeline</h3><span>Select an item to edit</span></div>
         <div id="workspaceDirectoryList" class="workspace-directory-list"></div>
       </div>
       <p id="workspaceDialogStatus" class="form-status" aria-live="polite"></p>
@@ -287,13 +286,13 @@
           <label class="field"><span>Owners</span><input id="taskOwners" maxlength="300" placeholder="Names separated by commas"></label>
           <label class="field"><span>Tags</span><input id="taskTags" maxlength="300" placeholder="CAD, testing, safety"></label>
         </div>
-        <label class="field"><span>Description / definition of done</span><textarea id="taskDescription" rows="6" maxlength="4000" placeholder="What needs to be done, why it matters, and what finished looks like"></textarea></label>
+        <label class="field"><span>Description / done criteria</span><textarea id="taskDescription" rows="6" maxlength="4000" placeholder="What needs to be done, why it matters, and what finished looks like"></textarea></label>
       </div>
 
       <div class="task-tab-panel is-hidden" data-task-panel="schedule">
         <div class="schedule-grid">
           <section class="task-subsection compact-subsection">
-            <div class="task-subsection-heading"><div><p class="panel-kicker">Dates</p><h3>When does this happen?</h3></div></div>
+            <div class="task-subsection-heading"><div><p class="panel-kicker">Dates</p><h3>Schedule</h3></div></div>
             <div class="field-grid two-col">
               <label class="field"><span>Start date</span><span class="date-input-wrap"><input id="taskStartDate" type="date"></span></label>
               <label class="field"><span>Due / end date</span><span class="date-input-wrap"><input id="taskDueDate" type="date"></span></label>
@@ -308,7 +307,7 @@
             </div>
             <div class="task-calendar-flags">
               <label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"><span>Milestone</span></label>
-              <label class="check-field milestone-check"><input id="taskImportantDate" type="checkbox"><span>Include in Important Dates calendar</span></label>
+              <label class="check-field milestone-check"><input id="taskImportantDate" type="checkbox"><span>Show on Important Dates calendar</span></label>
             </div>
           </section>
           <section id="taskHealthCard" class="task-health-card"></section>
@@ -317,7 +316,7 @@
 
       <div class="task-tab-panel is-hidden" data-task-panel="details">
         <section id="taskFundingSection" class="task-subsection funding-editor is-hidden">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Funding opportunity</p><h3>Eligibility, value, and official route</h3></div></div>
+          <div class="task-subsection-heading"><div><p class="panel-kicker">Funding opportunity</p><h3>Eligibility, amount, and application route</h3></div></div>
           <div class="field-grid two-col">
             <label class="field"><span>Campus / eligibility area</span><input id="taskCampus" maxlength="120" placeholder="Indianapolis, West Lafayette, or Purdue-wide"></label>
             <label class="field"><span>Amount label</span><input id="taskFundingAmountLabel" maxlength="160" placeholder="Up to $8,000"></label>
@@ -328,11 +327,11 @@
             <label class="field"><span>Source confidence</span><select id="taskSourceConfidence"></select></label>
           </div>
           <label class="field"><span>Official source</span><input id="taskSourceUrl" type="url" maxlength="1000" placeholder="https://..."></label>
-          <label class="field"><span>Requirements / next action</span><textarea id="taskRequirements" rows="4" maxlength="3000"></textarea></label>
+          <label class="field"><span>Requirements / next step</span><textarea id="taskRequirements" rows="4" maxlength="3000"></textarea></label>
         </section>
 
         <section class="task-subsection">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Parts & purchasing</p><h3>Physical item tracking</h3></div><span>Optional</span></div>
+          <div class="task-subsection-heading"><div><p class="panel-kicker">Parts & purchasing</p><h3>Part details</h3></div><span>Optional</span></div>
           <div class="field-grid two-col">
             <label class="field"><span>Part / material</span><input id="taskPartName" maxlength="180"></label>
             <label class="field"><span>Part number</span><input id="taskPartNumber" maxlength="120"></label>
@@ -346,7 +345,7 @@
         </section>
 
         <section class="task-subsection">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Dependencies</p><h3>What must happen first?</h3></div><span>Optional</span></div>
+          <div class="task-subsection-heading"><div><p class="panel-kicker">Dependencies</p><h3>Dependencies</h3></div><span>Optional</span></div>
           <div id="taskDependencyList" class="dependency-picker"></div>
         </section>
       </div>
@@ -410,7 +409,7 @@
         <label class="field"><span>Priority</span><select id="eventPriority"></select></label>
       </div>
       <label class="field"><span>Notes</span><textarea id="eventDescription" rows="4" maxlength="4000" placeholder="Purpose, arrival time, preparation, or link"></textarea></label>
-      <label class="check-field milestone-check"><input id="eventImportantDate" type="checkbox"><span>Include in Important Dates calendar</span></label>
+      <label class="check-field milestone-check"><input id="eventImportantDate" type="checkbox"><span>Show on Important Dates calendar</span></label>
       <p id="eventFormStatus" class="form-status" aria-live="polite"></p>
       <footer class="event-dialog-footer">
         <div><button id="eventArchiveButton" class="button button-danger button-small is-hidden" type="button">Archive</button><button id="eventOpenFullTaskButton" class="button button-ghost button-small is-hidden" type="button">Open full task editor</button></div>
@@ -425,8 +424,8 @@
       <div class="subscription-heading">
         <div>
           <p class="eyebrow">Live calendar subscriptions</p>
-          <h2>Choose only the schedules you need.</h2>
-          <p>Subscribe once and your calendar app will periodically pull new dates and edits from SponsorFlow. Subscriptions are read-only; edit events here in the planner.</p>
+          <h2>Subscribe to the calendars you use.</h2>
+          <p>Calendar subscriptions are read-only. Make changes in SponsorFlow and your calendar app will pick them up on its next refresh.</p>
         </div>
         <span class="live-feed-badge">LIVE .ICS</span>
       </div>
@@ -445,9 +444,9 @@
   </dialog>
 
   <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=18"></script>
-  <script src="assets/api.js?v=18"></script>
-  <script src="assets/planner.js?v=18"></script>
-  <script src="assets/theme.js?v=18"></script>
+  <script src="assets/config.js?v=20"></script>
+  <script src="assets/api.js?v=20"></script>
+  <script src="assets/planner.js?v=20"></script>
+  <script src="assets/theme.js?v=20"></script>
 </body>
 </html>

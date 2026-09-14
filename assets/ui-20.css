@@ -1,0 +1,314 @@
+/* SponsorFlow 2.0 UI stabilization layer
+   Loaded after the legacy stylesheet so every page shares one visual system. */
+
+:root,
+html[data-theme="light"] {
+  --ui-bg: #f4f2ec;
+  --ui-surface: #ffffff;
+  --ui-surface-2: #faf9f6;
+  --ui-surface-3: #efede7;
+  --ui-text: #181814;
+  --ui-text-strong: #0f100d;
+  --ui-muted: #66675f;
+  --ui-faint: #898a82;
+  --ui-border: rgba(28,29,24,.14);
+  --ui-border-strong: rgba(28,29,24,.23);
+  --ui-header: #111310;
+  --ui-header-text: #f8f7f1;
+  --ui-gold: #cfb991;
+  --ui-gold-strong: #9a7131;
+  --ui-gold-soft: #f3ead8;
+  --ui-green: #246b49;
+  --ui-green-soft: #e9f5ee;
+  --ui-red: #a83d3d;
+  --ui-red-soft: #f9eaea;
+  --ui-blue: #446f99;
+  --ui-blue-soft: #eaf1f8;
+  --ui-shadow: 0 14px 38px rgba(28,27,21,.07);
+  --ui-shadow-lg: 0 28px 80px rgba(22,21,16,.14);
+  --ui-radius: 18px;
+  --ui-radius-lg: 26px;
+  --ui-control: #fff;
+  --ui-control-hover: #faf8f2;
+}
+
+html[data-theme="dark"] {
+  --ui-bg: #0b0e12;
+  --ui-surface: #15191f;
+  --ui-surface-2: #1b2027;
+  --ui-surface-3: #252b34;
+  --ui-text: #f1f2ed;
+  --ui-text-strong: #ffffff;
+  --ui-muted: #b5b9bb;
+  --ui-faint: #838990;
+  --ui-border: rgba(238,240,233,.13);
+  --ui-border-strong: rgba(238,240,233,.23);
+  --ui-header: #080a0d;
+  --ui-header-text: #f8f8f2;
+  --ui-gold: #d8c08c;
+  --ui-gold-strong: #f0d58e;
+  --ui-gold-soft: rgba(216,192,140,.15);
+  --ui-green: #69c18f;
+  --ui-green-soft: rgba(55,142,91,.18);
+  --ui-red: #ec8585;
+  --ui-red-soft: rgba(184,63,63,.18);
+  --ui-blue: #80b4e8;
+  --ui-blue-soft: rgba(68,111,153,.22);
+  --ui-shadow: 0 18px 52px rgba(0,0,0,.25);
+  --ui-shadow-lg: 0 34px 100px rgba(0,0,0,.44);
+  --ui-radius: 18px;
+  --ui-radius-lg: 26px;
+  --ui-control: #11161c;
+  --ui-control-hover: #1a2028;
+}
+
+html, body { background: var(--ui-bg) !important; color: var(--ui-text) !important; }
+body { min-height: 100%; }
+body::before { opacity: .08 !important; }
+html[data-theme="dark"] body::before { opacity: .05 !important; }
+
+/* One header geometry across every public page. */
+.site-header {
+  box-sizing: border-box !important;
+  display: grid !important;
+  grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 20px !important;
+  min-height: 72px !important;
+  padding: 10px clamp(18px, 4vw, 60px) !important;
+  background: var(--ui-header) !important;
+  color: var(--ui-header-text) !important;
+  border-bottom: 1px solid rgba(255,255,255,.09) !important;
+}
+.site-header .brand { min-width: 0 !important; color: var(--ui-header-text) !important; }
+.site-header .brand-copy strong { color: var(--ui-header-text) !important; }
+.site-header .brand-copy small { color: rgba(248,247,241,.63) !important; }
+.top-nav {
+  justify-self: end !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 3px !important;
+  min-width: 0 !important;
+}
+.nav-link, .nav-button {
+  min-height: 42px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 13px !important;
+  border-radius: 11px !important;
+  color: rgba(248,247,241,.74) !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
+}
+.nav-link:hover, .nav-button:hover { color: #fff !important; background: rgba(255,255,255,.07) !important; }
+.nav-link.is-active { color: #fff !important; background: rgba(255,255,255,.12) !important; }
+.nav-link-admin { color: #171711 !important; background: var(--ui-gold) !important; }
+.nav-link-admin:hover { color: #111 !important; background: #dfc99c !important; }
+.theme-toggle {
+  position: static !important;
+  margin: 0 !important;
+  min-width: 88px !important;
+  height: 42px !important;
+  padding: 0 12px !important;
+  border: 1px solid rgba(255,255,255,.16) !important;
+  border-radius: 12px !important;
+  color: var(--ui-header-text) !important;
+  background: rgba(255,255,255,.055) !important;
+}
+.theme-toggle span { color: inherit !important; }
+
+/* Common surface and control normalization. */
+.panel,
+.workspace-shell,
+.planner-control-deck,
+.planner-toolbar,
+.planner-metrics > *,
+.home-module-card,
+.home-operations,
+.calendar-app-header,
+.calendar-control-bar,
+.calendar-month-panel,
+.calendar-agenda-panel,
+.calendar-manager-card,
+.attendance-checkin-card,
+.attendance-open-card,
+.attendance-meeting-form,
+.attendance-admin-list-panel,
+.attendance-roster-panel,
+.lookup-card,
+.stats-panel,
+.quality-card,
+.submit-box,
+.task-health-card,
+.event-help-card,
+.insight-card,
+.metric-card,
+.kanban-column,
+.task-table-wrap,
+.gantt-host,
+.request-card,
+.my-request-card {
+  background: var(--ui-surface) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.field > span,
+.field label,
+.field-help,
+.panel-kicker,
+.eyebrow,
+small,
+.meta,
+.planner-name-status,
+.calendar-command-title p,
+.calendar-scope-summary p { color: var(--ui-muted) !important; }
+
+input, textarea, select,
+.field input, .field textarea, .field select {
+  background: var(--ui-control) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border-strong) !important;
+  box-shadow: none !important;
+}
+input::placeholder, textarea::placeholder { color: var(--ui-faint) !important; opacity: 1 !important; }
+input:focus, textarea:focus, select:focus { border-color: var(--ui-gold-strong) !important; outline: 3px solid color-mix(in srgb, var(--ui-gold) 28%, transparent) !important; outline-offset: 1px !important; }
+
+.button, button, .calendar-nav-button, .planner-view-button, .task-tab {
+  box-sizing: border-box;
+}
+.button-primary { background: var(--ui-gold) !important; color: #161611 !important; border-color: var(--ui-gold-strong) !important; }
+.button-secondary, .button-ghost, .calendar-nav-button {
+  background: var(--ui-control) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border-strong) !important;
+}
+.button-secondary:hover, .button-ghost:hover, .calendar-nav-button:hover { background: var(--ui-control-hover) !important; }
+.button-dark-outline { border-color: rgba(255,255,255,.32) !important; color: #fff !important; }
+
+/* Dark mode fixes for legacy hard-coded white/black blocks. */
+html[data-theme="dark"] .calendar-weekdays,
+html[data-theme="dark"] .calendar-day,
+html[data-theme="dark"] .standalone-calendar-grid,
+html[data-theme="dark"] .calendar-agenda-item,
+html[data-theme="dark"] .task-table,
+html[data-theme="dark"] .task-table th,
+html[data-theme="dark"] .task-table td,
+html[data-theme="dark"] .attendance-admin-meeting,
+html[data-theme="dark"] .attendance-roster-row,
+html[data-theme="dark"] .quality-item,
+html[data-theme="dark"] .template-field,
+html[data-theme="dark"] .name-guidance,
+html[data-theme="dark"] .duplicate-panel,
+html[data-theme="dark"] .contact-research-card,
+html[data-theme="dark"] dialog,
+html[data-theme="dark"] .modal-card {
+  background: var(--ui-surface) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-border) !important;
+}
+html[data-theme="dark"] .calendar-day.is-outside { background: #10141a !important; color: var(--ui-faint) !important; }
+html[data-theme="dark"] .calendar-day.is-today { background: var(--ui-gold-soft) !important; }
+html[data-theme="dark"] .calendar-event,
+html[data-theme="dark"] .mobile-calendar-event { background: var(--ui-surface-2) !important; color: var(--ui-text) !important; }
+html[data-theme="dark"] h1, html[data-theme="dark"] h2, html[data-theme="dark"] h3, html[data-theme="dark"] h4,
+html[data-theme="dark"] strong { color: var(--ui-text-strong); }
+
+/* Keep dark hero panels intentionally dark in both themes. */
+.home-hero, .hero, .planner-intro-compact, .attendance-hero {
+  background: linear-gradient(120deg, #11130f 0%, #161914 55%, #12171a 100%) !important;
+  color: #f8f7f1 !important;
+}
+.home-hero h1, .home-hero h2, .home-hero h3, .home-hero strong,
+.hero h1, .hero h2, .hero h3, .hero strong,
+.planner-intro-compact h1, .planner-intro-compact h2, .planner-intro-compact strong,
+.attendance-hero h1, .attendance-hero h2, .attendance-hero strong { color: #fff !important; }
+.home-hero p, .hero p, .planner-intro-compact p, .attendance-hero p { color: rgba(248,247,241,.72) !important; }
+.home-hero .eyebrow, .hero .eyebrow, .planner-intro-compact .eyebrow, .attendance-hero .eyebrow { color: var(--ui-gold) !important; }
+
+/* Page title spacing and alignment. */
+.home-main, .planner-shell, .calendar-app-shell, .attendance-shell { width: min(1520px, calc(100% - 40px)); margin-inline: auto; }
+.home-hero, .planner-intro-compact { overflow: hidden !important; }
+.section-heading, .board-overview, .calendar-command-bar, .attendance-card-heading { align-items: center !important; }
+
+/* Attendance: visible success state. */
+.attendance-success-dialog { width: min(440px, calc(100vw - 32px)); border: 0; padding: 0; background: transparent; }
+.attendance-success-dialog::backdrop { background: rgba(9,10,9,.58); backdrop-filter: blur(5px); }
+.attendance-success-card {
+  padding: 30px;
+  border: 1px solid var(--ui-border);
+  border-radius: 24px;
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  box-shadow: var(--ui-shadow-lg);
+  text-align: center;
+}
+.attendance-success-icon {
+  width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 30px; font-weight: 800;
+  color: #fff; background: var(--ui-green);
+}
+.attendance-success-card h2 { margin: 0 0 8px; font-size: 28px; }
+.attendance-success-card p { margin: 0; color: var(--ui-muted); }
+.attendance-success-details {
+  margin: 20px 0; padding: 14px 16px; border-radius: 14px;
+  background: var(--ui-surface-2); border: 1px solid var(--ui-border); text-align: left;
+}
+.attendance-success-details strong { display: block; margin-bottom: 3px; color: var(--ui-text-strong); }
+.attendance-success-details span { color: var(--ui-muted); font-size: 13px; }
+.attendance-checkin-card.has-success { border-color: color-mix(in srgb, var(--ui-green) 50%, var(--ui-border)) !important; }
+.form-status.is-success { color: var(--ui-green) !important; font-weight: 700; }
+
+/* Navigation and form alignment on medium screens. */
+@media (max-width: 1180px) and (min-width: 721px) {
+  .site-header { grid-template-columns: auto 1fr auto !important; padding-inline: 22px !important; gap: 10px !important; }
+  .nav-link { padding-inline: 9px !important; font-size: 13px !important; }
+  .brand-copy small { display: none; }
+  .theme-toggle { min-width: 42px !important; width: 42px !important; padding: 0 !important; }
+  .theme-toggle span { display: none !important; }
+}
+
+@media (max-width: 720px) {
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+  .site-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 90 !important;
+    grid-template-columns: minmax(0,1fr) 46px !important;
+    min-height: calc(58px + env(safe-area-inset-top)) !important;
+    padding: calc(8px + env(safe-area-inset-top)) 14px 8px !important;
+    border-radius: 0 !important;
+  }
+  .site-header .top-nav { display: none !important; }
+  .site-header .brand { min-width: 0 !important; }
+  .site-header .brand-mark { width: 50px !important; min-width: 50px !important; height: 38px !important; font-size: 13px !important; }
+  .site-header .brand-copy strong { font-size: 15px !important; }
+  .site-header .brand-copy small { display: none !important; }
+  .theme-toggle { width: 44px !important; min-width: 44px !important; height: 44px !important; padding: 0 !important; }
+  .theme-toggle span { display: none !important; }
+
+  .home-main, .planner-shell, .calendar-app-shell, .attendance-shell { width: min(100% - 24px, 680px) !important; }
+  .home-hero, .planner-intro-compact, .attendance-hero { border-radius: 20px !important; }
+  .home-hero h1, .planner-intro-compact h1 { font-size: clamp(40px, 12vw, 60px) !important; line-height: .96 !important; }
+
+  .mobile-app-nav {
+    left: 10px !important; right: 10px !important; bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    width: auto !important; max-width: none !important; min-height: 64px !important;
+    padding: 5px !important; gap: 2px !important; border-radius: 22px !important;
+    border: 1px solid rgba(255,255,255,.12) !important; background: rgba(8,10,13,.96) !important;
+    box-shadow: 0 18px 48px rgba(0,0,0,.28) !important;
+  }
+  .mobile-app-link { min-width: 0 !important; min-height: 54px !important; padding: 6px 3px !important; border-radius: 17px !important; }
+  .mobile-app-link svg { width: 20px !important; height: 20px !important; }
+  .mobile-app-link span { font-size: 10px !important; }
+  .mobile-app-link.is-active { color: #161611 !important; background: var(--ui-gold) !important; }
+
+  .attendance-layout { grid-template-columns: 1fr !important; }
+  .attendance-checkin-card, .attendance-open-card { border-radius: 20px !important; padding: 20px !important; }
+  .attendance-checkin-button { min-height: 52px !important; }
+  .attendance-success-card { padding: 26px 22px; }
+}

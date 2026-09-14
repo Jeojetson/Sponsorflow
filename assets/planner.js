@@ -394,7 +394,7 @@
       id: AGGREGATE_BOARD_ID,
       teamId: CLUB_TEAM_ID,
       name: "Club-wide Portfolio",
-      description: "One shared view of every active team timeline, including Finance & Sponsorship opportunities, deadlines, parts, testing, and important club dates.",
+      description: "All active team timelines, including finance, deadlines, parts, testing, and club dates.",
       targetStart: dates[0] || "",
       targetEnd: dates[dates.length - 1] || "",
       active: true,
@@ -1751,7 +1751,7 @@
         id: "",
         name: "Important Dates",
         badge: "Recommended",
-        description: "Milestones, critical priorities, funding deadlines, meetings, competitions, inspections, and events."
+        description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded."
       },
       ...state.teams.filter(team => team.id !== CLUB_TEAM_ID).map(team => ({
         key: `team-${team.id}`,

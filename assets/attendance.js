@@ -30,6 +30,9 @@
     $("#attendanceName").addEventListener("change", saveName);
     $("#attendanceMeeting").addEventListener("change", renderSelectedMeeting);
     $("#attendanceManageOpen").addEventListener("click", openAdmin);
+    $("#attendanceSuccessDone")?.addEventListener("click", closeSuccess);
+    $("#attendanceSuccessDialog")?.addEventListener("click", event => { if (event.target === $("#attendanceSuccessDialog")) closeSuccess(); });
+    $("#attendanceSuccessDialog")?.addEventListener("close", () => { document.body.classList.remove("dialog-open"); $(".attendance-checkin-card")?.classList.remove("has-success"); });
     $$('[data-attendance-admin-close]').forEach(button => button.addEventListener("click", closeAdmin));
     $("#attendanceAdminDialog").addEventListener("click", event => { if (event.target === $("#attendanceAdminDialog")) closeAdmin(); });
     $("#attendanceAdminDialog").addEventListener("close", () => document.body.classList.remove("dialog-open"));
@@ -71,7 +74,7 @@
     $("#attendanceMeetingCount").textContent = String(state.meetings.length);
     $("#attendanceMeetingList").innerHTML = state.meetings.length
       ? state.meetings.map(meetingCard).join("")
-      : '<div class="attendance-empty"><span>◇</span><strong>No open check-ins</strong><p>An officer can open a meeting when attendance is ready.</p></div>';
+      : '<div class="attendance-empty"><span>◇</span><strong>No open check-ins</strong><p>An officer can open a meeting when check-in starts.</p></div>';
     $("#attendanceMeetingList").querySelectorAll("[data-meeting-select]").forEach(button => button.addEventListener("click", () => {
       select.value = button.dataset.meetingSelect;
       renderSelectedMeeting();
@@ -112,7 +115,9 @@
       const result = await API.post("attendanceCheckIn", { memberName, meetingId, code });
       $("#attendanceCode").value = "";
       const when = result.record?.checkedInAt ? formatDateTime(result.record.checkedInAt) : "now";
-      setStatus($("#attendanceCheckInStatus"), result.duplicate ? `You were already checked in at ${when}.` : `Checked in successfully at ${when}.`, "success");
+      const meeting = state.meetings.find(item => item.id === meetingId);
+      setStatus($("#attendanceCheckInStatus"), result.duplicate ? `Already checked in — ${when}.` : `Checked in — ${when}.`, "success");
+      showSuccess({ memberName, meeting, when, duplicate: Boolean(result.duplicate) });
       await loadPublic();
     } catch (error) {
       setStatus($("#attendanceCheckInStatus"), error.message || "Check-in failed.", "error");
@@ -148,7 +153,7 @@
     const password = $("#attendanceAdminPassword").value;
     if (!password) return setStatus($("#attendanceAdminLoginStatus"), "Enter the SponsorFlow admin password.", "error");
     const button = $("#attendanceAdminLoginButton");
-    busy(button, true, "Unlocking…");
+    busy(button, true, "Signing in…");
     try {
       const result = await API.post("attendanceAdminLogin", { password });
       state.adminToken = result.token || "";
@@ -158,7 +163,7 @@
       await loadAdminData();
     } catch (error) {
       setStatus($("#attendanceAdminLoginStatus"), error.message || "Admin login failed.", "error");
-    } finally { busy(button, false, "Unlock meeting tools"); }
+    } finally { busy(button, false, "Sign in"); }
   }
 
   async function loadAdminData() {
@@ -312,7 +317,7 @@
     $("#attendanceRosterMeta").textContent = `${formatDateLong(meeting.meetingDate)} · ${records.length} member${records.length === 1 ? "" : "s"} checked in`;
     $("#attendanceRosterList").innerHTML = records.length
       ? records.map((record, index) => `<div class="attendance-roster-row"><span class="attendance-roster-number">${index + 1}</span><span class="attendance-roster-name"><strong>${esc(record.memberName)}</strong><small>${esc(formatDateTime(record.checkedInAt))}</small></span><button class="attendance-remove-record" type="button" data-record-remove="${esc(record.id)}" aria-label="Remove ${esc(record.memberName)} from attendance">Remove</button></div>`).join("")
-      : '<div class="attendance-empty compact"><span>◇</span><strong>No check-ins yet</strong><p>The roster will update as members enter the meeting password.</p></div>';
+      : '<div class="attendance-empty compact"><span>◇</span><strong>No check-ins yet</strong><p>Check-ins will appear here as members sign in.</p></div>';
     $("#attendanceRosterList").querySelectorAll("[data-record-remove]").forEach(button => button.addEventListener("click", () => removeAttendanceRecord(button.dataset.recordRemove)));
     $("#attendanceRosterPanel").classList.remove("is-hidden");
     $("#attendanceRosterPanel").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -338,6 +343,25 @@
     const records = state.records.filter(record => record.meetingId === meeting.id).sort((a, b) => String(a.memberName).localeCompare(String(b.memberName)));
     const rows = [["Meeting", "Date", "Member", "Checked in at"], ...records.map(record => [meeting.title, meeting.meetingDate, record.memberName, record.checkedInAt])];
     downloadFile(`${slug(meeting.title)}-attendance.csv`, rows.map(row => row.map(csvCell).join(",")).join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  function showSuccess({ memberName, meeting, when, duplicate }) {
+    const dialog = $("#attendanceSuccessDialog");
+    if (!dialog) return;
+    $("#attendanceSuccessTitle").textContent = duplicate ? "Already checked in" : "You’re checked in";
+    $("#attendanceSuccessMessage").textContent = duplicate ? `${memberName}, your attendance was already recorded.` : `${memberName}, your attendance was recorded.`;
+    $("#attendanceSuccessMeeting").textContent = meeting?.title || "Meeting";
+    $("#attendanceSuccessMeta").textContent = [meeting?.teamName, meeting?.location, when].filter(Boolean).join(" · ");
+    $(".attendance-checkin-card")?.classList.add("has-success");
+    document.body.classList.add("dialog-open");
+    dialog.showModal();
+  }
+
+  function closeSuccess() {
+    const dialog = $("#attendanceSuccessDialog");
+    if (dialog?.open) dialog.close();
+    document.body.classList.remove("dialog-open");
+    $(".attendance-checkin-card")?.classList.remove("has-success");
   }
 
   function closeAdmin() { $("#attendanceAdminDialog").close(); document.body.classList.remove("dialog-open"); }
