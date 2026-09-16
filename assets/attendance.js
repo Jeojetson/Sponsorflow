@@ -3,13 +3,18 @@
 
   const API = window.SponsorFlowAPI;
   const $ = selector => document.querySelector(selector);
+  const PUBLIC_CACHE_KEY = "asmeAttendancePublicCacheV21";
+  const PUBLIC_CACHE_MAX_AGE = 10 * 60 * 1000;
+  const PUBLIC_REFRESH_AFTER = 60 * 1000;
   const state = {
     meetings: [],
     teams: [],
     adminToken: "",
     adminMeetings: [],
     records: [],
-    rosterMeetingId: ""
+    rosterMeetingId: "",
+    publicLoadedAt: 0,
+    publicLoadPromise: null
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -22,7 +27,18 @@
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
       return;
     }
-    await loadPublic();
+    const usedCache = restorePublicCache();
+    if (usedCache) {
+      setStatus($("#attendanceCheckInStatus"), "Refreshing meeting list…");
+      loadPublic({ background: true });
+    } else {
+      await loadPublic();
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && Date.now() - state.publicLoadedAt > PUBLIC_REFRESH_AFTER) {
+        loadPublic({ background: true });
+      }
+    });
   }
 
   function bindEvents() {
@@ -48,28 +64,67 @@
 
   function $$(selector) { return Array.from(document.querySelectorAll(selector)); }
 
-  async function loadPublic() {
-    setStatus($("#attendanceCheckInStatus"), "Loading active meetings…");
+  async function loadPublic({ background = false } = {}) {
+    if (state.publicLoadPromise) return state.publicLoadPromise;
+    if (!background && !state.meetings.length) setStatus($("#attendanceCheckInStatus"), "Loading active meetings…");
+    state.publicLoadPromise = (async () => {
+      try {
+        const data = await API.post("attendanceBootstrap");
+        applyPublicData(data);
+        savePublicCache(data);
+        state.publicLoadedAt = Date.now();
+        showConnectionError("");
+        setStatus($("#attendanceCheckInStatus"), "");
+        return data;
+      } catch (error) {
+        if (state.meetings.length) {
+          setStatus($("#attendanceCheckInStatus"), "Showing the saved meeting list while the live service reconnects.");
+          return null;
+        }
+        showConnectionError(error.message || "Attendance could not load.");
+        setStatus($("#attendanceCheckInStatus"), "Unable to load meetings.", "error");
+        throw error;
+      } finally {
+        state.publicLoadPromise = null;
+      }
+    })();
+    return state.publicLoadPromise;
+  }
+
+  function applyPublicData(data) {
+    state.meetings = Array.isArray(data?.meetings) ? data.meetings : [];
+    state.teams = Array.isArray(data?.teams) ? data.teams : [];
+    renderPublicMeetings();
+  }
+
+  function restorePublicCache() {
     try {
-      const data = await API.post("attendanceBootstrap");
-      state.meetings = Array.isArray(data.meetings) ? data.meetings : [];
-      state.teams = Array.isArray(data.teams) ? data.teams : [];
-      renderPublicMeetings();
-      showConnectionError("");
-      setStatus($("#attendanceCheckInStatus"), "");
-    } catch (error) {
-      showConnectionError(error.message || "Attendance could not load.");
-      setStatus($("#attendanceCheckInStatus"), "Unable to load meetings.", "error");
+      const raw = window.SponsorFlowStorage.getItem(PUBLIC_CACHE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      if (!cached || !cached.data || !cached.savedAt || Date.now() - Number(cached.savedAt) > PUBLIC_CACHE_MAX_AGE) return false;
+      applyPublicData(cached.data);
+      return true;
+    } catch (_) {
+      return false;
     }
+  }
+
+  function savePublicCache(data) {
+    try {
+      window.SponsorFlowStorage.setItem(PUBLIC_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: { meetings: data.meetings || [], teams: data.teams || [] } }));
+    } catch (_) {}
   }
 
   function renderPublicMeetings() {
     const select = $("#attendanceMeeting");
+    const previousMeeting = select.value || "";
     const queryMeeting = new URLSearchParams(location.search).get("meeting") || "";
     select.innerHTML = state.meetings.length
       ? '<option value="">Choose a meeting…</option>' + state.meetings.map(meeting => `<option value="${esc(meeting.id)}">${esc(meeting.title)} · ${esc(formatDate(meeting.meetingDate))}</option>`).join("")
       : '<option value="">No meetings are open</option>';
     if (queryMeeting && state.meetings.some(meeting => meeting.id === queryMeeting)) select.value = queryMeeting;
+    else if (previousMeeting && state.meetings.some(meeting => meeting.id === previousMeeting)) select.value = previousMeeting;
     else if (state.meetings.length === 1) select.value = state.meetings[0].id;
     $("#attendanceMeetingCount").textContent = String(state.meetings.length);
     $("#attendanceMeetingList").innerHTML = state.meetings.length
@@ -96,7 +151,7 @@
     const host = $("#attendanceMeetingSummary");
     if (!meeting) { host.classList.add("is-hidden"); host.innerHTML = ""; return; }
     host.innerHTML = `<div><span class="team-badge">${esc(meeting.teamName)}</span><strong>${esc(formatDateLong(meeting.meetingDate))}${meeting.startTime ? ` · ${esc(formatTime(meeting.startTime))}` : ""}</strong></div>
-      <p>${meeting.location ? `<b>${esc(meeting.location)}</b>${meeting.notes ? " · " : ""}` : ""}${esc(meeting.notes || "Enter the password announced by the meeting leader.")}</p>`;
+      <p>${meeting.location ? `<b>${esc(meeting.location)}</b> · ` : ""}${esc(meeting.notes || "Enter the password announced by the meeting leader.")}</p>`;
     host.classList.remove("is-hidden");
   }
 
@@ -118,7 +173,6 @@
       const meeting = state.meetings.find(item => item.id === meetingId);
       setStatus($("#attendanceCheckInStatus"), result.duplicate ? `Already checked in — ${when}.` : `Checked in — ${when}.`, "success");
       showSuccess({ memberName, meeting, when, duplicate: Boolean(result.duplicate) });
-      await loadPublic();
     } catch (error) {
       setStatus($("#attendanceCheckInStatus"), error.message || "Check-in failed.", "error");
     } finally {
@@ -128,7 +182,7 @@
 
   function restoreName() {
     let value = "";
-    try { value = localStorage.getItem("asmePlannerName") || ""; } catch (_) {}
+    try { value = window.SponsorFlowStorage.getItem("asmePlannerName") || ""; } catch (_) {}
     $("#attendanceName").value = value;
     $("#attendanceAdminName").value = value;
   }
@@ -138,7 +192,7 @@
     if (!value) return;
     $("#attendanceName").value = value;
     if (!$("#attendanceAdminName").value) $("#attendanceAdminName").value = value;
-    try { localStorage.setItem("asmePlannerName", value); } catch (_) {}
+    try { window.SponsorFlowStorage.setItem("asmePlannerName", value); } catch (_) {}
   }
 
   async function openAdmin() {

@@ -52,7 +52,8 @@
     tasks: [],
     currentTeamId: "",
     currentBoardId: "",
-    view: "board",
+    view: "table",
+    quickFilter: "all",
     loading: false,
     taskDetail: null,
     draggedTaskId: "",
@@ -60,6 +61,7 @@
     calendarMonth: `${todayText().slice(0, 7)}-01`,
     calendarFeedBaseUrl: "",
     pendingTaskId: "",
+    afterIdentity: null,
     taskDirty: false,
     eventDirty: false,
     suppressDirty: false,
@@ -75,9 +77,9 @@
     populateStaticOptions();
     bindEvents();
     restoreIdentity();
-    state.view = localStorage.getItem("asmePlannerView") || "board";
+    state.view = window.SponsorFlowStorage.getItem("asmePlannerView") || "table";
     if (state.view === "calendar") state.view = "board";
-    state.calendarMonth = localStorage.getItem("asmePlannerCalendarMonth") || state.calendarMonth;
+    state.calendarMonth = window.SponsorFlowStorage.getItem("asmePlannerCalendarMonth") || state.calendarMonth;
     if (!API || !API.configured()) {
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
       return;
@@ -97,6 +99,25 @@
   }
 
   function bindEvents() {
+    $("#projectNavigation").addEventListener("click", event => {
+      const button = event.target.closest("[data-project-id]");
+      if (!button) return;
+      const board = state.boards.find(item => item.id === button.dataset.projectId);
+      state.currentBoardId = button.dataset.projectId;
+      state.currentTeamId = board?.teamId || CLUB_TEAM_ID;
+      $("#teamFilter").value = state.currentTeamId;
+      renderBoardOptions();
+      $("#boardSelect").value = state.currentBoardId;
+      window.SponsorFlowStorage.setItem("asmePlannerBoard", state.currentBoardId);
+      persistBoardSelection();
+      clearFilters();
+      if (matchMedia("(max-width:720px)").matches) $(".workspace-explorer").open = false;
+    });
+    $$("[data-quick-filter]").forEach(button => button.addEventListener("click", () => {
+      if (button.dataset.quickFilter === "mine" && !requireActor()) return;
+      state.quickFilter = button.dataset.quickFilter;
+      renderCurrentBoard();
+    }));
     $("#savePlannerNameButton").addEventListener("click", () => saveIdentity($("#plannerActorName").value));
     $("#plannerActorName").addEventListener("keydown", event => {
       if (event.key === "Enter") { event.preventDefault(); saveIdentity(event.currentTarget.value); }
@@ -193,16 +214,11 @@
   }
 
   function restoreIdentity() {
-    const remembered = localStorage.getItem("asmePlannerName") || "";
+    const remembered = window.SponsorFlowStorage.getItem("asmePlannerName") || "";
     state.actorName = normalizeDisplayName(remembered);
     $("#plannerActorName").value = state.actorName;
     updateIdentityUi();
-    if (!state.actorName) {
-      window.setTimeout(() => {
-        if (!$("#identityDialog").open) showPlannerDialog($("#identityDialog"));
-        $("#identityDialogName").focus();
-      }, 250);
-    }
+
   }
 
   function saveIdentity(value, fromDialog = false) {
@@ -214,17 +230,19 @@
       return false;
     }
     state.actorName = clean;
-    localStorage.setItem("asmePlannerName", clean);
+    window.SponsorFlowStorage.setItem("asmePlannerName", clean);
     $("#plannerActorName").value = clean;
     $("#identityDialogName").value = clean;
     status.textContent = "Name saved";
     status.classList.remove("is-error");
     updateIdentityUi();
+    renderCurrentBoard();
     if (state.pendingTaskId) {
       const pending = state.pendingTaskId;
       state.pendingTaskId = "";
       window.setTimeout(() => openTaskDialog(pending), 50);
     }
+    if (state.afterIdentity) { const next = state.afterIdentity; state.afterIdentity = null; window.setTimeout(next, 0); }
     return true;
   }
 
@@ -296,7 +314,7 @@
 
   function chooseInitialBoard(preferredId = "") {
     const queryBoard = new URLSearchParams(window.location.search).get("board") || "";
-    const stored = localStorage.getItem("asmePlannerBoard") || "";
+    const stored = window.SponsorFlowStorage.getItem("asmePlannerBoard") || "";
     const fallback = state.teams.some(team => team.id === CLUB_TEAM_ID) ? AGGREGATE_BOARD_ID : state.boards[0]?.id || "";
     const candidate = preferredId || queryBoard || stored || fallback;
     if (candidate === AGGREGATE_BOARD_ID) {
@@ -332,7 +350,7 @@
       if (!boards.length) return "";
       return `<optgroup label="${escapeHtml(team.name)}">${boards.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")}</optgroup>`;
     }).join("");
-    $("#taskBoardId").innerHTML = grouped || '<option value="">Create a timeline first</option>';
+    $("#taskBoardId").innerHTML = grouped || '<option value="">Create a project first</option>';
     if (selectedId && state.boards.some(board => board.id === selectedId)) $("#taskBoardId").value = selectedId;
   }
 
@@ -342,7 +360,7 @@
       if (!boards.length) return "";
       return `<optgroup label="${escapeHtml(team.name)}">${boards.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")}</optgroup>`;
     }).join("");
-    $("#eventBoardId").innerHTML = grouped || '<option value="">Create a timeline first</option>';
+    $("#eventBoardId").innerHTML = grouped || '<option value="">Create a project first</option>';
     const candidate = selectedId && state.boards.some(board => board.id === selectedId) ? selectedId : defaultTaskBoardId();
     if (candidate) $("#eventBoardId").value = candidate;
   }
@@ -350,11 +368,11 @@
   function renderBoardOptions() {
     const filtered = state.boards.filter(board => !state.currentTeamId || board.teamId === state.currentTeamId);
     const aggregate = state.currentTeamId === CLUB_TEAM_ID
-      ? `<option value="${AGGREGATE_BOARD_ID}">Club-wide portfolio · all teams</option>`
+      ? `<option value="${AGGREGATE_BOARD_ID}">All work</option>`
       : "";
     $("#boardSelect").innerHTML = aggregate + (filtered.length
       ? filtered.map(board => `<option value="${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("")
-      : aggregate ? "" : '<option value="">No timelines for this team</option>');
+      : aggregate ? "" : '<option value="">No projects for this team</option>');
   }
 
   function handleTeamChange() {
@@ -373,7 +391,7 @@
     if (board) {
       state.currentTeamId = board.teamId;
       $("#teamFilter").value = board.teamId;
-      localStorage.setItem("asmePlannerBoard", board.id);
+      window.SponsorFlowStorage.setItem("asmePlannerBoard", board.id);
     }
     persistBoardSelection();
     renderCurrentBoard();
@@ -393,8 +411,8 @@
     return {
       id: AGGREGATE_BOARD_ID,
       teamId: CLUB_TEAM_ID,
-      name: "Club-wide Portfolio",
-      description: "All active team timelines, including finance, deadlines, parts, testing, and club dates.",
+      name: "All work",
+      description: "Tasks, parts, funding, and dates across every team.",
       targetStart: dates[0] || "",
       targetEnd: dates[dates.length - 1] || "",
       active: true,
@@ -413,14 +431,18 @@
     return state.boards.find(board => board.teamId === CLUB_TEAM_ID)?.id || state.boards[0]?.id || "";
   }
 
-  function filteredTasks() {
+  function filteredTasks(source = boardTasks()) {
     const search = $("#taskSearch").value.trim().toLowerCase();
     const status = $("#statusFilter").value;
     const priority = $("#priorityFilter").value;
     const owner = $("#ownerFilter").value;
     const partsOnly = $("#partsOnlyFilter").checked;
     const hideDone = $("#hideDoneFilter").checked;
-    return boardTasks().filter(task => {
+    return source.filter(task => {
+      const today = todayText();
+      if (state.quickFilter === "mine" && !splitList(task.ownerNames).some(name => normalizeKey(name) === normalizeKey(state.actorName))) return false;
+      if (state.quickFilter === "week" && !(task.status !== "DONE" && task.dueDate && task.dueDate >= today && daysBetween(today, task.dueDate) <= 7)) return false;
+      if (state.quickFilter === "attention" && !(task.status !== "DONE" && (task.status === "BLOCKED" || (task.dueDate && task.dueDate < today)))) return false;
       const haystack = [task.title, task.description, task.ownerNames, task.tags, task.partName, task.partNumber, task.vendor, task.campus, task.fundingAmountLabel, task.requirements].join(" ").toLowerCase();
       if (search && !haystack.includes(search)) return false;
       if (status && task.status !== status) return false;
@@ -433,6 +455,12 @@
   }
 
   function renderCurrentBoard() {
+    renderProjectNavigation();
+    $$("[data-quick-filter]").forEach(button => {
+      const active = button.dataset.quickFilter === state.quickFilter;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
     const board = currentBoard();
     const workspace = $("#plannerWorkspace");
     const empty = $("#boardEmptyState");
@@ -447,12 +475,16 @@
     const team = currentTeam();
     $("#boardTeamBadge").textContent = isAggregateBoard(board) ? "ALL · CLUB-WIDE" : `${team?.icon || "TEAM"} · ${team?.name || "Team"}`;
     $("#boardTitle").textContent = board.name;
-    $("#boardDescription").textContent = board.description || "Shared team timeline.";
+    $("#boardDescription").textContent = board.description || "Shared team project.";
     $("#boardDateRange").textContent = formatBoardDateRange(board);
     $("#editBoardButton").classList.toggle("is-hidden", isAggregateBoard(board));
     $("#editBoardButton").disabled = false;
-    $("#editBoardButton").title = "Edit this timeline";
+    $("#editBoardButton").title = "Edit this project";
     renderOwnerFilter();
+    const count = filteredTasks().length;
+    $("#plannerResultCount").textContent = `${count} of ${boardTasks().length} items`;
+    const filterCount = ["statusFilter", "priorityFilter", "ownerFilter"].filter(id => $("#" + id).value).length + ["partsOnlyFilter", "hideDoneFilter"].filter(id => $("#" + id).checked).length;
+    $("#activeFilterCount").textContent = filterCount ? `(${filterCount})` : "";
     renderMetrics();
     renderKanban();
     renderGantt();
@@ -483,12 +515,12 @@
     const completion = tasks.length ? Math.round(tasks.reduce((sum, task) => sum + Number(task.progress || 0), 0) / tasks.length) : 0;
 
     const fourth = funding.length
-      ? { label: "Funding tracked", value: knownFunding ? formatCurrency(knownFunding) : funding.length, detail: `${funding.length} opportunities${variableFunding ? ` · ${variableFunding} variable` : ""}`, tone: "funding" }
+      ? { label: "Funding tracked", value: knownFunding ? formatCurrency(knownFunding) : funding.length, detail: `${funding.length} ${funding.length === 1 ? "opportunity" : "opportunities"}${variableFunding ? ` · ${variableFunding} variable` : ""}`, tone: "funding" }
       : { label: "Parts to source", value: awaitingOrder, detail: `${formatCurrency(estimatedCost)} estimated total`, tone: awaitingOrder ? "parts" : "neutral" };
     const metrics = [
       { label: "Overall progress", value: `${completion}%`, detail: `${done} of ${tasks.length} tasks done`, tone: "completion" },
-      { label: "Needs attention", value: overdue + blocked, detail: `${overdue} overdue · ${blocked} blocked`, tone: overdue + blocked ? "danger" : "good" },
-      { label: "Due in 7 days", value: dueSoon, detail: "Upcoming commitments", tone: dueSoon ? "warning" : "neutral" },
+      { label: "Needs attention", value: tasks.filter(task => task.status !== "DONE" && (task.status === "BLOCKED" || (task.dueDate && task.dueDate < now))).length, detail: `${overdue} overdue · ${blocked} blocked`, tone: overdue + blocked ? "danger" : "good" },
+      { label: "Due in 7 days", value: dueSoon, detail: "Open work due soon", tone: dueSoon ? "warning" : "neutral" },
       fourth
     ];
     $("#plannerMetrics").innerHTML = metrics.map(metric => `
@@ -643,25 +675,37 @@
 
   function renderTaskTable() {
     const tasks = filteredTasks().sort(taskSort);
-    const tbody = $("#taskTableBody");
+    const host = $("#workList");
     if (!tasks.length) {
-      tbody.innerHTML = '<tr><td colspan="8"><div class="table-empty">No tasks match these filters.</div></td></tr>';
+      host.innerHTML = '<div class="work-list-empty"><strong>No work in this view</strong><p>Try another project or clear your filters.</p><button type="button" class="button button-secondary button-small" data-clear-work>Clear filters</button></div>';
+      host.querySelector("[data-clear-work]").addEventListener("click", clearFilters);
       return;
     }
-    tbody.innerHTML = tasks.map(task => {
+    host.innerHTML = '<div class="work-list-heading" aria-hidden="true"><span>Work item</span><span>Status</span><span class="work-owner">Owner</span><span>Due date</span><span class="work-progress">Done</span></div>' + tasks.map(task => {
       const due = dueState(task);
-      return `<tr data-table-task="${escapeHtml(task.id)}">
-        <td><div class="table-task-title"><span class="priority-dot priority-bg-${task.priority}"></span><div><strong>${escapeHtml(task.title)}</strong><small>${isAggregateBoard() ? `${escapeHtml(teamForTask(task)?.name || "Team")} · ` : ""}${escapeHtml(splitList(task.tags).join(" · ") || task.description || "")}</small></div></div></td>
-        <td><span class="status-badge task-status-${task.status}">${statusLabel(task.status)}</span></td>
-        <td><span class="priority-pill priority-${task.priority}">${priorityLabel(task.priority)}</span></td>
-        <td>${escapeHtml(task.ownerNames || "Unassigned")}</td>
-        <td><strong>${escapeHtml(task.startDate ? formatShortDate(task.startDate) : "—")}</strong><small class="table-subline ${due.tone === "overdue" ? "text-danger" : ""}">${escapeHtml(task.dueDate ? `Due ${formatShortDate(task.dueDate)}` : "No due date")}</small></td>
-        <td>${task.taskType === "FUNDING" ? `<strong>${escapeHtml(fundingValueLabel(task))}</strong><small class="table-subline">${escapeHtml(task.campus || sourceConfidenceShort(task.sourceConfidence))}</small>` : isPartsTask(task) ? `<strong>${escapeHtml(task.partName || task.partNumber || "Part")}</strong><small class="table-subline">${escapeHtml(orderLabel(task.orderStatus))}</small>` : "—"}</td>
-        <td><div class="table-progress"><i style="width:${clamp(Number(task.progress) || 0, 0, 100)}%"></i><span>${clamp(Number(task.progress) || 0, 0, 100)}%</span></div></td>
-        <td>${escapeHtml(relativeTime(task.updatedAt))}<small class="table-subline">${escapeHtml(task.updatedBy || "")}</small></td>
-      </tr>`;
+      const team = teamForTask(task);
+      const context = [isAggregateBoard() ? team?.name : "", taskTypeLabel(task.taskType), task.priority === "CRITICAL" || task.priority === "HIGH" ? priorityLabel(task.priority) + " priority" : ""].filter(Boolean).join(" · ");
+      return `<button type="button" class="work-row" data-table-task="${escapeHtml(task.id)}">
+        <span class="work-row-title"><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(context)}</small></span>
+        <span class="work-status ${escapeHtml(task.status)}">${escapeHtml(statusLabel(task.status))}</span>
+        <span class="work-owner">${escapeHtml(task.ownerNames || "Unassigned")}</span>
+        <span class="work-due ${due.tone === "overdue" ? "text-danger" : ""}">${escapeHtml(task.dueDate ? formatShortDate(task.dueDate) : "No date")}</span>
+        <span class="work-progress">${clamp(Number(task.progress) || 0, 0, 100)}%</span>
+      </button>`;
     }).join("");
-    tbody.querySelectorAll("[data-table-task]").forEach(row => row.addEventListener("click", () => openTaskDialog(row.dataset.tableTask)));
+    host.querySelectorAll("[data-table-task]").forEach(row => row.addEventListener("click", () => openTaskDialog(row.dataset.tableTask)));
+  }
+
+  function renderProjectNavigation() {
+    const host = $("#projectNavigation");
+    const closed = new Set(Array.from(host.querySelectorAll("details:not([open])")).map(item => item.dataset.team));
+    const item = (id, title, count) => `<button type="button" class="sidebar-item${state.currentBoardId === id ? " is-active" : ""}" data-project-id="${escapeHtml(id)}"${state.currentBoardId === id ? ' aria-current="true"' : ""}><span>${escapeHtml(title)}</span><small>${count}</small></button>`;
+    const activeTasks = state.tasks.filter(task => !task.archived);
+    host.innerHTML = item(AGGREGATE_BOARD_ID, "All work", activeTasks.length) + '<p class="sidebar-label">Teams & projects</p>' + state.teams.map(team => {
+      const boards = state.boards.filter(board => board.teamId === team.id);
+      if (!boards.length) return "";
+      return `<details class="sidebar-group" data-team="${escapeHtml(team.id)}"${closed.has(team.id) ? "" : " open"}><summary>${escapeHtml(team.name)}</summary>${boards.map(board => item(board.id, board.name, activeTasks.filter(task => task.boardId === board.id).length)).join("")}</details>`;
+    }).join("");
   }
 
 
@@ -669,7 +713,7 @@
     const current = parseDate(state.calendarMonth || `${todayText().slice(0, 7)}-01`);
     current.setMonth(current.getMonth() + offset, 1);
     state.calendarMonth = dateText(current);
-    localStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
+    window.SponsorFlowStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
     renderCalendar();
   }
 
@@ -801,8 +845,8 @@
   function setPlannerView(view) {
     if (view === "calendar") view = "board";
     state.view = ["board", "timeline", "table", "insights"].includes(view) ? view : "board";
-    localStorage.setItem("asmePlannerView", state.view);
-    $$("[data-planner-view]").forEach(button => button.classList.toggle("is-active", button.dataset.plannerView === state.view));
+    window.SponsorFlowStorage.setItem("asmePlannerView", state.view);
+    $$("[data-planner-view]").forEach(button => { const active = button.dataset.plannerView === state.view; button.classList.toggle("is-active", active); button.setAttribute("aria-pressed", String(active)); });
     $$("[data-planner-panel]").forEach(panel => panel.classList.toggle("is-hidden", panel.dataset.plannerPanel !== state.view));
     if (state.view === "timeline") renderGantt();
     if (state.view === "calendar") renderCalendar();
@@ -810,6 +854,7 @@
   }
 
   function clearFilters() {
+    state.quickFilter = "all";
     $("#taskSearch").value = "";
     $("#statusFilter").value = "";
     $("#priorityFilter").value = "";
@@ -824,6 +869,7 @@
     const task = state.tasks.find(item => item.id === taskId);
     if (!task || task.status === status) return;
     const previous = task.status;
+    const previousProgress = task.progress;
     task.status = status;
     if (status === "DONE") task.progress = 100;
     renderCurrentBoard();
@@ -839,6 +885,7 @@
       renderCurrentBoard();
     } catch (error) {
       task.status = previous;
+      task.progress = previousProgress;
       setPlannerMessage(error.message, "error");
       await loadPlanner({ boardId: state.currentBoardId });
     }
@@ -874,7 +921,7 @@
   function resetBoardForm() {
     $("#boardForm").reset();
     $("#boardId").value = "";
-    $("#boardFormTitle").textContent = "Create a timeline";
+    $("#boardFormTitle").textContent = "Create a project";
     $("#boardTeamId").value = state.currentTeamId || state.teams[0]?.id || "";
   }
 
@@ -923,7 +970,7 @@
   async function saveBoard(event) {
     event.preventDefault();
     if (!requireActor()) return;
-    setWorkspaceStatus("Saving timeline…");
+    setWorkspaceStatus("Saving project…");
     try {
       const saved = await API.post("savePlannerBoard", {
         id: $("#boardId").value,
@@ -945,7 +992,7 @@
       persistBoardSelection();
       renderCurrentBoard();
       resetBoardForm();
-      setWorkspaceStatus("Timeline saved.", "success");
+      setWorkspaceStatus("Project saved.", "success");
     } catch (error) { setWorkspaceStatus(error.message, "error"); }
   }
 
@@ -955,8 +1002,8 @@
     host.innerHTML = state.teams.map(team => {
       const boards = state.boards.filter(board => board.teamId === team.id);
       return `<section class="workspace-team-row">
-        <button type="button" class="workspace-team-button" data-edit-team="${escapeHtml(team.id)}"><span>${escapeHtml(team.icon || initials(team.name))}</span><div><strong>${escapeHtml(team.name)}</strong><small>${escapeHtml(team.description || "No team description")}</small></div></button>
-        <div class="workspace-board-list">${boards.length ? boards.map(board => `<button type="button" data-edit-board="${escapeHtml(board.id)}"><strong>${escapeHtml(board.name)}</strong><small>${escapeHtml(formatBoardDateRange(board) || "Dates set by tasks")}</small></button>`).join("") : '<span class="workspace-no-board">No timelines yet</span>'}</div>
+        <button type="button" class="workspace-team-button" data-edit-team="${escapeHtml(team.id)}"><span>${escapeHtml(team.icon || initials(team.name))}</span><div><strong>${escapeHtml(team.name)}</strong><small>${escapeHtml(team.description || "")}</small></div></button>
+        <div class="workspace-board-list">${boards.length ? boards.map(board => `<button type="button" data-edit-board="${escapeHtml(board.id)}"><strong>${escapeHtml(board.name)}</strong><small>${escapeHtml(formatBoardDateRange(board) || "Dates set by tasks")}</small></button>`).join("") : '<span class="workspace-no-board">No projects yet</span>'}</div>
       </section>`;
     }).join("") || '<div class="workspace-no-board">Create the first team.</div>';
   }
@@ -969,7 +1016,7 @@
   }
 
   async function openTaskDialog(taskId = "", defaults = {}) {
-    if (!requireActor()) return;
+    if (!state.actorName) { state.afterIdentity = () => openTaskDialog(taskId, defaults); requireActor(); return; }
     if (!currentBoard()) { openWorkspaceDialog(); return; }
     state.suppressDirty = true;
     resetTaskForm();
@@ -1119,11 +1166,14 @@
     const selectedBoardId = $("#taskBoardId").value || defaultTaskBoardId();
     const candidates = state.tasks.filter(task => !task.archived && task.boardId === selectedBoardId && task.id !== currentTaskId).sort(taskSort);
     const selected = new Set(selectedIds);
+    // Keep dependencies that are absent from the active list (archived or from older projects).
+    const missing = selectedIds.filter(id => !candidates.some(task => task.id === id));
     $("#taskDependencyList").innerHTML = candidates.length ? candidates.map(task => `
       <label class="dependency-option">
         <input type="checkbox" value="${escapeHtml(task.id)}" ${selected.has(task.id) ? "checked" : ""}>
         <span><strong>${escapeHtml(task.title)}</strong><small>${statusLabel(task.status)} · ${priorityLabel(task.priority)}</small></span>
-      </label>`).join("") : '<p class="dependency-empty">No other active tasks on this timeline.</p>';
+      </label>`).join("") : '<p class="dependency-empty">No other active tasks on this project.</p>';
+    $("#taskDependencyList").insertAdjacentHTML("beforeend", missing.map(id => `<input type="checkbox" hidden checked value="${escapeHtml(id)}">`).join(""));
   }
 
   function selectedDependencies() {
@@ -1135,16 +1185,19 @@
     if (!requireActor() || state.savingTask) return;
     const payload = buildTaskPayload();
     if (payload.title.length < 2) { setTaskStatus("Give the task a clear title.", "error"); setTaskTab("overview"); $("#taskTitle").focus(); return; }
-    if (payload.startDate && payload.dueDate && payload.dueDate < payload.startDate) { setTaskStatus("The end date must be on or after the start date.", "error"); setTaskTab("schedule"); return; }
+    if (payload.startDate && payload.dueDate && payload.dueDate < payload.startDate) { setTaskStatus("The end date must be on or after the start date.", "error"); setTaskTab("overview"); return; }
     if (payload.taskType === "MEETING" && !payload.allDay && payload.startDate === payload.dueDate && payload.startTime && payload.endTime && payload.endTime <= payload.startTime) {
       setTaskStatus("For a same-day event, the end time must be after the start time.", "error"); setTaskTab("schedule"); return;
     }
+    if (!Number.isFinite(Number(payload.progress)) || Number(payload.progress) < 0 || Number(payload.progress) > 100) { setTaskStatus("Progress must be between 0 and 100.", "error"); setTaskTab("overview"); return; }
     state.savingTask = true;
     setButtonBusy($("#taskSaveButton"), true, "Saving…");
     setTaskStatus("Saving to the shared planner…");
     try {
       const saved = await API.post("savePlannerTask", payload);
       replaceTask(saved);
+      $("#taskId").value = saved.id;
+      $("#taskExpectedUpdatedAt").value = saved.updatedAt || "";
       clearTaskDraft(payload.id || "new", payload.boardId);
       const data = await API.post("plannerBootstrap");
       applyPlannerBootstrap(data, state.currentBoardId || saved.boardId);
@@ -1405,7 +1458,7 @@
       renderCurrentBoard();
       setPlannerView("calendar");
       state.calendarMonth = `${saved.startDate.slice(0, 7)}-01`;
-      localStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
+      window.SponsorFlowStorage.setItem("asmePlannerCalendarMonth", state.calendarMonth);
       renderCalendar();
       setPlannerMessage(`${saved.title} saved to the shared calendar.`, "success");
     } catch (error) {
@@ -1476,12 +1529,12 @@
   }
 
   function saveTaskDraft() {
-    try { localStorage.setItem(taskDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: buildTaskPayload() })); } catch (_) {}
+    try { window.SponsorFlowStorage.setItem(taskDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: buildTaskPayload() })); } catch (_) {}
   }
 
   function saveEventDraft() {
     try {
-      localStorage.setItem(eventDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: {
+      window.SponsorFlowStorage.setItem(eventDraftKey(), JSON.stringify({ savedAt: Date.now(), payload: {
         title: $("#eventTitle").value, boardId: $("#eventBoardId").value, startDate: $("#eventStartDate").value,
         endDate: $("#eventEndDate").value, allDay: $("#eventAllDay").checked, startTime: $("#eventStartTime").value,
         endTime: $("#eventEndTime").value, location: $("#eventLocation").value, ownerNames: $("#eventOwners").value,
@@ -1492,7 +1545,7 @@
 
   function restoreTaskDraft(task = null) {
     try {
-      const raw = localStorage.getItem(taskDraftKey(task?.id || "new", task?.boardId || $("#taskBoardId").value));
+      const raw = window.SponsorFlowStorage.getItem(taskDraftKey(task?.id || "new", task?.boardId || $("#taskBoardId").value));
       if (!raw) return;
       const draft = JSON.parse(raw);
       const serverTime = task?.updatedAt ? new Date(task.updatedAt).getTime() : 0;
@@ -1518,7 +1571,7 @@
 
   function restoreEventDraft(task = null) {
     try {
-      const raw = localStorage.getItem(eventDraftKey(task?.id || "new", task?.boardId || $("#eventBoardId").value));
+      const raw = window.SponsorFlowStorage.getItem(eventDraftKey(task?.id || "new", task?.boardId || $("#eventBoardId").value));
       if (!raw) return;
       const draft = JSON.parse(raw);
       const serverTime = task?.updatedAt ? new Date(task.updatedAt).getTime() : 0;
@@ -1536,8 +1589,8 @@
     } catch (_) {}
   }
 
-  function clearTaskDraft(id, boardId) { try { localStorage.removeItem(taskDraftKey(id, boardId)); } catch (_) {} }
-  function clearEventDraft(id, boardId) { try { localStorage.removeItem(eventDraftKey(id, boardId)); } catch (_) {} }
+  function clearTaskDraft(id, boardId) { try { window.SponsorFlowStorage.removeItem(taskDraftKey(id, boardId)); } catch (_) {} }
+  function clearEventDraft(id, boardId) { try { window.SponsorFlowStorage.removeItem(eventDraftKey(id, boardId)); } catch (_) {} }
 
   function setButtonBusy(button, busy, label) {
     if (!button) return;
@@ -1626,7 +1679,7 @@
     if (!board) return;
     const tasks = boardTasks().filter(task => task.startDate || task.dueDate);
     if (!tasks.length) {
-      setPlannerMessage("This timeline has no dated tasks to add to a calendar.", "error");
+      setPlannerMessage("This project has no dated tasks to add to a calendar.", "error");
       return;
     }
     downloadTasksCalendar(tasks, `${board.name} calendar`);
@@ -1769,7 +1822,7 @@
         scope: "board",
         id: board.id,
         name: board.name,
-        badge: "Current timeline",
+        badge: "Current project",
         description: board.description || "Only dates from the timeline currently open in SponsorFlow."
       });
     }
@@ -1859,7 +1912,7 @@
     link.click();
     link.remove();
     URL.revokeObjectURL(link.href);
-    setPlannerMessage("Timeline exported as CSV.", "success");
+    setPlannerMessage("Project exported as CSV.", "success");
   }
 
   function setLoading(loading) {
@@ -1875,7 +1928,13 @@
   }
   function setTaskStatus(message, tone = "") { const element = $("#taskFormStatus"); element.textContent = message || ""; element.className = `form-status${tone ? ` is-${tone}` : ""}`; }
   function setWorkspaceStatus(message, tone = "") { const element = $("#workspaceDialogStatus"); element.textContent = message || ""; element.className = `form-status${tone ? ` is-${tone}` : ""}`; }
-  function showConnectionError(message) { const banner = $("#plannerConnectionBanner"); banner.textContent = message; banner.classList.remove("is-hidden"); }
+  function showConnectionError(message) {
+    const banner = $("#plannerConnectionBanner");
+    banner.textContent = message + " ";
+    const retry = document.createElement("button"); retry.type = "button"; retry.className = "button button-secondary button-small"; retry.textContent = "Retry";
+    retry.addEventListener("click", () => { retry.disabled = true; loadPlanner(); });
+    banner.appendChild(retry); banner.classList.remove("is-hidden");
+  }
   function hideConnectionError() { $("#plannerConnectionBanner").classList.add("is-hidden"); }
 
   function updateFundingEditor() {
@@ -1885,8 +1944,7 @@
   }
 
   function insightsTasks() {
-    if (state.insightsScope === "all") return state.tasks.filter(task => !task.archived);
-    return boardTasks();
+    return filteredTasks(state.insightsScope === "all" ? state.tasks.filter(task => !task.archived) : boardTasks());
   }
 
   function renderInsights() {
@@ -1894,7 +1952,7 @@
     if (!host) return;
     const tasks = insightsTasks();
     if (!tasks.length) {
-      host.innerHTML = '<div class="insights-empty"><span>◫</span><h3>No data to visualize yet</h3><p>Add tasks, owners, dates, funding opportunities, or parts to unlock planner insights.</p></div>';
+      host.innerHTML = '<div class="insights-empty"><span>◫</span><h3>No work matches this view</h3><p>Choose another project or adjust your filters.</p></div>';
       return;
     }
     const today = todayText();
@@ -1914,8 +1972,8 @@
     host.innerHTML = `
       <div class="insight-summary-grid">
         <article><span>Tasks in scope</span><strong>${tasks.length}</strong><small>${active.length} active · ${tasks.length - active.length} done</small></article>
-        <article><span>Schedule risk</span><strong>${overdue.length + blocked.length}</strong><small>${overdue.length} overdue · ${blocked.length} blocked</small></article>
-        <article><span>Known funding ceiling</span><strong>${formatCurrency(knownFunding)}</strong><small>${funding.length} opportunities${variableFunding ? ` · ${variableFunding} variable` : ""}</small></article>
+        <article><span>Schedule risk</span><strong>${new Set([...overdue, ...blocked].map(task => task.id)).size}</strong><small>${overdue.length} overdue · ${blocked.length} blocked</small></article>
+        <article><span>Known funding ceiling</span><strong>${formatCurrency(knownFunding)}</strong><small>${funding.length} ${funding.length === 1 ? "opportunity" : "opportunities"}${variableFunding ? ` · ${variableFunding} variable` : ""}</small></article>
         <article><span>Parts pipeline</span><strong>${parts.length}</strong><small>${partCounts.filter(item => item.id !== "RECEIVED").reduce((sum, item) => sum + item.count, 0)} not received</small></article>
       </div>
       <div class="insight-grid">
@@ -1929,7 +1987,7 @@
   }
 
   function renderStatusInsight(items, total) {
-    const colors = { BACKLOG: "#92928a", PLANNED: "#2f5d8a", IN_PROGRESS: "#cfb991", BLOCKED: "#a52a2a", REVIEW: "#7a5f9e", DONE: "#276749" };
+    const colors = { BACKLOG: "var(--faint)", PLANNED: "var(--brand-slate)", IN_PROGRESS: "var(--brand-blue)", BLOCKED: "var(--negative)", REVIEW: "var(--brand-gold)", DONE: "var(--positive)" };
     let cursor = 0;
     const segments = items.map(item => {
       const start = cursor;

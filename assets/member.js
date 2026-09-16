@@ -48,7 +48,7 @@
     $$('[data-view-button]').forEach(button => button.classList.toggle("is-active", button.dataset.viewButton === view));
 
     if (view === "requests") {
-      const remembered = normalizeName(localStorage.getItem("asmeSponsorFlowName"));
+      const remembered = normalizeName(window.SponsorFlowStorage.getItem("asmeSponsorFlowName"));
       if (remembered && !$("#requestLookupName").value) $("#requestLookupName").value = remembered;
       if ($("#requestLookupName").value.trim()) loadRequestsByName($("#requestLookupName").value);
     }
@@ -77,7 +77,7 @@
       renderNameSuggestions();
       renderStats();
 
-      const rememberedName = normalizeName(localStorage.getItem("asmeSponsorFlowName"));
+      const rememberedName = normalizeName(window.SponsorFlowStorage.getItem("asmeSponsorFlowName"));
       if (rememberedName) {
         $("#requesterName").value = rememberedName;
         $("#requestLookupName").value = rememberedName;
@@ -375,7 +375,7 @@
       { label: "Sponsor named in the message", pass: Boolean(company && body.toLowerCase().includes(company.toLowerCase())), weight: 15 },
       { label: "Specific request included", pass: $("#specificRequest").value.trim().length >= 15 || /seeking|asking|request|consider providing|consider supporting/i.test(body), weight: 15 },
       { label: "Student impact and sponsor return explained", pass: /support would|help us|allow our team|in return|would receive|can provide/i.test(body), weight: 15 },
-      { label: "Low-friction next step", pass: /brief|15-minute|conversation|open to|would you|direct me|point me/i.test(body), weight: 10 },
+      { label: "Clear next step", pass: /brief|15-minute|conversation|open to|would you|direct me|point me/i.test(body), weight: 10 },
       { label: "Professional length and club signature", pass: body.length >= 450 && body.length <= 4200 && body.includes("asmeindy@purdue.edu"), weight: 10 }
     ];
     return { checks, score: checks.reduce((sum, check) => sum + (check.pass ? check.weight : 0), 0) };
@@ -385,7 +385,7 @@
     const { checks, score } = qualityResult();
     $("#qualityScore").textContent = score;
     $("#qualityBar").style.width = `${score}%`;
-    $("#qualityLabel").textContent = score >= 85 ? "Sponsor-ready" : score >= 70 ? "Strong draft" : score >= 45 ? "Needs refinement" : "Needs content";
+    $("#qualityLabel").textContent = score >= 85 ? "Checks complete" : score >= 70 ? "Almost ready" : score >= 45 ? "Review the checklist" : "Needs content";
     $("#qualityChecks").innerHTML = checks.map(check => `<li class="${check.pass ? "is-pass" : ""}">${escapeHtml(check.label)}</li>`).join("");
   }
 
@@ -420,7 +420,7 @@
     }
 
     if (score < 70) {
-      setFormStatus("Bring the quality score to at least 70 before submitting.", "error");
+      setFormStatus("Complete the draft checklist before submitting.", "error");
       return;
     }
 
@@ -443,7 +443,7 @@
 
     try {
       const requesterName = normalizeName($("#requesterName").value);
-      localStorage.setItem("asmeSponsorFlowName", requesterName);
+      window.SponsorFlowStorage.setItem("asmeSponsorFlowName", requesterName);
 
       if (state.revision) {
         await API.post("reviseRequest", {
@@ -509,7 +509,7 @@
       const requests = await API.post("getRequestsByName", { requesterName: name });
       state.loadedRequests = requests || [];
       state.activeLookupName = name;
-      localStorage.setItem("asmeSponsorFlowName", name);
+      window.SponsorFlowStorage.setItem("asmeSponsorFlowName", name);
       $("#requesterName").value = name;
       renderRequestList();
       status.textContent = `${state.loadedRequests.length} request${state.loadedRequests.length === 1 ? "" : "s"} filed under ${name}.`;

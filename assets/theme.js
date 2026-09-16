@@ -17,7 +17,7 @@
   };
 
   function savedTheme() {
-    try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
+    try { return window.SponsorFlowStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
   }
 
   function currentTheme() {
@@ -36,10 +36,10 @@
     root.dataset.theme = safe;
     root.style.colorScheme = safe;
     if (persist) {
-      try { localStorage.setItem(STORAGE_KEY, safe); } catch (_) {}
+      try { window.SponsorFlowStorage.setItem(STORAGE_KEY, safe); } catch (_) {}
     }
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = safe === "dark" ? "#080a0d" : "#111310";
+    if (meta) meta.content = safe === "dark" ? "#202431" : "#ffffff";
     document.querySelectorAll("[data-theme-toggle]").forEach(button => renderToggle(button, safe));
   }
 
@@ -67,7 +67,7 @@
     nav.innerHTML = [
       mobileLink("index.html", "Home", "home", ["", "index.html"]),
       mobileLink("outreach.html", "Outreach", "outreach", ["outreach.html"]),
-      mobileLink("planner.html", "Planner", "planner", ["planner.html"]),
+      mobileLink("planner.html", "Projects", "planner", ["planner.html"]),
       mobileLink("calendar.html", "Calendar", "calendar", ["calendar.html"]),
       mobileLink("attendance.html", "Attend", "attendance", ["attendance.html"]),
       mobileLink("admin.html", "Admin", "admin", ["admin.html"])
@@ -94,11 +94,12 @@
     }, { passive: true });
   }
 
+  window.addEventListener("storage", event => { if (event.key === STORAGE_KEY) applyTheme(currentTheme()); });
   applyTheme(currentTheme());
   document.addEventListener("DOMContentLoaded", () => {
     injectThemeToggle();
     injectMobileNavigation();
-    enableMobileNavAutoHide();
+
     applyTheme(currentTheme());
   });
 })();
