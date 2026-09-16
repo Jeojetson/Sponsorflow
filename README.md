@@ -1,7 +1,5 @@
-# ASME Indy SponsorFlow 1.9
+# SponsorFlow 2.1
 
-SponsorFlow combines sponsor outreach, project planning, shared calendars, attendance check-in, and officer analytics for Purdue Indianapolis ASME.
+Performance update for the Attendance check-in flow.
 
-Version 1.9 consolidates attendance analytics into the primary Google Apps Script Admin dashboard so officers use one authenticated workspace for sponsor review and attendance metrics.
-
-See `UPGRADE.md` for deployment steps.
+See `UPGRADE.md` for installation steps and `CHANGELOG-2.1.md` for technical details.
