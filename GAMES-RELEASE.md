@@ -1,6 +1,6 @@
 # ASME Games
 
-Seven original games, daily challenges shared by the club, and a separate Google-hosted leaderboard service:
+Seven original games, daily challenges shared by the club, and a leaderboard in the existing SponsorFlow Google Sheet:
 
 | Game | Play | Daily points |
 | --- | --- | --- |
@@ -20,15 +20,15 @@ Progress is saved per game and date. Keyboard, touch, and on-screen controls are
 
 ## Shared leaderboard activation
 
-The new Google service must be deployed once and its URL added to `assets/games/config.js`. Follow [games-backend/README.md](games-backend/README.md). The generated `games-backend/Code.gs` is ready to paste into a **new** Google Apps Script project. It creates its own spreadsheet. Existing attendance, outreach, planning, calendar, and officer services are unchanged.
+Add the generated [Games.gs](games-backend/Games.gs) to the **existing** SponsorFlow Apps Script project, add the two routing hooks to the current Code.gs, run `setupGames`, and update the existing web app deployment. Follow [games-backend/README.md](games-backend/README.md) for exact instructions. Setup only adds Games Players and Games Results tabs inside the existing spreadsheet. The website automatically reuses `assets/config.js` and the same deployment URL. Current Admin.html, attendance, outreach, planning, and calendar functions stay unchanged.
 
 Until activated, every game works with local progress and clearly labels shared standings as unavailable. Do not describe the shared leaderboard as live until it has been deployed and verified from two devices.
 
 ## Validation
 
 - Shared core tests generate 120 daily sets, validate their solutions, verify uniqueness for Crown Grid and Equal Split, and reject invalid results.
-- Server contract tests cover player restore, name collisions, renaming, idempotent scores, better kart runs, date/version bounds, callback validation, and origin checks.
-- Browser tests use a local in-memory version of the new service, with external traffic blocked. They cover all seven games, touch/keyboard input, score submission, second-device restoration, saved progress, practice, and kart pause/retry.
+- Server contract tests cover player restore, name collisions, renaming, idempotent scores, better kart runs, date/version bounds, callback validation, origin checks, additive/idempotent setup, reserved-tab collisions, preservation of existing records and settings, and fallthrough for all 23 existing POST actions plus public reads, admin, and calendar routes.
+- Browser tests use a local in-memory version of the new service, with external traffic blocked. They cover all seven games, touch/keyboard input, score submission, second-device restoration, saved progress, practice, kart pause/retry, shared URL configuration, and clear errors from an older deployment.
 - Layout coverage: the hub and all seven play screens at 1440, 900, 390, and 320 pixels in both themes, plus 667-pixel-tall phones with explicit keyboard/steering visibility checks. Chrome was used for desktop and touch emulation; a physical iPhone/Safari check is still recommended before launch.
 - Existing workspace regression tests continue to cover attendance, project, and calendar workflows.
 

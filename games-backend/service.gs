@@ -1,6 +1,6 @@
-/** Standalone ASME Games service. Deploy in its OWN Apps Script project. */
-const GAMES = Object.freeze({
-  ORIGIN: 'https://jeojetson.github.io',
+/** ASME Games extension for the existing SponsorFlow Apps Script project. */
+const SF_GAMES = Object.freeze({
+  SHEETS: { Players: 'Games Players', Results: 'Games Results' },
   HEADERS: {
     Players: [
       'playerId',
@@ -25,37 +25,64 @@ const GAMES = Object.freeze({
 });
 
 function setupGames() {
-  const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('GAMES_SHEET_ID'))
-    return SpreadsheetApp.openById(
-      props.getProperty('GAMES_SHEET_ID'),
-    ).getUrl();
-  const book = SpreadsheetApp.create('ASME Games Leaderboard');
-  for (const name of Object.keys(GAMES.HEADERS)) {
-    const sheet = book.insertSheet(name);
-    sheet.appendRow(GAMES.HEADERS[name]);
-    sheet.setFrozenRows(1);
-    // Keep ISO dates and identifiers as text; scores remain numbers.
-    sheet
-      .getRange(1, 1, sheet.getMaxRows(), GAMES.HEADERS[name].length)
-      .setNumberFormat('@');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(20000))
+    throw new Error('SponsorFlow is busy. Try setup again in a moment.');
+  try {
+    const book = gamesBook_();
+    // Preflight both names before adding or formatting anything. Existing data
+    // under either reserved name must already match this Games schema.
+    for (const name of Object.keys(SF_GAMES.HEADERS)) {
+      const sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
+      if (sheet && sheet.getLastRow() > 0) gamesCheckHeaders_(sheet, name);
+    }
+    for (const name of Object.keys(SF_GAMES.HEADERS)) {
+      let sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
+      if (sheet && sheet.getLastRow() > 0) continue;
+      if (!sheet) sheet = book.insertSheet(SF_GAMES.SHEETS[name]);
+      const headers = SF_GAMES.HEADERS[name];
+      sheet
+        .getRange(1, 1, sheet.getMaxRows(), headers.length)
+        .setNumberFormat('@');
+      sheet.appendRow(headers);
+      sheet.setFrozenRows(1);
+    }
+    return book.getUrl();
+  } finally {
+    lock.releaseLock();
   }
-  const first = book.getSheets().find((s) => !GAMES.HEADERS[s.getName()]);
-  if (first) book.deleteSheet(first);
-  props.setProperty('GAMES_SHEET_ID', book.getId());
-  console.log(book.getUrl());
-  return book.getUrl();
 }
 function gamesBook_() {
+  // Reuse SponsorFlow's existing spreadsheet and configuration. Games setup
+  // never runs the main schema migration, reseeds data, or changes properties.
   const id =
-    PropertiesService.getScriptProperties().getProperty('GAMES_SHEET_ID');
-  if (!id) throw new Error('The club leaderboard is not open yet.');
+    PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (!id) throw new Error('SponsorFlow spreadsheet is not configured.');
   return SpreadsheetApp.openById(id);
 }
+function gamesCheckHeaders_(sheet, name) {
+  const expected = SF_GAMES.HEADERS[name];
+  const actual = sheet.getRange(1, 1, 1, expected.length).getValues()[0];
+  if (
+    sheet.getLastColumn() !== expected.length ||
+    expected.some((header, i) => actual[i] !== header)
+  ) {
+    throw new Error(
+      SF_GAMES.SHEETS[name] +
+        ' has different columns. Existing data was left unchanged.',
+    );
+  }
+}
+function gamesSheet_(name) {
+  const sheet = gamesBook_().getSheetByName(SF_GAMES.SHEETS[name]);
+  if (!sheet || !sheet.getLastRow())
+    throw new Error('The club leaderboard is not open yet.');
+  gamesCheckHeaders_(sheet, name);
+  return sheet;
+}
 function gamesRows_(name) {
-  const sheet = gamesBook_().getSheetByName(name);
-  if (!sheet) throw new Error('Leaderboard storage is unavailable.');
-  const headers = GAMES.HEADERS[name];
+  const sheet = gamesSheet_(name);
+  const headers = SF_GAMES.HEADERS[name];
   if (sheet.getLastRow() < 2) return [];
   return sheet
     .getRange(2, 1, sheet.getLastRow() - 1, headers.length)
@@ -110,7 +137,9 @@ function gamesInvalidate_() {
   const keys = [];
   for (const period of ['today', 'week', 'month'])
     for (const game of ['all'].concat(SFGames.GAMES.map((g) => g.id)))
-      keys.push('board:' + gamesDay_() + ':' + period + ':' + game);
+      keys.push(
+        'ASME_GAMES_BOARD_V1:' + gamesDay_() + ':' + period + ':' + game,
+      );
   CacheService.getScriptCache().removeAll(keys);
 }
 function gamesJoin_(input) {
@@ -141,8 +170,8 @@ function gamesJoin_(input) {
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
-  const sheet = gamesBook_().getSheetByName('Players'),
-    values = GAMES.HEADERS.Players.map((k) => player[k]);
+  const sheet = gamesSheet_('Players'),
+    values = SF_GAMES.HEADERS.Players.map((k) => player[k]);
   if (existing)
     sheet.getRange(existing._row, 1, 1, values.length).setValues([values]);
   else sheet.appendRow(values);
@@ -205,8 +234,8 @@ function gamesScore_(input) {
     proofHash: gamesHash_(proofText),
     completedAt: new Date().toISOString(),
   };
-  const sheet = gamesBook_().getSheetByName('Results'),
-    values = GAMES.HEADERS.Results.map((k) => record[k]);
+  const sheet = gamesSheet_('Results'),
+    values = SF_GAMES.HEADERS.Results.map((k) => record[k]);
   if (existing)
     sheet.getRange(existing._row, 1, 1, values.length).setValues([values]);
   else sheet.appendRow(values);
@@ -223,7 +252,7 @@ function gamesLeaderboard_(input) {
   )
     throw new Error('Invalid standings filter.');
   const cache = CacheService.getScriptCache(),
-    key = 'board:' + day + ':' + period + ':' + game;
+    key = 'ASME_GAMES_BOARD_V1:' + day + ':' + period + ':' + game;
   const saved = cache.get(key);
   if (saved) return JSON.parse(saved);
   const players = gamesRows_('Players'),
@@ -241,17 +270,15 @@ function gamesLeaderboard_(input) {
   if (text.length < 90000) cache.put(key, text, 60);
   return result;
 }
-function doGet(e) {
+function asmeGamesGet_(e) {
   const p = e?.parameter || {};
-  if (p.action !== 'leaderboard')
-    return ContentService.createTextOutput('ASME Games leaderboard service');
+  if (p.action !== 'gamesLeaderboard') return null;
   const callback = String(p.callback || '');
   if (!/^__asmeGames_[a-f0-9]{32}$/.test(callback))
     return ContentService.createTextOutput('Invalid callback');
   let response;
   try {
-    if (p.origin !== GAMES.ORIGIN)
-      throw new Error('This site is not allowed to load the leaderboard.');
+    validateFrontendOrigin_(String(p.origin || ''));
     response = { ok: true, data: gamesLeaderboard_(p) };
   } catch (error) {
     response = { ok: false, error: error.message };
@@ -260,11 +287,13 @@ function doGet(e) {
     callback + '(' + JSON.stringify(response).replace(/</g, '\\u003c') + ');',
   ).setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
-function doPost(e) {
+function asmeGamesPost_(e) {
   const p = e?.parameter || {};
+  if (!['gamesJoin', 'gamesScore'].includes(p.action)) return null;
   const response = { type: 'asme-games', callId: String(p.callId || '') };
   try {
-    if (p.origin !== GAMES.ORIGIN || !/^[a-f0-9]{32}$/.test(response.callId))
+    validateFrontendOrigin_(String(p.origin || ''));
+    if (!/^[a-f0-9]{32}$/.test(response.callId))
       throw new Error('This site is not allowed to submit game results.');
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(10000))
@@ -272,8 +301,8 @@ function doPost(e) {
         'The leaderboard is busy. Your score is saved; please retry.',
       );
     try {
-      if (p.action === 'join') response.data = gamesJoin_(p);
-      else if (p.action === 'score') response.data = gamesScore_(p);
+      if (p.action === 'gamesJoin') response.data = gamesJoin_(p);
+      else if (p.action === 'gamesScore') response.data = gamesScore_(p);
       else throw new Error('Unknown game action.');
       response.ok = true;
     } finally {
@@ -288,7 +317,7 @@ function doPost(e) {
     '<!doctype html><meta charset="utf-8"><script>window.top.postMessage(' +
       data +
       ',' +
-      JSON.stringify(GAMES.ORIGIN) +
+      JSON.stringify(String(p.origin || '')).replace(/</g, '\\u003c') +
       ');</script>',
   ).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }

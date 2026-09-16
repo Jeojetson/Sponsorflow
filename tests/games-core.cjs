@@ -136,7 +136,7 @@ const input = {
 };
 assert.equal(ctx.gamesScore_(input).record.points, 100);
 ctx.gamesScore_(input);
-assert.equal(backend.sheets.get('Results').rows.length, 2);
+assert.equal(backend.sheets.get('Games Results').rows.length, 2);
 assert.equal(
   ctx.gamesLeaderboard_({ period: 'today', game: 'all' }).rows[0].points,
   100,
@@ -156,13 +156,17 @@ const racing = {
 };
 ctx.gamesScore_(racing);
 ctx.gamesScore_(racing);
-assert.equal(backend.sheets.get('Results').rows.length, 3);
+assert.equal(backend.sheets.get('Games Results').rows.length, 3);
 assert.match(
-  backend.post({ action: 'score', origin: 'https://untrusted.test', ...input }),
+  backend.post({
+    action: 'gamesScore',
+    origin: 'https://untrusted.test',
+    ...input,
+  }),
   /not allowed/,
 );
 assert.equal(
-  backend.get({ action: 'leaderboard', callback: 'alert(1)' }),
+  backend.get({ action: 'gamesLeaderboard', callback: 'alert(1)' }),
   'Invalid callback',
 );
 assert.throws(
@@ -171,11 +175,115 @@ assert.throws(
 );
 assert.throws(() => ctx.gamesScore_({ ...input, version: 2 }), /Refresh/);
 // Equal point totals share a place even if the points came from different games.
-const differentWins = C.rank([
-  { playerId: 'a', name: 'A', day: today, game: 'word', points: 100, win: true },
-  { playerId: 'b', name: 'B', day: today, game: 'kart', points: 100, win: false },
-], 'today', today);
-assert.deepEqual(differentWins.map(row => row.rank), [1, 1]);
+const differentWins = C.rank(
+  [
+    {
+      playerId: 'a',
+      name: 'A',
+      day: today,
+      game: 'word',
+      points: 100,
+      win: true,
+    },
+    {
+      playerId: 'b',
+      name: 'B',
+      day: today,
+      game: 'kart',
+      points: 100,
+      win: false,
+    },
+  ],
+  'today',
+  today,
+);
+assert.deepEqual(
+  differentWins.map((row) => row.rank),
+  [1, 1],
+);
 console.log(
   'PASS: 120 daily sets, unique logic puzzles, all solutions, invalid proofs, deterministic kart replay, date rollover, ties, server identity, duplicate writes, restore, rename, origin and version checks.',
+);
+
+// The Games extension shares the existing workbook without modifying its data,
+// settings, attendance cache, or officer sessions.
+const integrated = makeBackend(undefined, { setup: false });
+const snapshot = () =>
+  JSON.stringify(
+    [...integrated.sheets].map(([name, sheet]) => [name, sheet.rows]),
+  );
+const legacyRows = snapshot();
+const legacyProperties = JSON.stringify([...integrated.properties]);
+const legacyCache = JSON.stringify([...integrated.cache]);
+assert.equal(integrated.context.setupGames(), integrated.book.getUrl());
+assert.equal(integrated.sheets.size, 15);
+assert.equal(
+  JSON.stringify(
+    [...integrated.sheets]
+      .filter(([name]) => !name.startsWith('Games '))
+      .map(([name, sheet]) => [name, sheet.rows]),
+  ),
+  legacyRows,
+);
+const afterSetup = snapshot();
+integrated.context.setupGames();
+assert.equal(snapshot(), afterSetup);
+assert.equal(JSON.stringify([...integrated.properties]), legacyProperties);
+assert.equal(JSON.stringify([...integrated.cache]), legacyCache);
+const routeContext = integrated.context;
+assert.equal(routeContext.asmeGamesGet_(), null);
+assert.equal(routeContext.asmeGamesPost_(), null);
+for (const action of integrated.legacyActions) {
+  assert.equal(routeContext.asmeGamesPost_({ parameter: { action } }), null);
+  assert.equal(JSON.parse(integrated.post({ action })).data.legacy, action);
+}
+for (const action of ['bootstrap', 'plannerBootstrap', 'attendanceBootstrap']) {
+  assert.match(
+    integrated.get({ action }),
+    new RegExp('"legacy":"' + action + '"'),
+  );
+}
+assert.equal(
+  routeContext.doGet({ parameter: { view: 'admin' } }).text,
+  'existing Admin.html',
+);
+assert.equal(
+  routeContext.doGet({ parameter: { feed: 'calendar' } }).text,
+  'existing calendar feed',
+);
+assert.match(
+  integrated.post({ action: 'gamesJoin', name: 'Test Member', code }),
+  /"ok":true/,
+);
+assert.match(integrated.get({ action: 'gamesLeaderboard' }), /"rows":\[\]/);
+assert.equal(JSON.stringify([...integrated.properties]), legacyProperties);
+assert.equal(
+  integrated.cache.get('ATTENDANCE_PUBLIC_BOOTSTRAP_V21'),
+  'existing attendance cache',
+);
+assert.equal(
+  integrated.cache.get('ADMIN_SESSION_existing'),
+  'existing session',
+);
+const collision = makeBackend(undefined, { setup: false });
+collision.book
+  .insertSheet('Games Results')
+  .appendRow(['existing', 'unrelated', 'data']);
+const beforeCollision = JSON.stringify(
+  [...collision.sheets].map(([name, sheet]) => [name, sheet.rows]),
+);
+assert.throws(() => collision.context.setupGames(), /different columns/);
+assert.equal(
+  JSON.stringify(
+    [...collision.sheets].map(([name, sheet]) => [name, sheet.rows]),
+  ),
+  beforeCollision,
+);
+assert.equal(collision.sheets.has('Games Players'), false);
+const missingConfig = makeBackend(undefined, { setup: false });
+missingConfig.properties.delete('SPREADSHEET_ID');
+assert.throws(() => missingConfig.context.setupGames(), /not configured/);
+assert.equal(missingConfig.sheets.size, 13);
+console.log(
+  'PASS: existing spreadsheet reuse, additive/idempotent setup, collision preflight, all 23 legacy POST routes, attendance/bootstrap/admin/calendar fallback, property and cache preservation.',
 );

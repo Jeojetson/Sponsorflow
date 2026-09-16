@@ -60,7 +60,12 @@
         else
           reject(
             new Error(
-              response?.error || 'The leaderboard could not be reached.',
+              [
+                'This read action is unavailable.',
+                'Unknown SponsorFlow action.',
+              ].includes(response?.error)
+                ? 'Shared rankings are not open yet. Your results are saved on this device.'
+                : response?.error || 'The leaderboard could not be reached.',
             ),
           );
       };
@@ -72,7 +77,13 @@
         )
           return;
         const response = event.data;
-        if (response?.type !== 'asme-games' || response.callId !== callId)
+        if (response?.callId !== callId) return;
+        // An older SponsorFlow deployment returns its own error envelope until
+        // the Games routing hooks are installed. Surface that error promptly.
+        if (
+          response.type !== 'asme-games' &&
+          !(response.type === 'sponsorflow-api' && response.ok === false)
+        )
           return;
         finish(response);
       };
@@ -84,7 +95,16 @@
           ),
         );
       }, 25000);
-      const fields = { ...payload, action, callId, origin: location.origin };
+      const fields = {
+        ...payload,
+        action: {
+          leaderboard: 'gamesLeaderboard',
+          join: 'gamesJoin',
+          score: 'gamesScore',
+        }[action],
+        callId,
+        origin: location.origin,
+      };
       if (read) {
         callback = '__asmeGames_' + callId;
         window[callback] = finish;

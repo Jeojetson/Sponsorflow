@@ -12,6 +12,7 @@ fs.mkdirSync(out, { recursive: true });
 const errors = [];
 const backend = makeBackend(base);
 let offline = false;
+let legacyDeployment = false;
 const requests = [];
 const replies = new Map();
 async function makePage(browser, width, theme = 'light', configured = true) {
@@ -29,10 +30,10 @@ async function makePage(browser, width, theme = 'light', configured = true) {
   );
   await ctx.route('**/*', async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/assets/games/config.js')
+    if (url.pathname === '/assets/config.js')
       return route.fulfill({
         contentType: 'text/javascript',
-        body: `window.ASME_GAMES_CONFIG={API_URL:${JSON.stringify(configured ? 'https://script.google.com/macros/s/TEST/exec' : '')}};`,
+        body: `window.SPONSORFLOW_CONFIG={API_URL:${JSON.stringify(configured ? 'https://script.google.com/macros/s/TEST/exec' : '')}};`,
       });
     if (url.hostname === 'n-fixture-script.googleusercontent.com')
       return route.fulfill({
@@ -47,8 +48,27 @@ async function makePage(browser, width, theme = 'light', configured = true) {
           : url.searchParams,
       );
       requests.push(input);
-      const body =
-        route.request().method() === 'POST'
+      const legacyReply = {
+        type: 'sponsorflow-api',
+        callId: input.callId,
+        ok: false,
+        error: 'Unknown SponsorFlow action.',
+      };
+      const body = legacyDeployment
+        ? route.request().method() === 'POST'
+          ? '<script>window.top.postMessage(' +
+            JSON.stringify(legacyReply) +
+            ',' +
+            JSON.stringify(base) +
+            ');</script>'
+          : input.callback +
+            '(' +
+            JSON.stringify({
+              ok: false,
+              error: 'This read action is unavailable.',
+            }) +
+            ');'
+        : route.request().method() === 'POST'
           ? backend.post(input)
           : backend.get(input);
       if (route.request().method() === 'POST') {
@@ -273,7 +293,7 @@ async function saved(page, id) {
     );
     await second.evaluate(() => (Date.now = () => 12345));
     await second.click('#gamePractice');
-    const before = backend.sheets.get('Results').rows.length;
+    const before = backend.sheets.get('Games Results').rows.length;
     await second.keyboard.type(
       C.puzzle('word', day + ':practice:12345').answer,
     );
@@ -283,7 +303,7 @@ async function saved(page, id) {
       await second.locator('#gameResult').innerText(),
       /Practice complete/i,
     );
-    assert.equal(backend.sheets.get('Results').rows.length, before);
+    assert.equal(backend.sheets.get('Games Results').rows.length, before);
     await second.context().close();
     // Race works through the animation clock, pause/resume, and repeated runs.
     await page.click('[data-play="kart"]');
@@ -313,7 +333,7 @@ async function saved(page, id) {
     // Daily result stays fixed after reload; no duplicate score rows.
     await page.reload();
     await page.waitForSelector('.leaderboard-row.is-you');
-    assert.equal(backend.sheets.get('Results').rows.length, 8);
+    assert.equal(backend.sheets.get('Games Results').rows.length, 8);
     await snap(page, 'leaderboard-mobile');
     const local = await makePage(browser, 320, 'dark', false);
     await open(local, 'numbers');
@@ -331,6 +351,35 @@ async function saved(page, id) {
     assert.equal(await local.locator('.mobile-officer-link').isVisible(), true);
     await local.context().close();
     await page.context().close();
+    assert(requests.some((r) => r.action === 'gamesJoin'));
+    assert(requests.some((r) => r.action === 'gamesScore'));
+    assert(requests.some((r) => r.action === 'gamesLeaderboard'));
+    assert(
+      requests.every((r) =>
+        ['gamesJoin', 'gamesScore', 'gamesLeaderboard'].includes(r.action),
+      ),
+    );
+    legacyDeployment = true;
+    const legacy = await makePage(browser, 390);
+    await open(legacy);
+    await legacy.waitForFunction(() =>
+      document
+        .querySelector('#gamesServiceStatus')
+        .textContent.includes('Shared rankings are not open yet'),
+    );
+    const legacyError = await legacy.evaluate(async () => {
+      try {
+        await window.SFGamesService.join('New Member');
+      } catch (error) {
+        return error.message;
+      }
+    });
+    assert.match(legacyError, /Shared rankings are not open yet/);
+    assert.equal(
+      await legacy.evaluate(() => window.SFGamesService.data.profile),
+      null,
+    );
+    await legacy.context().close();
     assert.deepEqual(errors, []);
     console.log(
       'PASS: seven games, physical/touch input, reload/resume, real transport against isolated backend, shared standings, second-device restore, race pause/retry, no duplicate results, and local-only fallback.',
