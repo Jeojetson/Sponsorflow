@@ -14,6 +14,12 @@ The repository contains historical Apps Script source, not a verified copy of th
 
 The current live Apps Script source was not available for integration testing; the optional snippet should be checked in that deployment before release.
 
+## Attendance
+
+Member check-in and its confirmation screen, duplicate handling, meeting passwords, officer login, meeting management, rosters, CSV export, and links into the current analytics dashboard are retained. Regression tests exercise the public and officer workflows using synthetic data at desktop and phone sizes. Background refreshes preserve the selected meeting, older team assignments survive editing, and saves leave a visible confirmation. Existing attendance records are not migrated or rewritten.
+
+The live Google-hosted analytics dashboard remains in its current deployment; its newer features must be preserved when applying the optional branding snippet.
+
 ## Remaining brand inputs
 
 - OneDrive resources folder URL.

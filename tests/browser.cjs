@@ -22,8 +22,23 @@ const mock=`(() => {
     return clone(task);
    }
    if(action==='movePlannerTask')throw new Error('Simulated save failure');
-   if(action==='attendanceBootstrap')return clone({teams:data.teams,meetings:data.meetings});
-   if(action==='attendanceCheckIn')return {duplicate:false,checkedInAt:new Date().toISOString(),meeting:data.meetings[0]};
+   if(action==='attendanceBootstrap') {if(window.__attendanceOffline)throw new Error('Service unavailable');return clone({teams:data.teams,meetings:data.meetings.filter(m=>m.active&&!m.archived)});}
+   if(action==='attendanceCheckIn') {
+    if(payload.code!=='test-code')throw new Error('Incorrect meeting password.');
+    data.records=data.records||[];
+    const prior=data.records.find(r=>r.meetingId===payload.meetingId&&r.memberName===payload.memberName);
+    if(prior)return {duplicate:true,record:clone(prior)};
+    const record={id:'REC-'+(data.records.length+1),meetingId:payload.meetingId,memberName:payload.memberName,checkedInAt:new Date().toISOString()};data.records.push(record);return {duplicate:false,record:clone(record)};
+   }
+   if(action==='attendanceAdminLogin'){if(payload.password!=='test-admin')throw new Error('Incorrect admin password.');return {token:'mock-session'};}
+   if(action==='attendanceAdminData')return clone({teams:data.teams,meetings:data.meetings.map(m=>({...m,teamName:m.teamName||data.teams.find(t=>t.id===m.teamId)?.name||'Club-wide',attendanceCount:(data.records||[]).filter(r=>r.meetingId===m.id).length})),records:data.records||[]});
+   if(action==='attendanceSaveMeeting'){
+    const index=data.meetings.findIndex(m=>m.id===payload.id);const old=data.meetings[index]||{};
+    const meeting={...old,...payload,id:payload.id||'MEET-NEW',teamName:data.teams.find(t=>t.id===payload.teamId)?.name||old.teamName||'Club-wide',archived:false};
+    if(index<0)data.meetings.push(meeting);else data.meetings[index]=meeting;return clone(meeting);
+   }
+   if(action==='attendanceArchiveMeeting'){const meeting=data.meetings.find(m=>m.id===payload.meetingId);meeting.archived=true;meeting.active=false;return {};}
+   if(action==='attendanceRemoveRecord'){data.records=data.records.filter(r=>r.id!==payload.recordId);return {};}
    if(action==='bootstrap')return {contacts:[],templates:[],memberNames:[],stats:null};
    if(action==='getRequestsByName')return [];
    throw new Error('Unexpected test action: '+action);
@@ -105,7 +120,7 @@ async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scrol
   await cal.click('#calendarNewEventTop');await cal.fill('#calendarEventTitle','Test meeting');await cal.evaluate(()=>window.__failAfterSave=true);await cal.click('#calendarEventSave');await cal.waitForFunction(()=>document.querySelector('#calendarEventId').value.startsWith('CREATED-'));const eventId=await cal.inputValue('#calendarEventId');await cal.click('#calendarEventSave');await cal.waitForSelector('#calendarEventDialog:not([open])',{state:'attached'});assert.equal(await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload.id),eventId);
   await cal.context().close();
   const anonymous=await pageFor(browser,390,'light',false);await open(anonymous,'planner');assert.equal(await anonymous.locator('dialog[open]').count(),0);await anonymous.click('#newTaskTopButton');assert.equal(await anonymous.locator('#identityDialog').evaluate(e=>e.open),true);await anonymous.fill('#identityDialogName','Jordan Lee');await anonymous.click('#identityDialogSave');await anonymous.waitForSelector('#taskDialog[open]');await screenshot(anonymous,'task-editor-mobile');assert.equal(await anonymous.locator('#taskDialog').evaluate(e=>e.scrollWidth<=e.clientWidth+2),true);await anonymous.context().close();
-  const attend=await pageFor(browser,390);await open(attend,'attendance');await attend.fill('#attendanceName','Jordan Lee');await attend.fill('#attendanceCode','test-code');await attend.click('#attendanceCheckInButton');await attend.waitForSelector('#attendanceSuccessDialog[open]');assert.match(await attend.locator('#attendanceSuccessTitle').innerText(),/checked in/i);await screenshot(attend,'attendance-confirmation');await attend.context().close();
-  assert.deepEqual(errors,[]);console.log('PASS: layout, themes, navigation, filters, task/event field preservation, conflicts, retry IDs, attendance confirmation.');
+  await require('./attendance.cjs')({browser,pageFor,open,screenshot,base,output});
+  assert.deepEqual(errors,[]);console.log('PASS: layout, themes, navigation, filters, task/event field preservation, conflicts, retry IDs, attendance member and officer workflows.');
  } finally {await browser.close();fs.writeFileSync(path.join(output,'errors.json'),JSON.stringify(errors,null,2));}
 })().catch(error=>{console.error(error);process.exitCode=1});
