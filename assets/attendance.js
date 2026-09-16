@@ -14,7 +14,8 @@
     records: [],
     rosterMeetingId: "",
     publicLoadedAt: 0,
-    publicLoadPromise: null
+    publicLoadPromise: null,
+    initialMeetingApplied: false
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -83,7 +84,7 @@
         }
         showConnectionError(error.message || "Attendance could not load.");
         setStatus($("#attendanceCheckInStatus"), "Unable to load meetings.", "error");
-        throw error;
+        return null;
       } finally {
         state.publicLoadPromise = null;
       }
@@ -123,9 +124,10 @@
     select.innerHTML = state.meetings.length
       ? '<option value="">Choose a meeting…</option>' + state.meetings.map(meeting => `<option value="${esc(meeting.id)}">${esc(meeting.title)} · ${esc(formatDate(meeting.meetingDate))}</option>`).join("")
       : '<option value="">No meetings are open</option>';
-    if (queryMeeting && state.meetings.some(meeting => meeting.id === queryMeeting)) select.value = queryMeeting;
+    if (!state.initialMeetingApplied && queryMeeting && state.meetings.some(meeting => meeting.id === queryMeeting)) select.value = queryMeeting;
     else if (previousMeeting && state.meetings.some(meeting => meeting.id === previousMeeting)) select.value = previousMeeting;
     else if (state.meetings.length === 1) select.value = state.meetings[0].id;
+    if (state.meetings.length) state.initialMeetingApplied = true;
     $("#attendanceMeetingCount").textContent = String(state.meetings.length);
     $("#attendanceMeetingList").innerHTML = state.meetings.length
       ? state.meetings.map(meetingCard).join("")
@@ -282,7 +284,11 @@
     $("#attendanceMeetingId").value = meeting.id;
     $("#attendanceMeetingTitle").value = meeting.title || "";
     $("#attendanceMeetingDate").value = meeting.meetingDate || "";
-    $("#attendanceMeetingTeam").value = meeting.teamId || "";
+    const teamSelect = $("#attendanceMeetingTeam");
+    if (meeting.teamId && ![...teamSelect.options].some(option => option.value === meeting.teamId)) {
+      teamSelect.add(new Option(meeting.teamName || "Previous team", meeting.teamId));
+    }
+    teamSelect.value = meeting.teamId || "";
     $("#attendanceMeetingStart").value = meeting.startTime || "";
     $("#attendanceMeetingEnd").value = meeting.endTime || "";
     $("#attendanceMeetingLocation").value = meeting.location || "";
@@ -317,12 +323,12 @@
     busy(button, true, "Saving…");
     try {
       const saved = await API.post("attendanceSaveMeeting", payload);
-      setStatus($("#attendanceMeetingFormStatus"), `${saved.title} saved. ${saved.active ? "Check-in is open." : "Check-in is closed."}`, "success");
       $("#attendanceMeetingId").value = saved.id;
       $("#attendanceMeetingCode").value = "";
       await loadAdminData();
       editMeeting(saved.id);
       await loadPublic();
+      setStatus($("#attendanceMeetingFormStatus"), `${saved.title} saved. ${saved.active ? "Check-in is open." : "Check-in is closed."}`, "success");
     } catch (error) {
       if (/session/i.test(error.message || "")) { clearAdminToken(); showAdminLogin(); }
       setStatus($("#attendanceMeetingFormStatus"), error.message || "Meeting could not be saved.", "error");
