@@ -1,0 +1,790 @@
+/* Purdue ASME member experience. Official colors, expanded type, clear edges. */
+:root,
+html[data-theme] {
+  --radius: 3px;
+  --radius-sm: 2px;
+  --radius-lg: 4px;
+  --shadow: 4px 4px 0 #10121a;
+}
+html[data-theme='dark'] {
+  --bg: #141620;
+  --surface: #202330;
+  --surface-2: #2c3041;
+  --surface-3: #40455c;
+  --text: #f5f2e9;
+  --muted: #c4c7d1;
+  --line: #4d5367;
+  --line-strong: #798098;
+}
+html[data-theme='light'] {
+  --bg: #f3f0e8;
+  --surface: #fffdf7;
+  --surface-2: #e9e5db;
+  --text: #242735;
+  --muted: #51576a;
+  --line: #b8b7b5;
+  --line-strong: #40455c;
+}
+body {
+  font-size: 16px;
+  font-weight: 500;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-body);
+  font-weight: 850;
+  font-stretch: 110%;
+}
+.eyebrow {
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+.site-header {
+  border-bottom: 2px solid var(--line-strong);
+  padding: 16px 24px;
+  gap: 16px;
+  background: var(--bg);
+}
+.brand {
+  flex-shrink: 0;
+}
+.brand-mark {
+  transform: none;
+  border-radius: 0;
+  font-weight: 900;
+}
+.brand-copy strong {
+  font-weight: 900;
+  font-size: 17px;
+}
+.brand-copy small {
+  font-size: 10px;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+}
+.top-nav {
+  gap: 5px;
+}
+.top-nav .nav-link {
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 9px 10px;
+  font-weight: 750;
+  font-size: 13px;
+}
+.top-nav .nav-link.is-active {
+  background: var(--brand-gold);
+  color: #191b25;
+  border-color: var(--brand-gold);
+  box-shadow: 2px 2px 0 var(--brand-slate);
+}
+.theme-toggle,
+.button,
+.planner-view-button,
+.calendar-view-switch button {
+  border-radius: 2px;
+  font-weight: 750;
+}
+.button {
+  border-width: 2px;
+  min-height: 44px;
+}
+.button-secondary {
+  border-color: var(--line-strong);
+}
+.button-primary {
+  box-shadow: 3px 3px 0 var(--brand-slate);
+}
+.button:hover {
+  transform: none;
+}
+.home-main {
+  max-width: 1440px;
+  padding: 28px 32px 56px;
+  margin: auto;
+}
+.chapter-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(240px, 0.7fr);
+  gap: 44px 30px;
+  padding: 64px 48px 0;
+  border: 2px solid var(--brand-slate);
+  background: #161923 url('official/background-wide.webp') center/cover;
+  color: #f5f2e9;
+  box-shadow: 8px 8px 0 var(--brand-gold);
+}
+.chapter-hero-copy .eyebrow {
+  color: #cfb991;
+  line-height: 1.6;
+}
+.chapter-hero h1 {
+  font-size: clamp(48px, 6.8vw, 100px);
+  font-weight: 900;
+  font-stretch: 125%;
+  font-variation-settings:
+    'wght' 900,
+    'wdth' 125;
+  letter-spacing: -0.04em;
+  line-height: 1.03;
+  margin: 28px 0;
+  color: #f5f2e9;
+}
+.chapter-hero h1 span {
+  color: #cfb991;
+}
+.chapter-hero-copy > p {
+  font-size: 18px;
+  max-width: 640px;
+  color: #e0e1e6;
+  line-height: 1.6;
+}
+.chapter-hero-copy .chapter-intro {
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.4;
+  color: #fff;
+}
+.chapter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 30px 0 10px;
+}
+.chapter-hero .button-secondary {
+  background: #1e2231;
+  color: #f5f2e9;
+  border-color: #a1a7ba;
+}
+.chapter-lockup {
+  margin: 0;
+  align-self: center;
+  border: 2px solid #cfb991;
+  background: #141722;
+}
+.chapter-lockup img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.chapter-lockup figcaption {
+  border-top: 2px solid #cfb991;
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 750;
+  color: #cfb991;
+}
+.chapter-strip {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px -48px 0;
+  padding: 20px 48px;
+  border-top: 2px solid #cfb991;
+  color: #cfb991;
+  font-weight: 900;
+  font-stretch: 125%;
+  font-size: clamp(12px, 1.7vw, 22px);
+  letter-spacing: 0.07em;
+}
+.chapter-about {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 48px;
+  padding: 90px 0 44px;
+}
+.chapter-section-head h2,
+.chapter-community h2 {
+  font-size: clamp(30px, 3.6vw, 52px);
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  margin: 16px 0 22px;
+}
+.chapter-about-copy p {
+  font-size: 18px;
+  line-height: 1.7;
+  margin: 0 0 18px;
+}
+.text-link {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.chapter-pillars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 2px solid var(--line-strong);
+}
+.chapter-pillars article {
+  padding: 26px 22px;
+  background: var(--surface);
+  border-right: 2px solid var(--line-strong);
+}
+.chapter-pillars article:last-child {
+  border-right: 0;
+}
+.chapter-pillars span {
+  color: var(--blue-ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+.chapter-pillars h3 {
+  font-size: 21px;
+  line-height: 1.2;
+  margin: 22px 0 12px;
+}
+.chapter-pillars p {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 0;
+}
+.chapter-projects {
+  margin: 78px 0;
+}
+.chapter-project-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+.chapter-project-grid article {
+  border: 2px solid var(--line-strong);
+  padding: 20px;
+  background: var(--surface);
+}
+.chapter-project-grid figure {
+  margin: 0 0 26px;
+}
+.chapter-project-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  background: #111;
+}
+.chapter-project-grid figcaption {
+  font-size: 12px;
+  font-weight: 750;
+  border-bottom: 2px solid var(--line-strong);
+  padding: 14px 0;
+}
+.chapter-project-grid h3 {
+  font-size: 30px;
+  margin: 14px 0;
+}
+.chapter-project-grid p {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.chapter-project-grid .button {
+  margin-top: 12px;
+}
+.chapter-community {
+  display: grid;
+  grid-template-columns: 1.05fr 0.8fr 0.8fr;
+  gap: 30px;
+  align-items: center;
+  border-block: 2px solid var(--line-strong);
+  padding: 42px 0;
+}
+.chapter-community p {
+  font-size: 17px;
+  line-height: 1.6;
+}
+.chapter-community img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 2px solid var(--line-strong);
+}
+.chapter-community .artwork-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 24px;
+}
+.home-modules {
+  margin-top: 78px;
+}
+.home-module-card {
+  border: 2px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 28px;
+  box-shadow: 4px 4px 0 #10121a;
+}
+.home-module-card h3 {
+  font-size: 25px;
+  margin: 24px 0 14px;
+}
+.home-module-card p {
+  font-size: 16px;
+  line-height: 1.6;
+}
+.home-module-index {
+  font-size: 12px;
+  font-weight: 850;
+  color: var(--blue-ink);
+}
+.home-module-link {
+  font-size: 14px;
+  font-weight: 800;
+}
+.home-games-banner,
+.resource-banner {
+  border: 2px solid var(--line-strong);
+  border-radius: 2px;
+  padding: 30px;
+}
+.home-games-banner h2,
+.resource-banner h2 {
+  font-size: 30px;
+}
+.home-games-banner p:not(.eyebrow),
+.resource-banner p {
+  font-size: 16px;
+}
+.site-footer {
+  font-size: 13px;
+  border-top: 2px solid var(--line-strong);
+}
+.workspace-sidebar {
+  font-size: 14px;
+}
+.workspace-explorer > summary {
+  font-size: 17px;
+}
+.sidebar-group > summary {
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.45;
+  padding-block: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.sidebar-item {
+  font-size: 13px;
+  line-height: 1.5;
+  padding-block: 11px;
+}
+.sidebar-label {
+  font-size: 11px;
+  font-weight: 850;
+}
+.board-overview h1,
+.calendar-head h1 {
+  font-size: clamp(28px, 3vw, 44px);
+  font-weight: 900;
+}
+.board-overview-copy > p {
+  font-size: 15px;
+  line-height: 1.6;
+}
+.field > span,
+.field label,
+.compact-field > span {
+  font-size: 12px;
+  font-weight: 800;
+}
+.field input,
+.field select,
+.field textarea {
+  font-size: 15px;
+}
+.planner-view-button,
+.quick-views button {
+  font-size: 13px;
+  min-height: 42px;
+}
+.work-row {
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  padding-block: 18px;
+}
+.work-row-title strong {
+  font-size: 16px;
+  font-weight: 800;
+}
+.work-row-title small {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.work-meta {
+  display: inline-block;
+  border: 1px solid var(--line-strong);
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 650;
+  border-radius: 2px;
+}
+.work-owner,
+.work-due,
+.work-progress {
+  font-size: 13px;
+}
+.work-status {
+  font-size: 11px;
+  white-space: normal;
+}
+.work-list-heading {
+  min-height: 48px;
+  font-size: 12px;
+  border-bottom: 2px solid var(--line-strong);
+}
+.work-list-heading button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-weight: 800;
+  min-height: 44px;
+  cursor: pointer;
+  padding: 0;
+}
+.sort-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+.sort-toolbar label {
+  font-size: 13px;
+  font-weight: 800;
+}
+.sort-toolbar select {
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+.sort-toolbar button {
+  font-size: 13px;
+}
+.legacy-work {
+  border-top: 2px solid var(--line-strong);
+  margin-top: 24px;
+  padding-top: 8px;
+}
+.legacy-work > summary {
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 14px 0;
+  font-weight: 750;
+}
+.sync-indicator {
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 18px;
+  margin: 12px 0;
+}
+.calendar-agenda-title {
+  font-size: 16px;
+}
+.calendar-agenda-meta {
+  font-size: 13px;
+}
+.game-card {
+  border: 2px solid var(--line-strong);
+  border-radius: 2px;
+  box-shadow: 4px 4px 0 #10121a;
+}
+.game-card-copy > strong {
+  font-size: 23px;
+}
+.game-card-copy > span {
+  font-size: 14px;
+}
+.games-hero h1 {
+  font-family: var(--font-body);
+  font-stretch: 125%;
+  font-weight: 900;
+}
+.game-session-stats {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  padding: 12px 0;
+  border-block: 1px solid var(--line-strong);
+  margin: 14px 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.game-session-stats span {
+  color: var(--muted);
+}
+.game-session-stats strong {
+  color: var(--text);
+}
+.score-breakdown {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 18px 0;
+  font-size: 15px;
+}
+.score-breakdown strong {
+  display: block;
+  font-size: 23px;
+}
+.score-sync {
+  font-size: 14px;
+  padding: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-2);
+}
+.leaderboard-row small {
+  font-size: 11px;
+}
+.leaderboard-row {
+  font-size: 14px;
+}
+.game-timer-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (min-width: 1100px) {
+  .work-list-heading,
+  .work-row {
+    grid-template-columns:
+      minmax(220px, 1.8fr) minmax(110px, 0.8fr) minmax(90px, 0.8fr)
+      110px 70px;
+  }
+}
+@media (max-width: 1100px) {
+  .site-header {
+    flex-wrap: wrap;
+  }
+  .chapter-hero {
+    padding: 42px 30px 0;
+    gap: 24px;
+  }
+  .chapter-strip {
+    margin-inline: -30px;
+    padding-inline: 30px;
+  }
+  .chapter-hero h1 {
+    font-size: clamp(46px, 6.8vw, 76px);
+  }
+  .chapter-hero-copy .chapter-intro {
+    font-size: 21px;
+  }
+  .chapter-pillars {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chapter-pillars article:nth-child(2) {
+    border-right: 0;
+  }
+  .chapter-pillars article:nth-child(-n + 2) {
+    border-bottom: 2px solid var(--line-strong);
+  }
+  .chapter-community {
+    grid-template-columns: 1fr 1fr;
+  }
+  .chapter-community > div {
+    grid-column: 1/-1;
+  }
+  .chapter-community img {
+    max-height: 560px;
+    object-fit: contain;
+    background: var(--surface);
+  }
+  .chapter-about {
+    gap: 28px;
+  }
+}
+@media (max-width: 720px) {
+  body {
+    font-size: 16px;
+  }
+  .site-header {
+    padding: 12px 16px;
+  }
+  .brand-copy strong {
+    font-size: 14px;
+  }
+  .brand-copy small {
+    font-size: 8px;
+  }
+  .brand-mark {
+    font-size: 16px;
+    width: 50px;
+  }
+  .home-main {
+    padding: 18px 16px 36px;
+  }
+  .chapter-hero {
+    grid-template-columns: 1fr;
+    padding: 32px 22px 0;
+    box-shadow: 5px 5px 0 var(--brand-gold);
+    background-image: url('official/background-tall.webp');
+  }
+  .chapter-hero h1 {
+    font-size: clamp(38px, 10.3vw, 72px);
+    margin: 26px 0;
+  }
+  .chapter-hero-copy .eyebrow {
+    font-size: 10px;
+  }
+  .chapter-hero-copy .chapter-intro {
+    font-size: 21px;
+  }
+  .chapter-hero-copy > p {
+    font-size: 16px;
+  }
+  .chapter-actions {
+    display: grid;
+    gap: 12px;
+  }
+  .chapter-lockup {
+    max-width: 290px;
+    justify-self: center;
+  }
+  .chapter-strip {
+    margin: 6px -22px 0;
+    padding: 17px 14px;
+    font-size: 10px;
+    gap: 8px;
+  }
+  .chapter-about {
+    grid-template-columns: 1fr;
+    padding-top: 58px;
+    gap: 8px;
+  }
+  .chapter-about-copy p {
+    font-size: 16px;
+  }
+  .chapter-section-head h2,
+  .chapter-community h2 {
+    font-size: 34px;
+  }
+  .chapter-pillars article {
+    padding: 20px 16px;
+  }
+  .chapter-pillars h3 {
+    font-size: 18px;
+  }
+  .chapter-pillars p {
+    font-size: 14px;
+  }
+  .chapter-project-grid {
+    grid-template-columns: 1fr;
+  }
+  .chapter-projects {
+    margin: 50px 0;
+  }
+  .chapter-project-grid h3 {
+    font-size: 26px;
+  }
+  .chapter-project-grid p {
+    font-size: 16px;
+  }
+  .chapter-community {
+    gap: 16px;
+    padding: 30px 0;
+  }
+  .chapter-community p {
+    font-size: 16px;
+  }
+  .home-module-card {
+    padding: 23px;
+  }
+  .home-modules {
+    margin-top: 50px;
+  }
+  .home-games-banner h2,
+  .resource-banner h2 {
+    font-size: 26px;
+  }
+  .workspace-explorer[open] > nav {
+    max-height: 45vh;
+    overflow: auto;
+  }
+  .work-row-title strong {
+    font-size: 15px;
+  }
+  .work-meta {
+    font-size: 10px;
+  }
+  .mobile-app-link {
+    border: 1px solid var(--line);
+    border-radius: 0;
+  }
+  .mobile-app-link.is-active {
+    border-color: var(--brand-gold);
+  }
+  .mobile-app-nav {
+    gap: 4px;
+  }
+  .sort-toolbar {
+    gap: 8px;
+  }
+  .sort-toolbar select {
+    max-width: 160px;
+  }
+  .game-session-stats {
+    font-size: 13px;
+    gap: 12px;
+  }
+  .game-card-copy > strong {
+    font-size: 21px;
+  }
+  .field input,
+  .field select,
+  .field textarea {
+    font-size: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+/* Keep the puzzle and keyboard together on short phones. */
+@media (max-width: 720px) and (max-height: 740px) {
+  .game-playing .game-session-stats {
+    padding: 8px 0;
+    margin: 8px 0;
+  }
+  .game-playing .game-timer-note {
+    font-size: 11px;
+    line-height: 1.4;
+    margin: 8px 0 12px;
+  }
+  .game-playing .game-description {
+    margin: 6px 0 10px;
+  }
+  .game-playing .word-board {
+    max-width: clamp(170px, calc((100dvh - 430px) * 0.8), 240px);
+  }
+  .game-playing .word-legend {
+    margin: 8px 0 12px;
+  }
+}
+.calendar-agenda-panel {
+  border: 2px solid var(--line-strong);
+  border-radius: 2px;
+}
+.calendar-agenda-copy strong {
+  font-size: 16px;
+  font-weight: 800;
+}
+.calendar-agenda-copy small {
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+.calendar-agenda-date {
+  font-size: 13px;
+  font-weight: 750;
+}

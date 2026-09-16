@@ -173,7 +173,7 @@ assert.throws(
   () => ctx.gamesScore_({ ...input, day: '2099-01-01' }),
   /35 days/,
 );
-assert.throws(() => ctx.gamesScore_({ ...input, version: 2 }), /Refresh/);
+assert.throws(() => ctx.gamesScore_({ ...input, version: 3 }), /Refresh/);
 // Equal point totals share a place even if the points came from different games.
 const differentWins = C.rank(
   [
@@ -286,4 +286,134 @@ assert.throws(() => missingConfig.context.setupGames(), /not configured/);
 assert.equal(missingConfig.sheets.size, 13);
 console.log(
   'PASS: existing spreadsheet reuse, additive/idempotent setup, collision preflight, all 23 legacy POST routes, attendance/bootstrap/admin/calendar fallback, property and cache preservation.',
+);
+
+// Timed scoring keeps legacy records and new rankings in separate versions.
+const fast = C.scoreTimed('word', p, { guesses: [p.answer], elapsedMs: 1000 });
+const slow = C.scoreTimed('word', p, {
+  guesses: [p.answer],
+  elapsedMs: 121000,
+});
+assert.equal(fast.points, 1000);
+assert.equal(fast.accuracy, 100);
+assert.equal(fast.accuracyPoints, 800);
+assert.equal(fast.speedPoints, 200);
+assert.equal(slow.accuracyPoints, 800);
+assert(slow.speedPoints < 200);
+const wrong = C.WORDS.find((w) => w !== p.answer);
+assert.equal(
+  C.scoreTimed('word', p, { guesses: [wrong, p.answer], elapsedMs: 1000 })
+    .accuracy,
+  90,
+);
+const queenPuzzle = C.puzzle('queens', today),
+  queenProof = {
+    cells: queenPuzzle.solution.map((v, r) => r * 6 + v),
+    elapsedMs: 1000,
+    corrections: 2,
+  };
+assert.equal(C.scoreTimed('queens', queenPuzzle, queenProof).points, 840);
+assert.equal(
+  C.scoreTimed('queens', queenPuzzle, { ...queenProof, corrections: 200 })
+    .accuracy,
+  10,
+);
+assert.equal(
+  C.scoreTimed('word', p, { guesses: Array(6).fill(wrong), elapsedMs: 1000 })
+    .points,
+  0,
+);
+for (const elapsedMs of [0, 999, NaN, Infinity, -1, 35 * 86400000 + 1])
+  assert.throws(() =>
+    C.scoreTimed('word', p, { guesses: [p.answer], elapsedMs }),
+  );
+assert.throws(() =>
+  C.scoreTimed('queens', queenPuzzle, { ...queenProof, corrections: -1 }),
+);
+assert.throws(() =>
+  C.scoreTimed('kart', { seed }, { events, frames: 2700, elapsedMs: 45000 }),
+);
+const timed = {
+  ...input,
+  version: 2,
+  proof: JSON.stringify({ guesses: [p.answer], elapsedMs: 1000 }),
+};
+assert.equal(ctx.gamesScore_(timed).record.points, 1000);
+assert.equal(
+  ctx.gamesScore_({
+    ...timed,
+    proof: JSON.stringify({ guesses: [p.answer], elapsedMs: 999999 }),
+  }).record.points,
+  1000,
+);
+const timedBoard = ctx.gamesLeaderboard_({
+  version: 2,
+  period: 'today',
+  game: 'all',
+});
+assert.equal(timedBoard.rows[0].points, 1000);
+assert.equal(timedBoard.rows[0].played, 1);
+assert.equal(
+  ctx.gamesLeaderboard_({ version: 1, period: 'today', game: 'word' }).rows[0]
+    .points,
+  100,
+);
+const upgrade = makeBackend(undefined, { setup: false });
+upgrade.book
+  .insertSheet('Games Players')
+  .appendRow([
+    'playerId',
+    'codeHash',
+    'name',
+    'nameKey',
+    'createdAt',
+    'updatedAt',
+  ]);
+const oldSheet = upgrade.book.insertSheet('Games Results');
+oldSheet.appendRow([
+  'id',
+  'playerId',
+  'day',
+  'game',
+  'points',
+  'win',
+  'detail',
+  'proofHash',
+  'completedAt',
+]);
+oldSheet.appendRow([
+  'old-id',
+  'old-player',
+  new Date(today + 'T12:00:00Z'),
+  'word',
+  100,
+  true,
+  'Solved',
+  'hash',
+  'saved',
+]);
+const oldRow = JSON.stringify(oldSheet.rows[1]);
+upgrade.context.setupGames();
+assert.equal(oldSheet.rows[0].length, 15);
+assert.equal(JSON.stringify(oldSheet.rows[1]), oldRow);
+upgrade.context.setupGames();
+assert.equal(oldSheet.rows.length, 2);
+assert.equal(
+  upgrade.context.gamesLeaderboard_({
+    version: 1,
+    period: 'today',
+    game: 'all',
+  }).rows[0].points,
+  100,
+);
+assert.equal(
+  upgrade.context.gamesLeaderboard_({
+    version: 2,
+    period: 'today',
+    game: 'all',
+  }).rows.length,
+  0,
+);
+console.log(
+  'PASS: time/accuracy scoring, score bounds, failed rounds, version-separated standings, stable retries, date cells, and lossless v1 schema upgrade.',
 );

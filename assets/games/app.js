@@ -22,43 +22,37 @@
     binary: '☀ ◐',
     path: '<svg viewBox="0 0 100 65" aria-hidden="true"><path d="M15 15H85V50H15V32H62"/><circle cx="15" cy="15" r="6"/><circle cx="62" cy="32" r="6"/></svg>',
     numbers: '<span class="mini-numbers">8 × 4<br><small>+ 12</small></span>',
-    kart: '<svg viewBox="0 0 100 65" aria-hidden="true"><path class="kart-body" d="M39 11h22l8 14v26H31V25z"/><path d="M38 40h24M41 31h18M46 18h8"/><rect x="21" y="18" width="11" height="16" rx="3"/><rect x="68" y="18" width="11" height="16" rx="3"/><rect x="21" y="43" width="11" height="15" rx="3"/><rect x="68" y="43" width="11" height="15" rx="3"/></svg>',
   };
   const rules = {
     word: [
       'Guess the five-letter word in six tries. Enter a word with the on-screen keyboard or your keyboard.',
       'A filled gold tile means the right letter in the right place. Blue means the letter is elsewhere. A gray tile means it is not needed. Letters are matched only as many times as they occur.',
-      'A win earns 100 points on the first guess, then 10 fewer per extra guess. Today’s result is final. Practice rounds do not count.',
+      'Up to 1,000 points: accuracy contributes up to 800, speed up to 200. Each extra valid guess reduces accuracy by 10 percentage points. Today’s first result counts.',
     ],
     groups: [
       'Select four words that share a connection, then submit your group. Find all four groups.',
       'Four incorrect groups end the daily puzzle. Each correct group is removed from the board.',
-      'A win earns 100 points, minus 15 for each mistake. Shuffle only changes the word order.',
+      'Each incorrect group reduces accuracy by 10 percentage points. Speed adds up to 200 points to the accuracy score. Shuffle only changes the word order.',
     ],
     queens: [
       'Place exactly one crown in each row, column, and colored region. Crowns cannot touch, including diagonally.',
       'Tap a square to place or remove a crown. Use the Mark × tool to rule out squares. Region letters and thick borders also identify each region.',
-      'Check your grid when ready. A solved grid earns 100 points. You can correct mistakes without a time penalty.',
+      'Check your grid when ready. Up to 1,000 points for accuracy and speed. Failed checks, undo, and reset each count as a correction.',
     ],
     binary: [
       'Fill each empty square with a sun or a moon. Each row and column needs three of each.',
       'Never place three identical symbols in a row, horizontally or vertically. No two complete rows or columns may match. Locked squares are clues.',
-      'Tap to cycle empty → sun → moon → empty. A solved grid earns 100 points.',
+      'Tap to cycle empty → sun → moon → empty. Up to 1,000 points for accuracy and speed. Failed checks, undo, and reset each count as a correction.',
     ],
     path: [
       'Start at checkpoint 1. Draw one continuous path through every square, visiting numbered checkpoints in order and finishing at 5.',
       'Move horizontally or vertically. Tap squares or drag through them. Tap an earlier square to backtrack. Arrow keys extend a route when the grid is focused.',
-      'Every square must be visited once. A complete route earns 100 points.',
+      'Every square must be visited once. Up to 1,000 points for accuracy and speed. Backtracking, undo, and reset each count as a correction.',
     ],
     numbers: [
       'Combine all four numbers to make the target. Tap a number, an operator, then another number. The two numbers become one.',
       'Use +, −, ×, or ÷. Intermediate answers must be whole numbers and cannot be negative. Order matters for subtraction and division.',
-      'Undo a step or reset whenever you need. Reaching the target with all four numbers earns 100 points.',
-    ],
-    kart: [
-      'Stay on track for 45 seconds. Switch lanes to dodge cones and collect blue charge packs. Three cone hits end a run.',
-      'Use the arrow buttons, swipe left or right on the track, or use ← / → (A / D) on a keyboard. The game pauses when you leave the tab.',
-      'Earn 1.5 points per second and 3 per charge pack, minus 5 per hit, up to 100. Today’s best run counts. Everyone gets the same daily course.',
+      'Undo a step or reset whenever you need. Earn up to 1,000 points for accuracy and speed. Undo and reset count as corrections.',
     ],
   };
   let day = C.dayKey(),
@@ -66,9 +60,6 @@
     period = 'today',
     boardGame = 'all',
     current = null,
-    raceRAF = 0,
-    raceClock = 0,
-    raceBank = 0,
     boardRequest = 0;
   function message(text, tone = '') {
     const host = $('#gameMessage');
@@ -79,7 +70,12 @@
     $('#gamesServiceStatus').textContent = text;
   }
   function dailyResults() {
-    return S.data.results.filter((r) => r.day === day);
+    return S.data.results.filter(
+      (r) =>
+        r.day === day &&
+        r.version === C.SCORING_VERSION &&
+        C.GAMES.some((game) => game.id === r.game),
+    );
   }
   function renderHub() {
     $('#gamesDate').textContent = new Date(
@@ -91,7 +87,7 @@
     });
     const results = dailyResults();
     $('#gamesDailyProgress').textContent =
-      `${results.length} of 7 played today · ${results.reduce((sum, r) => sum + r.points, 0)} points`;
+      `${results.length} of 6 played today · ${results.reduce((sum, r) => sum + r.points, 0)} points`;
     $('#gameCatalog').innerHTML = C.GAMES.filter(
       (g) =>
         category === 'All' ||
@@ -101,7 +97,7 @@
       .map((g) => {
         const result = S.result(day, g.id),
           run = S.getRun(day, g.id);
-        return `<button class="game-card game-card-${g.id}" type="button" data-play="${g.id}"><span class="game-art" aria-hidden="true">${symbols[g.icon]}</span><span class="game-card-copy"><span class="game-card-meta">${g.kind} <span>· ${g.minutes}</span></span><strong>${g.name}</strong><span>${g.description}</span><span class="game-card-footer">${result ? `<b>${result.points} points</b><span>${g.id === 'kart' ? 'Race again ↗' : 'View result ↗'}</span>` : `<b>${run ? 'Continue' : 'Play today'}</b><span>↗</span>`}</span></span></button>`;
+        return `<button class="game-card game-card-${g.id}" type="button" data-play="${g.id}"><span class="game-art" aria-hidden="true">${symbols[g.icon]}</span><span class="game-card-copy"><span class="game-card-meta">${g.kind} <span>· ${g.minutes}</span></span><strong>${g.name}</strong><span>${g.description}</span><span class="game-card-footer">${result ? `<b>${result.points} points</b><span>View result ↗</span>` : `<b>${run ? 'Continue' : 'Play today'}</b><span>↗</span>`}</span></span></button>`;
       })
       .join('');
     $('#gamesProfileOpen').textContent = S.data.profile
@@ -113,7 +109,7 @@
       ? `<div class="leaderboard-table" role="table" aria-label="Club rankings"><div class="leaderboard-row leaderboard-head" role="row"><span role="columnheader">Rank</span><span role="columnheader">Player</span><span role="columnheader">Played</span><span role="columnheader">Points</span></div>${rows.map((r) => `<div class="leaderboard-row${r.playerId === S.data.profile?.playerId ? ' is-you' : ''}" role="row"><span role="cell">${r.rank}</span><strong role="cell">${esc(r.name)}${r.playerId === S.data.profile?.playerId ? '<small> You</small>' : ''}</strong><span role="cell">${r.played}</span><b role="cell">${r.points}</b></div>`).join('')}</div>`
       : '<div class="games-empty"><strong>The first place is open.</strong><p>Finish a game and join the club rankings to put your name here.</p></div>';
   }
-  async function loadBoard() {
+  async function loadBoard(force = false) {
     const request = ++boardRequest;
     $('#leaderboardRefresh').disabled = true;
     if (!S.configured()) {
@@ -125,7 +121,7 @@
     }
     notifyService('Loading club standings…');
     try {
-      const board = await S.leaderboard(period, boardGame);
+      const board = await S.leaderboard(period, boardGame, force === true);
       if (request !== boardRequest) return;
       renderBoard(board.rows);
       notifyService(
@@ -138,7 +134,11 @@
     } catch (e) {
       if (request !== boardRequest) return;
       const cache = S.data.board;
-      if (cache?.period === period && cache?.game === boardGame) {
+      if (
+        cache?.version === C.SCORING_VERSION &&
+        cache?.period === period &&
+        cache?.game === boardGame
+      ) {
         renderBoard(cache.rows);
         notifyService(
           `Showing saved standings from ${new Date(cache.savedAt).toLocaleString()}. ${e.message}`,
@@ -170,31 +170,23 @@
           selected: -1,
           operator: '',
         };
-      case 'kart':
-        return { state: C.raceInitial(), events: [], started: false };
     }
   }
   function persist() {
     if (current && !current.practice)
       S.saveRun(current.day, current.id, current.run);
   }
-  function stopRace() {
-    cancelAnimationFrame(raceRAF);
-    raceRAF = 0;
-    raceClock = 0;
-    raceBank = 0;
-    if (current?.id === 'kart') {
-      current.running = false;
-      persist();
-    }
-  }
   function openGame(id, practice = false) {
     const game = C.GAMES.find((g) => g.id === id);
     if (!game) return;
-    stopRace();
     const seedDay = practice ? day + ':practice:' + Date.now() : day;
     const p = C.puzzle(id, seedDay);
-    const run = (!practice && S.getRun(day, id)) || freshRun(id, p);
+    const run = (!practice && S.getRun(day, id)) || {
+      ...freshRun(id, p),
+      startedAt: Date.now(),
+      corrections: 0,
+      scoringVersion: C.SCORING_VERSION,
+    };
     current = {
       id,
       game,
@@ -204,7 +196,6 @@
       day,
       seedDay,
       result: practice ? null : S.result(day, id),
-      running: false,
     };
     document.body.classList.add('game-playing');
     document.body.dataset.game = id;
@@ -223,19 +214,21 @@
       ? 'Practice'
       : current.result
         ? current.result.points + ' points'
-        : 'Up to 100 points';
+        : 'Up to 1,000 points';
     $('#gameResult').hidden = true;
-    $('#gameReset').hidden = ['word', 'groups', 'kart'].includes(id);
+    $('#gameReset').hidden = ['word', 'groups'].includes(id);
     $('#gamePractice').hidden = practice;
     message('');
     renderGame();
-    if (current.result && id !== 'kart') showResult(current.result);
+    if (current.result) showResult(current.result);
     $('#gameTitle').focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'instant' });
+    persist();
+    updateTimer();
     if (!practice) history.replaceState(null, '', '#' + id);
   }
   function back() {
-    stopRace();
+    persist();
     current = null;
     document.body.classList.remove('game-playing');
     delete document.body.dataset.game;
@@ -250,7 +243,12 @@
   function finish(proof) {
     if (!current) return;
     try {
-      const outcome = C.validate(current.id, current.puzzle, proof);
+      proof = {
+        ...proof,
+        elapsedMs: Math.max(1000, Date.now() - current.run.startedAt),
+        corrections: current.run.corrections || 0,
+      };
+      const outcome = C.scoreTimed(current.id, current.puzzle, proof);
       const record = {
         ...outcome,
         day: current.day,
@@ -263,46 +261,92 @@
         current.result = record;
         persist();
       } else current.result = record;
-      stopRace();
       renderGame();
       showResult(record);
       if (!current.practice && S.data.profile) {
         syncResults();
       }
     } catch (e) {
+      current.run.corrections = (current.run.corrections || 0) + 1;
+      persist();
+      updateTimer();
       message(e.message, 'error');
     }
   }
   function showResult(result) {
     const host = $('#gameResult');
     host.hidden = false;
-    host.innerHTML = `<p class="eyebrow">${current.practice ? 'Practice complete' : current.id === 'kart' ? 'Run complete' : result.win ? 'Solved' : 'Today’s result'}</p><h2>${current.id === 'kart' ? `${result.points} points` : result.win ? 'Nicely done.' : 'A fresh puzzle tomorrow.'}</h2><p>${esc(result.detail)}${current.id === 'word' ? ` · The word was <strong>${current.puzzle.answer}</strong>.` : ''}</p><p>${current.practice ? 'Practice scores stay out of the rankings.' : `${result.points} points${current.id === 'kart' ? ' · Best today: ' + S.result(current.day, 'kart').points : ''}. ${S.configured() ? (S.data.profile ? 'Your score is saved.' : 'Join the leaderboard to add it to the club standings.') : 'Your result is saved on this device.'}`}</p><div class="result-actions"><button class="button button-primary" type="button" data-result-action="next">More games</button><button class="button button-secondary" type="button" data-result-action="share">Copy result</button>${!S.data.profile && !current.practice ? '<button class="button button-ghost" type="button" data-result-action="join">Join rankings</button>' : ''}</div>`;
+    const synced = result.synced === true;
+    host.innerHTML = `<p class="eyebrow">${current.practice ? 'Practice complete' : result.win ? 'Solved' : 'Today’s result'}</p><h2>${result.win ? 'Challenge complete.' : 'A fresh puzzle tomorrow.'}</h2><p>${esc(result.detail)}${current.id === 'word' ? ` · The word was <strong>${current.puzzle.answer}</strong>.` : ''}</p><div class="score-breakdown"><span><strong>${result.points}</strong>points</span><span><strong>${result.accuracy}%</strong>accuracy</span><span><strong>${Math.floor(result.elapsedMs / 60000)}:${String(Math.floor(result.elapsedMs / 1000) % 60).padStart(2, '0')}</strong>time</span></div><p>${result.accuracyPoints} accuracy points + ${result.speedPoints} speed points.</p><p class="score-sync">${current.practice ? 'Practice is unranked.' : synced ? 'Synced to the club leaderboard.' : S.data.profile ? 'Saved on this device · waiting to sync.' : 'Saved on this device. Join rankings to share your result.'}</p><div class="result-actions"><button class="button button-primary" type="button" data-result-action="next">More games</button><button class="button button-secondary" type="button" data-result-action="share">Copy result</button>${!S.data.profile && !current.practice ? '<button class="button button-ghost" type="button" data-result-action="join">Join rankings</button>' : ''}</div>`;
+    updateTimer();
     $('#gamePoints').textContent = result.points + ' points';
     $('#gameReset').hidden = true;
     message('');
   }
   async function syncResults() {
+    const status = $('#gamesSyncStatus');
+    $('#gamesSyncButton').disabled = true;
     try {
+      if (!S.data.profile) {
+        status.textContent = S.data.pending.length
+          ? `${S.data.pending.length} result(s) saved on this device. Join rankings to sync.`
+          : 'Join rankings to share your results.';
+        return;
+      }
+      status.textContent = S.data.pending.length
+        ? `Syncing ${S.data.pending.length} result(s)…`
+        : 'Checking your scores…';
       await S.sync();
-      notifyService('Your scores are synced.');
-      if (
-        current?.result &&
-        !current.practice &&
-        S.configured() &&
-        S.data.profile
-      )
-        message('Your result is on the club leaderboard.', 'success');
+      status.textContent = S.data.pending.length
+        ? `${S.data.pending.length} result(s) waiting to sync.`
+        : 'All scores synced to the club.';
+      if (current?.result && !current.practice) {
+        current.result = S.result(current.day, current.id) || current.result;
+        showResult(current.result);
+      }
+      await loadBoard(true);
     } catch (e) {
-      notifyService(e.message);
-      if (current?.result) message(e.message, 'error');
+      status.textContent =
+        e.message +
+        (S.data.pending.length
+          ? ` ${S.data.pending.length} result(s) still saved on this device.`
+          : '');
+      if (current?.result)
+        message('Saved on this device. Use Sync scores to retry.', 'error');
+    } finally {
+      $('#gamesSyncButton').disabled =
+        !S.data.profile || !S.data.pending.length;
     }
   }
+  function updateTimer() {
+    if (!current) return;
+    const ms =
+      current.result?.elapsedMs ||
+      Math.max(0, Date.now() - current.run.startedAt);
+    const seconds = Math.floor(ms / 1000);
+    $('#gameTimer').textContent =
+      Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+    const count =
+      current.id === 'word'
+        ? current.run.guesses.filter((guess) => guess !== current.puzzle.answer)
+            .length
+        : current.id === 'groups'
+          ? current.run.attempts.filter(
+              (attempt) =>
+                !current.puzzle.groups.some((group) =>
+                  attempt.every((word) => group.words.includes(word)),
+                ),
+            ).length
+          : current.run.corrections || 0;
+    $('#gameCorrections').textContent = current.result?.mistakes ?? count;
+  }
+  setInterval(updateTimer, 500);
   function button(label, action, extra = '') {
     return `<button class="button button-secondary" type="button" data-game-action="${action}" ${extra}>${label}</button>`;
   }
   function renderGame() {
     const { id, puzzle: p, run: r, result } = current;
-    const done = !!result && id !== 'kart';
+    const done = !!result;
     const host = $('#gameStage');
     if (id === 'word') {
       const marks = {};
@@ -384,9 +428,6 @@
     }
     if (id === 'numbers') {
       host.innerHTML = `<div class="number-target"><span>Today’s target</span><strong>${p.target}</strong></div><div class="number-tiles">${r.values.map((item, i) => `<button type="button" data-number="${i}" aria-pressed="${r.selected === i}"${done ? ' disabled' : ''}>${item.value}</button>`).join('')}</div><div class="number-operators">${['+', '−', '×', '÷'].map((op) => `<button type="button" data-operator="${op}" aria-pressed="${r.operator === op}" aria-label="${{ '+': 'Add', '−': 'Subtract', '×': 'Multiply', '÷': 'Divide' }[op]}"${done ? ' disabled' : ''}>${op}</button>`).join('')}</div><p class="grid-hint">${r.selected >= 0 ? `${r.values[r.selected]?.value ?? ''} ${r.operator || '· Choose an operator'}${r.operator ? ' · Choose the second number' : ''}` : 'Choose a number to begin.'}</p><ol class="number-history">${(r.steps || []).map((step) => `<li>${esc(step)}</li>`).join('')}</ol><div class="game-controls">${button('Undo', 'undo', !r.history.length || done ? 'disabled' : '')}${button('Check answer', 'check', r.values.length !== 1 || done ? 'disabled' : '')}</div>`;
-    }
-    if (id === 'kart') {
-      renderRace();
     }
   }
   function saveAndRender() {
@@ -490,6 +531,8 @@
       p = current.puzzle;
     const existing = r.cells.indexOf(index);
     if (existing >= 0) {
+      if (existing < r.cells.length - 1)
+        r.corrections = (r.corrections || 0) + 1;
       r.cells = r.cells.slice(0, existing + 1);
       saveAndRender();
       return;
@@ -580,6 +623,12 @@
   }
   function undo() {
     const r = current.run;
+    if (
+      (current.id === 'numbers' && r.history.length) ||
+      (current.id === 'path' && r.cells.length) ||
+      r.undo?.length
+    )
+      r.corrections = (r.corrections || 0) + 1;
     if (current.id === 'numbers') {
       const old = r.history.pop();
       if (old) {
@@ -592,161 +641,6 @@
     else if (r.undo?.length) r.cells = r.undo.pop();
     message('');
     saveAndRender();
-  }
-  function renderRace() {
-    const r = current.run;
-    $('#gameStage').innerHTML =
-      `<div class="race-hud"><div><small>TIME</small><strong id="raceTime">${(r.state.frame / 60).toFixed(1)} / 45s</strong></div><div><small>CHARGE</small><strong id="raceCharge">${r.state.charge}</strong></div><div><small>HITS</small><strong id="raceHits">${r.state.hits} / 3</strong></div></div><div class="race-track"><canvas id="raceCanvas" width="440" height="540" aria-label="Three-lane kart track. Use the left and right buttons to avoid cones and collect charge."></canvas><div class="race-overlay" id="raceOverlay"${current.running ? ' hidden' : ''}><span class="eyebrow">ASME EV-Kart</span><strong>${r.state.ended ? 'Back to the grid?' : r.started ? 'Paused' : 'Your daily time trial'}</strong><p>${r.state.ended ? 'Race again to improve today’s best score.' : r.started ? 'Your run is saved. Pick up where you left off.' : '45 seconds. Three lives. Find a clean line.'}</p><button class="button button-primary" data-race-start type="button">${r.state.ended ? 'Race again' : r.started ? 'Resume run' : 'Start race'}</button></div></div><div class="race-controls"><button type="button" data-race-move="-1" aria-label="Steer left">← <span>Left</span></button><button type="button" id="racePause" aria-label="Pause race"${!current.running ? ' disabled' : ''}>Pause</button><button type="button" data-race-move="1" aria-label="Steer right"><span>Right</span> →</button></div><p class="grid-hint">Swipe the track or use ← / →. Blue charge is good. Orange cones aren’t.</p>`;
-    drawRace();
-    let startX = null;
-    $('#raceCanvas').addEventListener('pointerdown', (e) => {
-      startX = e.clientX;
-      $('#raceCanvas').setPointerCapture(e.pointerId);
-    });
-    $('#raceCanvas').addEventListener('pointerup', (e) => {
-      if (startX !== null && Math.abs(e.clientX - startX) > 18)
-        moveRace(e.clientX > startX ? 1 : -1);
-      startX = null;
-    });
-  }
-  function startRace() {
-    const r = current.run;
-    if (r.state.ended) {
-      r.state = C.raceInitial();
-      r.events = [];
-      current.result = null;
-      $('#gameResult').hidden = true;
-    }
-    r.started = true;
-    current.running = true;
-    raceClock = 0;
-    raceBank = 0;
-    renderRace();
-    persist();
-    raceRAF = requestAnimationFrame(raceFrame);
-  }
-  function moveRace(delta) {
-    if (!current?.running) return;
-    const r = current.run;
-    const lane = Math.max(0, Math.min(2, r.state.lane + delta));
-    if (lane === r.state.lane) return;
-    r.state.lane = lane;
-    const event = [r.state.frame, lane];
-    if (r.events.at(-1)?.[0] === event[0])
-      r.events[r.events.length - 1] = event;
-    else r.events.push(event);
-    persist();
-    drawRace();
-  }
-  function raceFrame(now) {
-    if (!current?.running) return;
-    if (!raceClock) raceClock = now;
-    raceBank += Math.min(100, now - raceClock);
-    raceClock = now;
-    const r = current.run;
-    while (raceBank >= 1000 / 60 && !r.state.ended) {
-      C.raceStep(r.state, current.puzzle.seed, r.state.lane);
-      raceBank -= 1000 / 60;
-    }
-    drawRace();
-    $('#raceTime').textContent = (r.state.frame / 60).toFixed(1) + ' / 45s';
-    $('#raceCharge').textContent = r.state.charge;
-    $('#raceHits').textContent = r.state.hits + ' / 3';
-    if (r.state.frame % 60 < 6) persist();
-    if (r.state.ended) {
-      finish({ events: r.events, frames: r.state.frame });
-      return;
-    }
-    raceRAF = requestAnimationFrame(raceFrame);
-  }
-  function drawRace() {
-    const canvas = $('#raceCanvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const s = current.run.state,
-      w = 440,
-      h = 540;
-    const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
-    ctx.fillStyle = '#252b3a';
-    ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#40455c';
-    ctx.fillRect(46, 0, 348, h);
-    ctx.fillStyle = '#cfb991';
-    ctx.fillRect(40, 0, 6, h);
-    ctx.fillRect(394, 0, 6, h);
-    ctx.strokeStyle = '#c0c6d04f';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([24, 24]);
-    ctx.lineDashOffset = reduce ? 0 : -s.frame * 2;
-    for (const x of [162, 278]) {
-      ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, h);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
-    const laneX = (lane) => 104 + lane * 116;
-    for (const item of s.objects) {
-      const x = laneX(item.lane),
-        y = item.y * h;
-      if (item.checked && item.lane === s.lane) continue;
-      if (item.kind === 'cone') {
-        ctx.fillStyle = '#ef9154';
-        ctx.beginPath();
-        ctx.moveTo(x, y - 18);
-        ctx.lineTo(x - 17, y + 15);
-        ctx.lineTo(x + 17, y + 15);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#fff3df';
-        ctx.fillRect(x - 10, y + 1, 20, 5);
-        ctx.fillStyle = '#1c2130';
-        ctx.fillRect(x - 21, y + 15, 42, 6);
-      } else {
-        ctx.fillStyle = '#2aace2';
-        ctx.fillRect(x - 13, y - 18, 26, 36);
-        ctx.fillStyle = '#f0f8ff';
-        ctx.beginPath();
-        ctx.moveTo(x + 3, y - 12);
-        ctx.lineTo(x - 6, y + 2);
-        ctx.lineTo(x + 1, y + 2);
-        ctx.lineTo(x - 3, y + 13);
-        ctx.lineTo(x + 8, y - 2);
-        ctx.lineTo(x, y - 2);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-    const x = laneX(s.lane),
-      y = h * 0.83;
-    ctx.fillStyle = '#111622';
-    for (const dx of [-26, 17])
-      for (const dy of [-19, 17]) {
-        ctx.fillRect(x + dx, y + dy, 10, 19);
-      }
-    ctx.fillStyle = '#cfb991';
-    ctx.beginPath();
-    ctx.moveTo(x - 12, y - 32);
-    ctx.lineTo(x + 12, y - 32);
-    ctx.lineTo(x + 19, y - 12);
-    ctx.lineTo(x + 19, y + 34);
-    ctx.lineTo(x - 19, y + 34);
-    ctx.lineTo(x - 19, y - 12);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#202431';
-    ctx.fillRect(x - 10, y - 4, 20, 17);
-    ctx.fillStyle = '#2aace2';
-    ctx.beginPath();
-    ctx.arc(x, y - 1, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = '#202431';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(x - 16, y + 24);
-    ctx.lineTo(x + 16, y + 24);
-    ctx.stroke();
   }
   async function copyText(text, success) {
     try {
@@ -764,8 +658,6 @@
     }
   }
   function profile() {
-    stopRace();
-    if (current?.id === 'kart') renderRace();
     $('#gamesPlayerName').value =
       S.data.profile?.name ||
       window.SponsorFlowStorage.getItem('asmePlannerName') ||
@@ -829,12 +721,6 @@
         saveAndRender();
       }
     }
-    if (b.hasAttribute('data-race-start')) startRace();
-    if (b.dataset.raceMove) moveRace(Number(b.dataset.raceMove));
-    if (b.id === 'racePause') {
-      stopRace();
-      renderRace();
-    }
     if (b.dataset.resultAction === 'next') back();
     if (b.dataset.resultAction === 'join') profile();
     if (b.dataset.resultAction === 'share') {
@@ -877,17 +763,6 @@
       typeLetter(e.key.length === 1 ? e.key.toUpperCase() : e.key);
     }
     if (
-      current.id === 'kart' &&
-      ['ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D'].includes(e.key)
-    ) {
-      e.preventDefault();
-      moveRace(['ArrowLeft', 'a', 'A'].includes(e.key) ? -1 : 1);
-    }
-    if (current.id === 'kart' && e.key === 'Escape' && current.running) {
-      stopRace();
-      renderRace();
-    }
-    if (
       current.id === 'path' &&
       e.target.closest('.path-grid') &&
       ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
@@ -908,19 +783,26 @@
       }
     }
   });
+  $('#gamesSyncButton').addEventListener('click', syncResults);
   $('#gameBack').addEventListener('click', back);
   $('#gameHelp').addEventListener('click', () => {
-    stopRace();
-    if (current.id === 'kart') renderRace();
     $('#gamesHelpTitle').textContent = current.game.name + ' · How to play';
     $('#gamesHelpCopy').innerHTML = rules[current.id]
+      .concat(
+        'The timer starts when you open the puzzle and keeps running if you leave or reset it. Each correction reduces accuracy by 10 percentage points, to a minimum of 10% for a solved puzzle. Practice is unranked.',
+      )
       .map((p) => '<p>' + esc(p) + '</p>')
       .join('');
     $('#gamesHelpDialog').showModal();
   });
   $('#gameReset').addEventListener('click', () => {
     if (!current || current.result) return;
-    current.run = freshRun(current.id, current.puzzle);
+    current.run = {
+      ...freshRun(current.id, current.puzzle),
+      startedAt: current.run.startedAt,
+      corrections: (current.run.corrections || 0) + 1,
+      scoringVersion: C.SCORING_VERSION,
+    };
     message('Grid reset.');
     saveAndRender();
   });
@@ -928,10 +810,9 @@
     openGame(current.id, true),
   );
   $('#gamesProfileOpen').addEventListener('click', profile);
-  $('#leaderboardRefresh').addEventListener('click', async () => {
-    await syncResults();
-    loadBoard();
-  });
+  $('#leaderboardRefresh').addEventListener('click', () =>
+    S.data.profile ? syncResults() : loadBoard(true),
+  );
   $('#leaderboardGame').addEventListener('change', (e) => {
     boardGame = e.target.value;
     loadBoard();
@@ -959,13 +840,11 @@
       copyText(S.data.profile.code, 'Player code copied. Keep it private.');
   });
   window.addEventListener('pagehide', () => {
-    stopRace();
     persist();
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
-      stopRace();
-      if (current?.id === 'kart') renderRace();
+      persist();
     } else {
       const next = C.dayKey();
       if (next !== day) {
@@ -992,7 +871,7 @@
     $('#leaderboardGame').add(option);
   }
   renderHub();
-  loadBoard();
+  if (!S.data.profile) loadBoard();
   if (C.GAMES.some((g) => g.id === location.hash.slice(1)))
     openGame(location.hash.slice(1));
   if (S.data.profile) syncResults();

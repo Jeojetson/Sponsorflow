@@ -1,24 +1,26 @@
-# SponsorFlow 4.0 — ASME Indianapolis workspace
+# SponsorFlow 5.0 — Purdue ASME workspace
 
 A shared workspace for project work, calendars, sponsor outreach, and meeting attendance. GitHub Pages serves the website; the existing Google Apps Script deployment and Google Sheet hold shared records.
 
 ## Games
 
-Seven mobile-friendly daily games and a shared club leaderboard: Word Sprint, Common Ground, Crown Grid, Equal Split, Waypoint, Number Garage, and Kart Sprint. Games save progress on the device, offer unranked practice, and share scores through the existing SponsorFlow Google Apps Script deployment. See `GAMES-RELEASE.md` and `games-backend/README.md` for the one-time leaderboard setup. The leaderboard uses two new tabs in the existing spreadsheet. Current attendance and officer code is preserved.
+Six daily puzzles with time-and-accuracy scoring and shared club rankings. Kart Sprint is removed; previous scores are preserved separately. Follow [RELEASE-5.0.md](RELEASE-5.0.md) for the existing Apps Script update and performance cache installation, and [GAMES-RELEASE.md](GAMES-RELEASE.md) for scoring rules.
+
+The homepage uses supplied chapter art and a large Mona Sans Expanded Black heading. Dark mode is the default, with an optional persistent light theme. Finance records remain accessible under their own sidebar section while being hidden from combined project/calendar views. Every list sort supports ascending and descending order.
 
 ## Workspace redesign
 
 - One theme system in `assets/brand.css`, with Mona Sans and the ASME gold, slate, and blue palette.
 - Projects organized in a team/project sidebar. List, Board, Schedule, and Reports share the same records and filters.
 - Quick filters for My work, Due this week (the next seven days), and Needs attention. Detailed filters are available on demand.
-- Calendar sidebar for club, teams, projects, and existing custom calendars; Month and Agenda views, search, and event/deadline filters. Phones default to Agenda.
+- Calendar sidebar for club, teams, projects, and existing custom calendars; Month and Agenda views, search, and event/deadline filters. Agenda is the default on every device; saved view choices are respected.
 - Viewing no longer requires entering a name; attribution is requested when editing.
 - Editors preserve exact progress percentages, due-date-only records, and dependencies absent from the active task list. A successful save retains its assigned ID if the follow-up refresh fails.
 - Restored access to My requests in Outreach and connected Attendance to the 2.1 loading/cache implementation already present in the repository.
 
 ## Data compatibility
 
-No schema migration, reseeding, bulk update, or record deletion is required. Existing API action names, board/task IDs, preference keys, calendar feed endpoints, and `assets/config.js` are retained. "Project" is the interface name for an existing planner board; it does not create a replacement record.
+The Games update appends scoring columns to Games Results. Existing attendance, planning, calendar, and outreach schemas do not change; no reseeding, bulk record update, or deletion is required. Existing API action names, board/task IDs, preference keys, calendar feed endpoints, and `assets/config.js` are retained. "Project" is the interface name for an existing planner board; it does not create a replacement record.
 
 The historical `apps-script/Code.gs` and `apps-script/Admin.html` in this repository are older than the 1.9/2.1 files described in the project history. **Do not deploy those historical copies as part of this website update.** Keep the currently deployed backend. An optional appearance-only `apps-script/Brand.html` snippet can be inserted into the current Admin.html; it does not replace officer features or data logic.
 
@@ -26,7 +28,7 @@ The historical `apps-script/Code.gs` and `apps-script/Admin.html` in this reposi
 
 The home page reserves a resources entry. Set `window.ASME_RESOURCES.url` in `assets/resources.js` to the shared OneDrive HTTPS URL when ready. An empty URL shows a clear Coming soon state, with no dead link.
 
-Mona Sans is included locally. Bell MT uses a local font when available; a web-licensed Bell MT file is still needed for consistent banners on every device. See `assets/fonts/README.md`.
+Mona Sans is included locally. The large homepage heading follows the updated Mona Sans Expanded Black direction. Bell MT remains restricted to optional large banners and is never used for body copy. See `assets/fonts/README.md`.
 
 ## Preview and verification
 
@@ -34,4 +36,4 @@ Serve this directory over HTTP, for example `python3 -m http.server 8765 --bind 
 
 Install development dependencies with `npm install`, then run `npm test` while the server is running. The tests use Google Chrome by default. Set `SPONSORFLOW_BROWSER=chromium` if using Playwright's bundled Chromium, `SPONSORFLOW_BASE_URL` for a different server, or `SPONSORFLOW_QA_DIR` for screenshots. The tests cover desktop/tablet/phone layouts in both themes, project and calendar filtering, field preservation, optimistic-concurrency errors, retry behavior, and attendance member/officer workflows: password errors, duplicate check-in, meeting creation/editing/closing/archiving/restoring, roster removal and CSV export, session sign-out, analytics links, selection retention, and service outages.
 
-See `RELEASE-3.0.md` for rollout and remaining brand inputs.
+See `RELEASE-5.0.md` for rollout and validation.

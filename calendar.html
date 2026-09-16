@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
@@ -9,25 +9,26 @@
 <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "dark" ? "dark" : "light";
+      const theme = savedTheme === "light" ? "light" : "dark";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
   </script>
-<title>Calendar · ASME Indianapolis</title>
+<title>Calendar · Purdue ASME</title>
 
 
 
 <link href="assets/app.css?v=30" rel="stylesheet"/>
 
-<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=40" rel="stylesheet"/><script src="assets/workspace.js?v=30"></script>
+<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=40" rel="stylesheet"/><script src="assets/workspace.js?v=50"></script>
+<link href="assets/experience.css?v=50" rel="stylesheet"/>
 </head>
 <body class="calendar-page">
 <a class="skip-link" href="#calendarMain">Skip to calendar</a>
 <header class="site-header">
-<a aria-label="ASME Indy Workspace home" class="brand" href="index.html">
+<a aria-label="Purdue ASME home" class="brand" href="index.html">
 <span class="brand-mark">ASME</span>
-<span class="brand-copy"><strong>ASME Indianapolis</strong><small>Member workspace</small></span>
+<span class="brand-copy"><strong>Purdue ASME</strong><small>Indianapolis Student Section</small></span>
 </a>
 <nav aria-label="Primary navigation" class="top-nav">
 <a class="nav-link" href="index.html">Home</a>
@@ -46,7 +47,7 @@
 <span class="planner-name-status" id="calendarNameStatus">Required to edit</span>
 </div></details><button class="button button-ghost sidebar-manage" id="calendarManage" type="button">Manage custom calendars</button></aside><div class="workspace-content"><select hidden="" id="calendarScopeSelect" tabindex="-1"><option value="all">All calendars</option><option value="important">Important club events</option></select>
 <header class="workspace-topline"><p class="workspace-breadcrumb">Workspace <span>/</span> Calendar</p><a class="button button-ghost button-small" href="planner.html">Open projects ↗</a></header>
-<div class="connection-banner is-hidden" id="calendarConnectionBanner" role="status"></div>
+<p class="sync-indicator" id="calendarSyncStatus" role="status"></p><div class="connection-banner is-hidden" id="calendarConnectionBanner" role="status"></div>
 
 <section class="calendar-command-bar">
 <div class="calendar-command-title">
@@ -207,8 +208,8 @@
 </dialog>
 <iframe class="api-frame" name="sponsorflow-api-frame" title="SponsorFlow data response"></iframe>
 <script src="assets/config.js?v=30"></script>
-<script src="assets/api.js?v=30"></script>
-<script src="assets/calendar.js?v=30"></script>
-<script src="assets/theme.js?v=40"></script>
+<script src="assets/api.js?v=50"></script>
+<script src="assets/calendar.js?v=50"></script>
+<script src="assets/theme.js?v=50"></script>
 </body>
 </html>

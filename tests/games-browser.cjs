@@ -182,13 +182,13 @@ async function saved(page, id) {
       () =>
         JSON.parse(localStorage.getItem('asmeGamesV1')).pending.length === 0,
     );
-    assert.match(await page.locator('#gameResult').innerText(), /100 points/);
+    assert.match(await page.locator('#gameResult').innerText(), /accuracy points/);
     await snap(page, 'word-complete-mobile');
     await page.click('#gameBack');
     await page.waitForSelector('.leaderboard-row.is-you');
     assert.match(
       await page.locator('.leaderboard-row.is-you').innerText(),
-      /100/,
+      /Jordan Lee/,
     );
     await page.click('[data-play="groups"]');
     const groups = C.puzzle('groups', day);
@@ -199,6 +199,10 @@ async function saved(page, id) {
     await page.waitForSelector('#gameResult:not([hidden])');
     await page.click('#gameBack');
     await page.click('[data-play="queens"]');
+    const startedAt=(await saved(page,'queens')).startedAt;
+    await page.click('[data-game-action="check"]');
+    assert.equal((await saved(page,'queens')).corrections,1);
+    await page.click('#gameReset');assert.equal((await saved(page,'queens')).startedAt,startedAt);assert.equal((await saved(page,'queens')).corrections,2);
     const queens = C.puzzle('queens', day);
     for (let r = 0; r < 6; r++)
       await page.click(`[data-cell="${r * 6 + queens.solution[r]}"]`);
@@ -305,36 +309,13 @@ async function saved(page, id) {
     );
     assert.equal(backend.sheets.get('Games Results').rows.length, before);
     await second.context().close();
-    // Race works through the animation clock, pause/resume, and repeated runs.
-    await page.click('[data-play="kart"]');
-    await page.clock.install();
-    await page.click('[data-race-start]');
-    await page.clock.runFor(1000);
-    await page.click('[data-race-move="-1"]');
-    await page.clock.runFor(500);
-    await page.click('#racePause');
-    const frame = (await saved(page, 'kart')).state.frame;
-    await page.clock.runFor(2000);
-    assert.equal((await saved(page, 'kart')).state.frame, frame);
-    await page.click('[data-race-start]');
-    await page.clock.runFor(46000);
-    await page.waitForSelector('#gameResult:not([hidden])');
-    await snap(page, 'kart-result-mobile');
-    assert((await saved(page, 'kart')).state.ended);
-    await page.clock.resume();
-    await page.evaluate(() => window.SFGamesService.sync());
-    await page.waitForFunction(
-      () =>
-        JSON.parse(localStorage.getItem('asmeGamesV1')).pending.length === 0,
-    );
-    await page.click('[data-race-start]');
-    assert.equal((await saved(page, 'kart')).state.hits, 0);
-    await page.click('#gameBack');
+    assert.equal(await page.locator('[data-play="kart"]').count(), 0);
     // Daily result stays fixed after reload; no duplicate score rows.
     await page.reload();
     await page.waitForSelector('.leaderboard-row.is-you');
-    assert.equal(backend.sheets.get('Games Results').rows.length, 8);
+    assert.equal(backend.sheets.get('Games Results').rows.length, 7);
     await snap(page, 'leaderboard-mobile');
+    const timedRow=backend.sheets.get('Games Results').rows.find(r=>r[3]==='queens');assert.equal(timedRow[12],80);assert.equal(timedRow[13],640);
     const local = await makePage(browser, 320, 'dark', false);
     await open(local, 'numbers');
     await local.click('[data-number="0"]');
@@ -382,7 +363,7 @@ async function saved(page, id) {
     await legacy.context().close();
     assert.deepEqual(errors, []);
     console.log(
-      'PASS: seven games, physical/touch input, reload/resume, real transport against isolated backend, shared standings, second-device restore, race pause/retry, no duplicate results, and local-only fallback.',
+      'PASS: six games, physical/touch input, reload/resume, real transport against isolated backend, shared standings, second-device restore, timed scoring, no duplicate results, and local-only fallback.',
     );
   } finally {
     await browser.close();

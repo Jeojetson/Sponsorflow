@@ -24,6 +24,24 @@
   } catch (_) {
     data = empty();
   }
+  // Preserve old scores and in-progress boards, but keep the new scoring season
+  // separate. Old 100-point scores and kart results never mix with timed scores.
+  data.legacyRuns ||= {};
+  data.legacyPending ||= [];
+  for (const [runKey, run] of Object.entries(data.runs)) {
+    if (run.scoringVersion !== window.SFGames.SCORING_VERSION) {
+      data.legacyRuns[runKey] = run;
+      delete data.runs[runKey];
+    }
+  }
+  data.legacyPending.push(
+    ...data.pending.filter(
+      (record) => record.version !== window.SFGames.SCORING_VERSION,
+    ),
+  );
+  data.pending = data.pending.filter(
+    (record) => record.version === window.SFGames.SCORING_VERSION,
+  );
   function persist() {
     storage.setItem(key, JSON.stringify(data));
   }
@@ -163,11 +181,15 @@
       );
     const result = await request('join', { name, code });
     data.profile = { name: result.name, playerId: result.playerId, code };
+    data.board = null;
     // A new device restores the server's daily attempts before a player can submit again.
     for (const record of result.results || [])
       if (
         !data.results.some(
-          (r) => r.day === record.day && r.game === record.game,
+          (r) =>
+            r.day === record.day &&
+            r.game === record.game &&
+            (r.version || 1) === (record.version || 1),
         )
       ) {
         data.results.push(record);
@@ -177,7 +199,10 @@
   }
   function saveResult(record) {
     const i = data.results.findIndex(
-      (r) => r.day === record.day && r.game === record.game,
+      (r) =>
+        r.day === record.day &&
+        r.game === record.game &&
+        (r.version || 1) === (record.version || 1),
     );
     if (
       i >= 0 &&
@@ -209,10 +234,14 @@
           day: record.day,
           game: record.game,
           proof: record.proof,
-          version: 1,
+          version: record.version || window.SFGames.SCORING_VERSION,
         });
+        data.board = null;
         const i = data.results.findIndex(
-          (r) => r.day === record.day && r.game === record.game,
+          (r) =>
+            r.day === record.day &&
+            r.game === record.game &&
+            (r.version || 1) === (record.version || 1),
         );
         const newer = data.pending.some(
           (r) =>
@@ -245,11 +274,34 @@
     })().finally(() => (syncing = null));
     return syncing;
   }
-  async function leaderboard(period, game) {
-    const response = await request('leaderboard', { period, game }, true);
-    data.board = { ...response, period, game, savedAt: Date.now() };
-    persist();
-    return data.board;
+  let boardRequest = 0;
+  async function leaderboard(period, game, force = false) {
+    const cached = data.board;
+    if (
+      !force &&
+      cached?.version === window.SFGames.SCORING_VERSION &&
+      cached.day === window.SFGames.dayKey() &&
+      cached.period === period &&
+      cached.game === game &&
+      Date.now() - cached.savedAt < 15000
+    )
+      return cached;
+    const requestId = ++boardRequest;
+    const response = await request(
+      'leaderboard',
+      { period, game, version: window.SFGames.SCORING_VERSION },
+      true,
+    );
+    if (response.version !== window.SFGames.SCORING_VERSION)
+      throw new Error(
+        'The new timed standings are not open yet. Your results are saved; try Sync scores after the club update.',
+      );
+    const board = { ...response, period, game, savedAt: Date.now() };
+    if (requestId === boardRequest) {
+      data.board = board;
+      persist();
+    }
+    return board;
   }
   function saveRun(day, id, run) {
     data.runs[runKey(day, id)] = run;
@@ -264,7 +316,14 @@
     return data.runs[runKey(day, id)] || null;
   }
   function result(day, id) {
-    return data.results.find((r) => r.day === day && r.game === id) || null;
+    return (
+      data.results.find(
+        (r) =>
+          r.day === day &&
+          r.game === id &&
+          r.version === window.SFGames.SCORING_VERSION,
+      ) || null
+    );
   }
   window.SFGamesService = {
     configured,

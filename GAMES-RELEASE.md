@@ -1,35 +1,29 @@
-# ASME Games
+# ASME Games — timed scoring
 
-Seven original games, daily challenges shared by the club, and a leaderboard in the existing SponsorFlow Google Sheet:
+Six daily puzzles share club rankings in the existing SponsorFlow spreadsheet: Word Sprint, Common Ground, Crown Grid, Equal Split, Waypoint, and Number Garage. Kart Sprint is removed from the hub and current standings; its old records remain intact.
 
-| Game | Play | Daily points |
-| --- | --- | --- |
-| Word Sprint | Five-letter word, six guesses | 100 down to 50 for a win |
-| Common Ground | Four groups of four related words | 100 minus 15 per mistake; four mistakes end the round |
-| Crown Grid | One crown in every row, column, and region; no touching | 100 when solved |
-| Equal Split | Balanced sun/moon grid; no triples or duplicate lines | 100 when solved |
-| Waypoint | Visit all 25 squares, following checkpoints in order | 100 when solved |
-| Number Garage | Combine four numbers into a target | 100 when solved |
-| Kart Sprint | 45-second, three-lane kart challenge | Up to 100; best daily run counts |
+## Scoring
 
-Daily puzzles reset at midnight in Indianapolis. Practice rounds are unranked. Games use original daily answers, category sets, and visuals, with no copied NYT/LinkedIn puzzle feeds, logos, or assets. Accepted guesses use a public-domain English word list; its source and license are included in `assets/games/WORDS-LICENSE.txt`.
+A solved puzzle earns up to **1,000 points**: 800 for accuracy and 200 for speed. Failed Word Sprint and Common Ground rounds earn zero. Every member gets the same daily puzzles, using the Indianapolis date, and the first daily result is retained. Practice is unranked.
 
-Member navigation includes Games. On phones, the six-tab bar retains Home, Outreach, Projects, Calendar, Attendance, and Games; Admin remains available in the header and footer. Opening a game gives it a focused screen and a visible All games return button.
+- Accuracy starts at 100% and drops by 10 percentage points per incorrect submitted word/group or correction, to a minimum of 10% for a solved puzzle.
+- In Crown Grid and Equal Split, failed checks, Undo, and Reset count as corrections. In Waypoint, backtracking, failed checks, Undo, and Reset count. In Number Garage, Undo, Reset, and failed final checks count. Draft cell/number selections are not graded guesses.
+- Accuracy points equal accuracy × 8. Speed points equal `round(200 × exp(-(elapsedMs - 1000) / (targetSeconds × 1000)))`, with a one-second minimum elapsed time. Target seconds are 120 for Word Sprint, Waypoint, and Number Garage; 180 for Common Ground, Crown Grid, and Equal Split.
+- The timer runs from opening to completion, including time away, reloads, and resets. The visible timer and result breakdown explain the score.
+- Today's combined maximum is 6,000. Today, rolling seven-day, and current-month standings support individual-game filters. Equal totals share a rank.
 
-Progress is saved per game and date. Keyboard, touch, and on-screen controls are supported; game colors adapt to the existing light/dark themes. Symbols, region letters, clue markers, and text labels provide alternatives to color. Kart racing pauses on tab changes and supports reduced-motion lane markings.
+The server validates puzzle solutions and calculates points. Elapsed time and correction counts originate in the browser; player names are self-selected and puzzle code is public. These are casual club rankings, not verified membership, attendance credit, or cheat-resistant competition.
 
-## Shared leaderboard activation
+## Sync and existing data
 
-Add the generated [Games.gs](games-backend/Games.gs) to the **existing** SponsorFlow Apps Script project, add the two routing hooks to the current Code.gs, run `setupGames`, and update the existing web app deployment. Follow [games-backend/README.md](games-backend/README.md) for exact instructions. Setup only adds Games Players and Games Results tabs inside the existing spreadsheet. The website automatically reuses `assets/config.js` and the same deployment URL. Current Admin.html, attendance, outreach, planning, and calendar functions stay unchanged.
+Results are first saved on the device and explicitly marked pending until the server confirms them. **Sync scores** retries pending results and refreshes standings. Player codes restore identity and completed results on another device; unfinished boards stay on their original device. Offline timed results can sync for 35 days.
 
-Until activated, every game works with local progress and clearly labels shared standings as unavailable. Do not describe the shared leaderboard as live until it has been deployed and verified from two devices.
+Scoring version 2 separates these scores from the previous 100-point format. Historical version-1 rows and kart results remain in the spreadsheet. Old local runs and pending records are retained separately. Existing player codes remain valid, and puzzle generation version 1 stays unchanged.
 
-## Validation
+Follow [RELEASE-5.0.md](RELEASE-5.0.md) to replace Games.gs, run `setupGames` once, and update the existing web app deployment. This uses the same spreadsheet and API URL. Current Code.gs routing hooks and Admin.html remain in place. An older backend produces a clear update-needed message and keeps new scores on the device.
 
-- Shared core tests generate 120 daily sets, validate their solutions, verify uniqueness for Crown Grid and Equal Split, and reject invalid results.
-- Server contract tests cover player restore, name collisions, renaming, idempotent scores, better kart runs, date/version bounds, callback validation, origin checks, additive/idempotent setup, reserved-tab collisions, preservation of existing records and settings, and fallthrough for all 23 existing POST actions plus public reads, admin, and calendar routes.
-- Browser tests use a local in-memory version of the new service, with external traffic blocked. They cover all seven games, touch/keyboard input, score submission, second-device restoration, saved progress, practice, kart pause/retry, shared URL configuration, and clear errors from an older deployment.
-- Layout coverage: the hub and all seven play screens at 1440, 900, 390, and 320 pixels in both themes, plus 667-pixel-tall phones with explicit keyboard/steering visibility checks. Chrome was used for desktop and touch emulation; a physical iPhone/Safari check is still recommended before launch.
-- Existing workspace regression tests continue to cover attendance, project, and calendar workflows.
+## Development and verification
 
-Serve the repository, then run `npm run test:games`. No real attendance, project, or leaderboard records are touched by tests.
+`node games-backend/build.cjs` builds Games.gs from the shared core and server source. Serve the repository locally and run `npm run test:games`. Tests use a synthetic in-memory backend and block live requests. They cover 120 daily sets, unique logic solutions, invalid proofs, time/accuracy math, score versions, safe schema upgrades, idempotent submissions, names/identity restoration, and retained attendance/planner routing. Browser checks play all six games with keyboard/touch input, restore another device, test practice, resume timers, count corrections, and verify short-phone controls in both themes.
+
+Games use original daily answers, categories, and visuals. Accepted guesses use a public-domain word list; attribution is in `assets/games/WORDS-LICENSE.txt`.

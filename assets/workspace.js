@@ -9,11 +9,13 @@
   };
   document.addEventListener('DOMContentLoaded', () => {
     const explorer = document.querySelector('.workspace-explorer');
-    const compact = matchMedia('(max-width:720px)');
-    if (explorer) {
-      explorer.open = !compact.matches;
-      compact.addEventListener('change', event => { explorer.open = !event.matches; });
-    }
+    if (explorer) explorer.open = true;
+    const page = location.pathname.split('/').pop() || 'index.html';
+    document.querySelectorAll('.top-nav .nav-link').forEach(link => {
+      const active = link.getAttribute('href') === page;
+      link.classList.toggle('is-active', active);
+      if (active) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+    });
     document.addEventListener('keydown', event => {
       if (event.key === 'Escape') document.querySelectorAll('.filter-disclosure[open],.board-more-actions[open],.calendar-more-actions[open]').forEach(item => { item.open = false; item.querySelector('summary')?.focus(); });
     });
