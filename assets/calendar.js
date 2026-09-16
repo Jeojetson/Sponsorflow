@@ -18,6 +18,7 @@
 
   const state = {
     actorName: "",
+    afterIdentity: null,
     teams: [],
     boards: [],
     tasks: [],
@@ -28,7 +29,9 @@
     selectedDate: "",
     editingTask: null,
     dirty: false,
-    saving: false
+    saving: false,
+    view: "month",
+    kind: "all"
   };
 
   document.addEventListener("DOMContentLoaded", init);
@@ -36,8 +39,10 @@
   async function init() {
     bindEvents();
     restoreIdentity();
-    state.month = validDateOnly(localStorage.getItem("asmeCalendarMonth")) || state.month;
-    state.scope = normalizeStoredScope(localStorage.getItem("asmeCalendarScope") || "all");
+    state.view = window.SponsorFlowStorage.getItem("asmeCalendarView") || (isCompactCalendar() ? "agenda" : "month");
+    setCalendarView(state.view);
+    state.month = validDateOnly(window.SponsorFlowStorage.getItem("asmeCalendarMonth")) || state.month;
+    state.scope = normalizeStoredScope(window.SponsorFlowStorage.getItem("asmeCalendarScope") || "all");
     if (!API || !API.configured()) {
       showConnectionError("SponsorFlow is not connected. Add the Apps Script web app URL to assets/config.js.");
       return;
@@ -46,6 +51,24 @@
   }
 
   function bindEvents() {
+    $("#calendarNavigation").addEventListener("click", event => {
+      const button = event.target.closest("[data-calendar-scope]");
+      if (!button) return;
+      state.scope = button.dataset.calendarScope;
+      state.selectedDate = "";
+      window.SponsorFlowStorage.setItem("asmeCalendarScope", state.scope);
+      $("#calendarScopeSelect").value = state.scope;
+      renderCalendar();
+      if (isCompactCalendar()) $(".workspace-explorer").open = false;
+    });
+    $$("[data-calendar-view]").forEach(button => button.addEventListener("click", () => setCalendarView(button.dataset.calendarView)));
+    $$("[data-calendar-kind]").forEach(button => button.addEventListener("click", () => {
+      state.kind = button.dataset.calendarKind;
+      $$("[data-calendar-kind]").forEach(item => { const active = item === button; item.classList.toggle("is-active", active); item.setAttribute("aria-pressed", String(active)); });
+      renderCalendar();
+    }));
+    $("#calendarSearch").addEventListener("input", renderCalendar);
+    $("[data-identity-cancel]").addEventListener("click", () => $("#calendarIdentityDialog").close());
     $("#calendarSaveName").addEventListener("click", () => saveIdentity($("#calendarActorName").value));
     $("#calendarActorName").addEventListener("keydown", event => {
       if (event.key === "Enter") { event.preventDefault(); saveIdentity(event.currentTarget.value); }
@@ -59,7 +82,7 @@
     $("#calendarScopeSelect").addEventListener("change", event => {
       state.scope = event.currentTarget.value;
       state.selectedDate = "";
-      localStorage.setItem("asmeCalendarScope", state.scope);
+      window.SponsorFlowStorage.setItem("asmeCalendarScope", state.scope);
       renderCalendar();
     });
     $("#calendarPrevious").addEventListener("click", () => moveMonth(-1));
@@ -67,14 +90,14 @@
     $("#calendarToday").addEventListener("click", () => {
       state.month = `${todayText().slice(0, 7)}-01`;
       state.selectedDate = isCompactCalendar() ? todayText() : "";
-      localStorage.setItem("asmeCalendarMonth", state.month);
+      window.SponsorFlowStorage.setItem("asmeCalendarMonth", state.month);
       renderCalendar();
     });
     $("#calendarAgendaReset")?.addEventListener("click", () => {
       state.selectedDate = "";
       renderCalendar();
     });
-    $("#calendarNewEventTop")?.addEventListener("click", () => openEventDialog("", { startDate: todayText() }));
+    $("#calendarNewEventTop")?.addEventListener("click", () => openEventDialog("", { startDate: state.selectedDate || todayText() }));
     $("#calendarSubscribe").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); openSubscriptions(); });
     $("#calendarSnapshot").addEventListener("click", event => { event.currentTarget.closest("details")?.removeAttribute("open"); downloadCurrentCalendar(); });
     [$("#calendarManage"), $("#calendarManageTop")].filter(Boolean).forEach(button => button.addEventListener("click", openCalendarManager));
@@ -133,7 +156,7 @@
       const queryBoard = query.get("board") || "";
       if (queryBoard && state.boards.some(board => board.id === queryBoard)) {
         const board = state.boards.find(item => item.id === queryBoard);
-        state.scope = board?.teamId === GENERAL_TEAM_ID ? "general" : `team:${board?.teamId || ""}`;
+        state.scope = `board:${board.id}`;
       }
       state.scope = normalizeScopeAgainstData(state.scope);
       renderScopeOptions();
@@ -176,7 +199,7 @@
     const customOptions = state.calendars.length
       ? `<optgroup label="Custom calendars">${state.calendars.map(calendar => `<option value="custom:${escapeHtml(calendar.id)}">${escapeHtml(calendar.name)}</option>`).join("")}</optgroup>`
       : "";
-    $("#calendarScopeSelect").innerHTML = builtIns + teamOptions + customOptions;
+    $("#calendarScopeSelect").innerHTML = builtIns + teamOptions + customOptions + state.boards.map(board => `<option value="board:${escapeHtml(board.id)}">${escapeHtml(board.name)}</option>`).join("");
     state.scope = normalizeScopeAgainstData(state.scope);
     $("#calendarScopeSelect").value = state.scope;
   }
@@ -205,7 +228,7 @@
     if (scope.startsWith("board:")) {
       const board = state.boards.find(item => `board:${item.id}` === scope);
       if (!board) return "all";
-      return board.teamId === GENERAL_TEAM_ID ? "general" : `team:${board.teamId}`;
+      return scope;
     }
     if (scope.startsWith("team:")) {
       const teamId = scope.slice(5);
@@ -229,6 +252,7 @@
   }
 
   function defaultBoardForScope() {
+    if (state.scope.startsWith("board:")) return state.scope.slice(6);
     if (state.scope === "general") {
       return state.boards.find(board => board.teamId === GENERAL_TEAM_ID)?.id || state.boards.find(board => board.id === CLUB_BOARD_ID)?.id || state.boards[0]?.id || "";
     }
@@ -244,16 +268,20 @@
   }
 
   function scopeMeta() {
+    if (state.scope.startsWith("board:")) {
+      const board = state.boards.find(item => item.id === state.scope.slice(6));
+      return {name:board?.name || "Project", description:board?.description || "This project's dates and deadlines."};
+    }
     if (state.scope === "important") {
       return {
-        name: "Important club events",
-        description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded."
+        name: "Key dates",
+        description: "Meetings, milestones, and critical dates. Funding deadlines are listed with their projects."
       };
     }
     if (state.scope === "general") {
       const team = state.teams.find(item => item.id === GENERAL_TEAM_ID);
       return {
-        name: "General timeline",
+        name: "Club calendar",
         description: team?.description || "Shared club-level milestones, cross-team deadlines, and general planning."
       };
     }
@@ -273,13 +301,14 @@
       };
     }
     return {
-      name: "All calendars",
-      description: "Every dated task and event across all subteams, the general timeline, and Finance & Sponsorship."
+      name: "All dates",
+      description: "Events and deadlines across every team."
     };
   }
 
   function tasksForScope() {
     const tasks = state.tasks.filter(task => !task.archived && (task.startDate || task.dueDate));
+    if (state.scope.startsWith("board:")) return tasks.filter(task => task.boardId === state.scope.slice(6));
     if (state.scope === "important") return tasks.filter(isImportantTask);
     if (state.scope === "general") {
       const boardIds = new Set(state.boards.filter(board => board.teamId === GENERAL_TEAM_ID).map(board => board.id));
@@ -307,10 +336,11 @@
   }
 
   function renderCalendar() {
+    renderCalendarNavigation();
     const monthStart = parseDateOnly(state.month) || new Date();
     monthStart.setDate(1);
     state.month = dateText(monthStart);
-    localStorage.setItem("asmeCalendarMonth", state.month);
+    window.SponsorFlowStorage.setItem("asmeCalendarMonth", state.month);
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
     const gridStart = new Date(monthStart);
     gridStart.setDate(gridStart.getDate() - gridStart.getDay());
@@ -322,7 +352,7 @@
 
     if (state.selectedDate && !state.selectedDate.startsWith(state.month.slice(0, 7))) state.selectedDate = "";
 
-    const tasks = tasksForScope().sort((a, b) => (taskBounds(a).start || "").localeCompare(taskBounds(b).start || "") || a.title.localeCompare(b.title));
+    const tasks = visibleCalendarTasks().sort((a, b) => (taskBounds(a).start || "").localeCompare(taskBounds(b).start || "") || a.title.localeCompare(b.title));
     const cells = [];
     for (let index = 0; index < 42; index += 1) {
       const day = new Date(gridStart);
@@ -335,7 +365,7 @@
       const eventButtons = dayTasks.slice(0, 4).map((task, eventIndex) => calendarEventHtml(task, value, eventIndex)).join("");
       const desktopMore = dayTasks.length > 4 ? `<button class="calendar-more-button" type="button" data-focus-date="${value}">+${dayTasks.length - 4} more</button>` : "";
       const mobileMore = dayTasks.length > 2 ? `<button class="calendar-mobile-count" type="button" data-focus-date="${value}" aria-label="Show all ${dayTasks.length} items on ${value}">+${dayTasks.length - 2}</button>` : "";
-      cells.push(`<section class="calendar-day${outside ? " is-outside" : ""}${today ? " is-today" : ""}${selected ? " is-selected" : ""}" data-date="${value}" data-select-date="${value}" aria-label="${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dayTasks.length ? `, ${dayTasks.length} scheduled item${dayTasks.length === 1 ? "" : "s"}` : ""}">
+      cells.push(`<section class="calendar-day${outside ? " is-outside" : ""}${today ? " is-today" : ""}${selected ? " is-selected" : ""}" data-date="${value}" data-select-date="${value}" tabindex="0" aria-label="${day.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}${dayTasks.length ? `, ${dayTasks.length} scheduled item${dayTasks.length === 1 ? "" : "s"}` : ""}">
         <header><time datetime="${value}">${day.getDate()}</time><div>${today ? "<span>Today</span>" : ""}<button class="calendar-day-add" type="button" data-add-date="${value}" aria-label="Add event on ${value}">+</button></div></header>
         <div class="calendar-day-events">${eventButtons}${desktopMore}${mobileMore}</div>
       </section>`);
@@ -354,8 +384,11 @@
       selectCalendarDate(button.dataset.focusDate, true);
     }));
     $("#calendarGrid").querySelectorAll("[data-select-date]").forEach(cell => {
+      cell.addEventListener("keydown", event => {
+        if (event.target === cell && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); selectCalendarDate(cell.dataset.selectDate, true); }
+      });
       cell.addEventListener("click", event => {
-        if (!compact || event.target.closest("button")) return;
+        if (event.target.closest("button")) return;
         selectCalendarDate(cell.dataset.selectDate, true);
       });
     });
@@ -363,19 +396,48 @@
     const startText = dateText(monthStart);
     const endText = dateText(monthEnd);
     const monthTasks = tasks.filter(task => intersects(task, startText, endText));
-    const agendaTasks = compact && state.selectedDate
+    const agendaTasks = state.selectedDate
       ? monthTasks.filter(task => marksDate(task, state.selectedDate))
       : monthTasks;
     updateAgendaHeading(agendaTasks.length);
     $("#calendarAgenda").innerHTML = agendaTasks.length
       ? agendaTasks.map(agendaHtml).join("")
-      : `<div class="calendar-empty"><span>◇</span><strong>${state.selectedDate ? "Nothing scheduled" : "No dated work this month"}</strong><p>${state.selectedDate ? "Tap + on this date to add an event." : "Use + Event or click a day to add one."}</p></div>`;
+      : `<div class="calendar-empty"><span>◇</span><strong>${state.selectedDate ? "Nothing scheduled" : "No dated work this month"}</strong><p>${state.selectedDate ? "Use New event to add something here." : "Try another calendar or add a new event."}</p></div>`;
     $("#calendarAgenda").querySelectorAll("[data-agenda-task]").forEach(button => button.addEventListener("click", () => openEventDialog(button.dataset.agendaTask)));
     $("#calendarAgenda").querySelectorAll("[data-agenda-download]").forEach(button => button.addEventListener("click", event => {
       event.stopPropagation();
       const task = state.tasks.find(item => item.id === button.dataset.agendaDownload);
       if (task) downloadIcs([task], task.title);
     }));
+  }
+
+  function dependencyList(value) {
+    if (Array.isArray(value)) return value;
+    try { const parsed = JSON.parse(value || "[]"); if (Array.isArray(parsed)) return parsed; } catch (_) {}
+    return String(value || "").split(",").map(item => item.trim()).filter(Boolean);
+  }
+
+  function visibleCalendarTasks() {
+    const search = $("#calendarSearch").value.trim().toLowerCase();
+    return tasksForScope().filter(task => {
+      if (state.kind === "events" && task.taskType !== "MEETING") return false;
+      if (state.kind === "deadlines" && task.taskType === "MEETING") return false;
+      return !search || [task.title, task.description, task.ownerNames, task.location].join(" ").toLowerCase().includes(search);
+    });
+  }
+
+  function setCalendarView(view) {
+    state.view = view === "agenda" ? "agenda" : "month";
+    document.body.dataset.calendarView = state.view;
+    window.SponsorFlowStorage.setItem("asmeCalendarView", state.view);
+    $$("[data-calendar-view]").forEach(button => { const active = button.dataset.calendarView === state.view; button.classList.toggle("is-active", active); button.setAttribute("aria-pressed", String(active)); });
+  }
+
+  function renderCalendarNavigation() {
+    const host = $("#calendarNavigation");
+    const closed = new Set(Array.from(host.querySelectorAll("details:not([open])")).map(item => item.dataset.team));
+    const item = (scope, name) => `<button type="button" class="sidebar-item${state.scope === scope ? " is-active" : ""}" data-calendar-scope="${escapeHtml(scope)}"${state.scope === scope ? ' aria-current="true"' : ""}><span>${escapeHtml(name)}</span></button>`;
+    host.innerHTML = item("all", "All dates") + item("important", "Key dates") + item("general", "Club calendar") + '<p class="sidebar-label">Teams & projects</p>' + calendarTeams().map(team => `<details class="sidebar-group" data-team="${escapeHtml(team.id)}"${closed.has(team.id) ? "" : " open"}><summary>${escapeHtml(team.name)}</summary>${item("team:" + team.id, "All team dates")}${state.boards.filter(board => board.teamId === team.id).map(board => item("board:" + board.id, board.name)).join("")}</details>`).join("") + (state.calendars.length ? '<p class="sidebar-label">Custom calendars</p>' + state.calendars.map(calendar => item("custom:" + calendar.id, calendar.name)).join("") : "");
   }
 
   function isCompactCalendar() {
@@ -394,14 +456,14 @@
     const selected = validDateOnly(state.selectedDate);
     const reset = $("#calendarAgendaReset");
     $("#calendarAgendaCount").textContent = String(count);
-    if (isCompactCalendar() && selected) {
+    if (selected) {
       const date = parseDateOnly(selected);
       $("#calendarAgendaKicker").textContent = "Selected day";
       $("#calendarAgendaTitle").textContent = date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
       reset?.classList.remove("is-hidden");
     } else {
       $("#calendarAgendaKicker").textContent = "Month agenda";
-      $("#calendarAgendaTitle").textContent = "Upcoming work";
+      $("#calendarAgendaTitle").textContent = "This month";
       reset?.classList.add("is-hidden");
     }
   }
@@ -468,7 +530,7 @@
   }
 
   function openEventDialog(taskId = "", defaults = {}) {
-    if (!requireActor()) return;
+    if (!state.actorName) { state.afterIdentity = () => openEventDialog(taskId, defaults); requireActor(); return; }
     resetEventForm();
     const task = taskId ? state.tasks.find(item => item.id === taskId) : null;
     state.editingTask = task || null;
@@ -476,14 +538,14 @@
       $("#calendarEventId").value = task.id;
       $("#calendarEventExpectedUpdatedAt").value = task.updatedAt || "";
       $("#calendarEventDialogTitle").textContent = task.taskType === "MEETING" ? "Edit event" : "Edit calendar item";
-      $("#calendarEventEyebrow").textContent = task.taskType === "MEETING" ? "Calendar event" : "Timeline deadline";
+      $("#calendarEventEyebrow").textContent = task.taskType === "MEETING" ? "Calendar event" : "Project deadline";
       $("#calendarEventTitle").value = task.title || "";
       renderBoardOptions(task.boardId);
       $("#calendarEventBoard").value = task.boardId;
       $("#calendarEventBoard").disabled = true;
       $("#calendarEventType").value = task.taskType || "WORK";
-      $("#calendarEventStartDate").value = task.startDate || task.dueDate || "";
-      $("#calendarEventEndDate").value = task.dueDate || task.startDate || "";
+      $("#calendarEventStartDate").value = task.startDate || "";
+      $("#calendarEventEndDate").value = task.dueDate || "";
       $("#calendarEventAllDay").checked = task.allDay !== false;
       $("#calendarEventStartTime").value = task.startTime || "";
       $("#calendarEventEndTime").value = task.endTime || "";
@@ -508,6 +570,10 @@
       $("#calendarEventEndDate").value = validDateOnly(defaults.endDate) || start;
       $("#calendarEventOwners").value = state.actorName;
     }
+    const fullTaskLink = $("#calendarOpenProject");
+    fullTaskLink.classList.toggle("is-hidden", !task);
+    fullTaskLink.href = task ? `planner.html?board=${encodeURIComponent(task.boardId)}&task=${encodeURIComponent(task.id)}` : "planner.html";
+    $(".event-advanced").open = Boolean(task && task.taskType !== "MEETING");
     updateTimeFields();
     updateHealth();
     state.dirty = false;
@@ -533,7 +599,7 @@
   function currentFormTask() {
     const existing = state.editingTask || {};
     const start = validDateOnly($("#calendarEventStartDate").value);
-    const end = validDateOnly($("#calendarEventEndDate").value) || start;
+    const end = validDateOnly($("#calendarEventEndDate").value) || (state.editingTask ? "" : start);
     return normalizeTask({
       ...existing,
       id: $("#calendarEventId").value || existing.id || "",
@@ -547,8 +613,8 @@
       startDate: start,
       dueDate: end,
       allDay: $("#calendarEventAllDay").checked,
-      startTime: $("#calendarEventAllDay").checked ? "" : validTime($("#calendarEventStartTime").value),
-      endTime: $("#calendarEventAllDay").checked ? "" : validTime($("#calendarEventEndTime").value),
+      startTime: validTime($("#calendarEventStartTime").value),
+      endTime: validTime($("#calendarEventEndTime").value),
       location: $("#calendarEventLocation").value,
       progress: Number($("#calendarEventProgress").value || 0),
       isMilestone: $("#calendarEventMilestone").checked,
@@ -561,9 +627,10 @@
     if (!requireActor() || state.saving) return;
     const task = currentFormTask();
     if (task.title.length < 2) return setEventStatus("Give this item a clear title.", "error");
-    if (!task.boardId) return setEventStatus("Choose a team timeline.", "error");
-    if (!task.startDate) return setEventStatus("Choose a start date.", "error");
-    if (task.dueDate && task.dueDate < task.startDate) return setEventStatus("The end date must be on or after the start date.", "error");
+    if (!task.boardId) return setEventStatus("Choose a project.", "error");
+    if (!task.startDate && !task.dueDate) return setEventStatus("Choose a start or end date.", "error");
+    if (!Number.isFinite(task.progress) || task.progress < 0 || task.progress > 100) return setEventStatus("Progress must be between 0 and 100.", "error");
+    if (task.startDate && task.dueDate && task.dueDate < task.startDate) return setEventStatus("The end date must be on or after the start date.", "error");
     if (!task.allDay && task.startDate === task.dueDate && task.startTime && task.endTime && task.endTime <= task.startTime) return setEventStatus("The end time must be after the start time.", "error");
 
     const existing = state.editingTask || {};
@@ -600,7 +667,7 @@
       quantity: existing.quantity ?? "",
       estimatedCost: existing.estimatedCost ?? "",
       orderStatus: existing.orderStatus || "NOT_NEEDED",
-      dependencyIds: JSON.stringify(Array.isArray(existing.dependencyIds) ? existing.dependencyIds : []),
+      dependencyIds: JSON.stringify(dependencyList(existing.dependencyIds)),
       actorName: state.actorName
     };
 
@@ -609,6 +676,10 @@
     setEventStatus("Saving to the shared calendar…");
     try {
       const saved = normalizeTask(await API.post("savePlannerTask", payload));
+      // Keep the assigned ID if a later refresh fails, so retrying cannot create a duplicate.
+      state.editingTask = saved;
+      $("#calendarEventId").value = saved.id;
+      $("#calendarEventExpectedUpdatedAt").value = saved.updatedAt || "";
       const data = await API.post("plannerBootstrap");
       state.teams = Array.isArray(data.teams) ? data.teams : state.teams;
       state.boards = Array.isArray(data.boards) ? data.boards : state.boards;
@@ -616,13 +687,13 @@
       state.calendarFeedBaseUrl = String(data.calendarFeedBaseUrl || state.calendarFeedBaseUrl);
       const verified = state.tasks.find(item => item.id === saved.id);
       if (!verified || verified.startDate !== task.startDate || verified.dueDate !== task.dueDate) throw new Error("The event was saved, but its dates did not verify correctly. Refresh and try once more.");
-      state.month = `${verified.startDate.slice(0, 7)}-01`;
-      state.selectedDate = isCompactCalendar() ? verified.startDate : "";
-      localStorage.setItem("asmeCalendarMonth", state.month);
+      state.month = `${(verified.startDate || verified.dueDate).slice(0, 7)}-01`;
+      state.selectedDate = isCompactCalendar() ? (verified.startDate || verified.dueDate) : "";
+      window.SponsorFlowStorage.setItem("asmeCalendarMonth", state.month);
       state.dirty = false;
       $("#calendarEventDialog").close();
       renderCalendar();
-      setPageMessage(`${verified.title} saved on ${formatShortDate(verified.startDate)}.`, "success");
+      setPageMessage(`${verified.title} saved on ${formatShortDate(verified.startDate || verified.dueDate)}.`, "success");
     } catch (error) {
       setEventStatus(error.message, "error");
     } finally {
@@ -666,15 +737,15 @@
   function updateHealth() {
     const task = currentFormTask();
     const host = $("#calendarEventHealth");
-    if (!task.startDate) {
+    if (!task.startDate && !task.dueDate) {
       host.className = "task-health-card health-neutral";
       host.innerHTML = "<span>Schedule health</span><strong>Add a date</strong><p>Choose dates to place this item on the shared calendar.</p>";
       return;
     }
     const today = todayText();
-    let tone = "ontrack", title = task.startDate === task.dueDate ? formatShortDate(task.startDate) : `${formatShortDate(task.startDate)} – ${formatShortDate(task.dueDate)}`;
+    let tone = "ontrack", title = !task.startDate ? `Due ${formatShortDate(task.dueDate)}` : !task.dueDate ? `Starts ${formatShortDate(task.startDate)}` : task.startDate === task.dueDate ? formatShortDate(task.startDate) : `${formatShortDate(task.startDate)} – ${formatShortDate(task.dueDate)}`;
     let detail = task.allDay ? "All-day calendar item." : `${formatClock(task.startTime || "09:00")} – ${formatClock(task.endTime || "10:00")}`;
-    if (task.status !== "DONE" && task.dueDate < today) { tone = "overdue"; title = "Past due"; detail = `Ended ${formatShortDate(task.dueDate)}.`; }
+    if (task.status !== "DONE" && task.dueDate && task.dueDate < today) { tone = "overdue"; title = "Past due"; detail = `Ended ${formatShortDate(task.dueDate)}.`; }
     else if (task.status === "BLOCKED") { tone = "blocked"; title = "Blocked"; detail = "Resolve the blocker before this date."; }
     host.className = `task-health-card health-${tone}`;
     host.innerHTML = `<span>Schedule health</span><strong>${escapeHtml(title)}</strong><p>${escapeHtml(detail)}</p>`;
@@ -683,9 +754,10 @@
   function openSubscriptions() {
     if (!state.calendarFeedBaseUrl) return setPageMessage("The live calendar backend is unavailable. Redeploy the current Apps Script version.", "error");
     const feeds = [
-      { name: "All calendars", description: "Every dated item across the entire workspace.", url: feedUrl("club") },
-      { name: "Important club events", description: "Races, competitions, meetings, milestones, inspections, and critical club deadlines. Funding opportunities are excluded.", url: feedUrl("important") },
-      { name: "General timeline", description: "Shared club-level planning and cross-team milestones.", url: feedUrl("team", GENERAL_TEAM_ID) },
+      ...(state.scope.startsWith("board:") ? [{name:scopeMeta().name, description:"Dates for this project.", url:feedUrl("board", state.scope.slice(6))}] : []),
+      { name: "All dates", description: "Every dated item across the entire workspace.", url: feedUrl("club") },
+      { name: "Key dates", description: "Meetings, milestones, and critical dates. Funding deadlines are listed with their projects.", url: feedUrl("important") },
+      { name: "Club calendar", description: "Shared club-level planning and cross-team milestones.", url: feedUrl("team", GENERAL_TEAM_ID) },
       ...calendarTeams().map(team => ({ name: team.name, description: team.description || "This subteam's dated work.", url: feedUrl("team", team.id) })),
       ...state.calendars.map(calendar => ({ name: calendar.name, description: calendar.description || "Member-created calendar.", url: feedUrl("custom", calendar.id), custom: true, color: calendar.color }))
     ];
@@ -767,7 +839,7 @@
     $("#customCalendarCount").textContent = String(state.calendars.length);
     $("#customCalendarList").innerHTML = state.calendars.length ? state.calendars.map(calendar => {
       const teamNames = (calendar.teamIds || []).map(id => state.teams.find(team => team.id === id)?.name).filter(Boolean);
-      if (calendar.includeGeneral) teamNames.unshift("General timeline");
+      if (calendar.includeGeneral) teamNames.unshift("Club calendar");
       return `<button class="custom-calendar-card calendar-color-${escapeHtml(calendar.color || "GOLD")}" type="button" data-edit-calendar="${escapeHtml(calendar.id)}">
         <span class="custom-calendar-swatch"></span><span><strong>${escapeHtml(calendar.name)}</strong><small>${escapeHtml(calendar.description || teamNames.join(" · ") || "Custom calendar")}</small><em>${escapeHtml(teamNames.join(" · ") || "No sources")}${calendar.importantOnly ? " · Important only" : ""}</em></span><b aria-hidden="true">→</b>
       </button>`;
@@ -824,7 +896,7 @@
       if (index === -1) state.calendars.push(saved); else state.calendars[index] = saved;
       state.calendars.sort((a, b) => a.name.localeCompare(b.name));
       state.scope = `custom:${saved.id}`;
-      localStorage.setItem("asmeCalendarScope", state.scope);
+      window.SponsorFlowStorage.setItem("asmeCalendarScope", state.scope);
       renderScopeOptions();
       renderCalendar();
       renderCustomCalendarList();
@@ -849,7 +921,7 @@
       await API.post("archivePlannerCalendar", { id, actorName: state.actorName });
       state.calendars = state.calendars.filter(item => item.id !== id);
       if (state.scope === `custom:${id}`) state.scope = "all";
-      localStorage.setItem("asmeCalendarScope", state.scope);
+      window.SponsorFlowStorage.setItem("asmeCalendarScope", state.scope);
       renderScopeOptions();
       renderCalendar();
       renderCustomCalendarList();
@@ -869,11 +941,11 @@
   }
 
   function restoreIdentity() {
-    state.actorName = normalizeName(localStorage.getItem("asmePlannerName") || "");
+    state.actorName = normalizeName(window.SponsorFlowStorage.getItem("asmePlannerName") || "");
     $("#calendarActorName").value = state.actorName;
     $("#calendarIdentityName").value = state.actorName;
     updateIdentityUi();
-    if (!state.actorName) setTimeout(() => showDialog($("#calendarIdentityDialog")), 250);
+
   }
 
   function saveIdentity(value, fromDialog = false) {
@@ -885,10 +957,11 @@
       return false;
     }
     state.actorName = clean;
-    localStorage.setItem("asmePlannerName", clean);
+    window.SponsorFlowStorage.setItem("asmePlannerName", clean);
     $("#calendarActorName").value = clean;
     $("#calendarIdentityName").value = clean;
     updateIdentityUi();
+    if (state.afterIdentity) { const next = state.afterIdentity; state.afterIdentity = null; setTimeout(next, 0); }
     return true;
   }
 
@@ -972,7 +1045,16 @@
   function statusLabel(value) { return ({ BACKLOG: "Backlog", PLANNED: "Planned", IN_PROGRESS: "In progress", BLOCKED: "Blocked", REVIEW: "Review / test", DONE: "Done" })[value] || value || "Planned"; }
   function priorityLabel(value) { return ({ CRITICAL: "Critical", HIGH: "High", MEDIUM: "Medium", LOW: "Low" })[value] || value || "Medium"; }
   function normalizeName(value) { return String(value || "").trim().replace(/\s+/g, " "); }
-  function relativeTime(value) { const time = new Date(value).getTime(); if (!time) return "recently"; const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000)); if (seconds < 60) return `${seconds} seconds ago`; if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`; if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`; return `${Math.floor(seconds / 86400)} days ago`; }
+  function relativeTime(value) {
+    const time = new Date(value).getTime();
+    if (!Number.isFinite(time)) return "recently";
+    const seconds = Math.max(0, Math.floor((Date.now() - time) / 1000));
+    if (seconds < 60) return "just now";
+    const format = new Intl.RelativeTimeFormat("en", {numeric:"auto"});
+    if (seconds < 3600) return format.format(-Math.floor(seconds / 60), "minute");
+    if (seconds < 86400) return format.format(-Math.floor(seconds / 3600), "hour");
+    return format.format(-Math.floor(seconds / 86400), "day");
+  }
   function slugify(value) { return String(value || "calendar").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]); }
 

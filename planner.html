@@ -1,11 +1,11 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Collaborative Purdue Indianapolis ASME project timelines, parts tracking, and task planning.">
-  <meta name="theme-color" content="#111111">
-  <script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="Collaborative Purdue Indianapolis ASME project timelines, parts tracking, and task planning." name="description"/>
+<meta content="#111111" name="theme-color"/>
+<script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
       const theme = savedTheme === "dark" ? "dark" : "light";
@@ -13,440 +13,384 @@
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
   </script>
-  <title>ASME Indy Project Planner</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=20">
-  <link rel="stylesheet" href="assets/ui-20.css?v=20">
+<title>Projects · ASME Indianapolis</title>
+<link href="assets/app.css?v=30" rel="stylesheet"/>
+<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=30" rel="stylesheet"/><script src="assets/workspace.js?v=30"></script>
 </head>
 <body class="planner-page">
-  <a class="skip-link" href="#plannerMain">Skip to planner</a>
-  <header class="site-header">
-    <a class="brand" href="index.html" aria-label="SponsorFlow home">
-      <span class="brand-mark">ASME</span>
-      <span class="brand-copy"><strong>Project Planner</strong><small>Purdue Indianapolis</small></span>
-    </a>
-    <nav class="top-nav" aria-label="Primary navigation">
-      <a class="nav-link" href="index.html">Home</a>
-      <a class="nav-link" href="outreach.html">Outreach</a>
-      <a class="nav-link is-active" href="planner.html">Planner</a>
-      <a class="nav-link" href="calendar.html">Calendar</a>
-      <a class="nav-link" href="attendance.html">Attendance</a>
-      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team site</a>
-      <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
-    </nav>
-  </header>
-
-  <main id="plannerMain" class="planner-shell">
-    <section class="planner-intro planner-intro-compact">
-      <div class="planner-intro-copy">
-        <p class="eyebrow">Project planner</p>
-        <h1>Project planner</h1>
-        <p>Track work by team: tasks, parts, funding, tests, deadlines, and handoffs.</p>
+<a class="skip-link" href="#plannerMain">Skip to planner</a>
+<header class="site-header">
+<a aria-label="SponsorFlow home" class="brand" href="index.html">
+<span class="brand-mark">ASME</span>
+<span class="brand-copy"><strong>ASME Indianapolis</strong><small>Member workspace</small></span>
+</a>
+<nav aria-label="Primary navigation" class="top-nav">
+<a class="nav-link" href="index.html">Home</a>
+<a class="nav-link" href="outreach.html">Outreach</a>
+<a aria-current="page" class="nav-link is-active" href="planner.html">Projects</a>
+<a class="nav-link" href="calendar.html">Calendar</a>
+<a class="nav-link" href="attendance.html">Attendance</a>
+<a class="nav-link nav-link-admin" href="admin.html">Admin</a>
+</nav>
+</header>
+<main class="workspace-layout planner-shell" id="plannerMain"><aside class="workspace-sidebar"><details class="workspace-explorer" open=""><summary>Projects <span>Browse teams</span></summary><nav aria-label="Projects by team" id="projectNavigation"><p class="sidebar-loading">Loading projects…</p></nav></details><details class="identity-settings"><summary>Your name</summary><div class="planner-identity-block">
+<label class="field compact-field" for="plannerActorName"><span>Your name</span><input id="plannerActorName" maxlength="80" placeholder="Full name"/></label>
+<button class="button button-secondary button-small" id="savePlannerNameButton" type="button">Use this name</button>
+<span class="planner-name-status" id="plannerNameStatus">Required to edit</span>
+</div></details><button class="button button-ghost sidebar-manage" id="manageWorkspaceButton" type="button">Manage teams &amp; projects</button></aside><div class="workspace-content"><div aria-hidden="true" class="planner-context-controls" hidden="">
+<label class="field compact-field"><span>Team</span><select id="teamFilter" tabindex="-1"><option value="">Loading teams…</option></select></label>
+<label class="field compact-field"><span>Project</span><select id="boardSelect" tabindex="-1"><option value="">Loading projects…</option></select></label>
+</div>
+<section class="workspace-topline">
+<p class="workspace-breadcrumb">Workspace <span>/</span> Projects</p>
+<div class="planner-intro-actions">
+<button class="button button-primary" id="newTaskTopButton" type="button">+ New task</button>
+<button aria-hidden="true" class="is-hidden" id="newEventTopButton" tabindex="-1" type="button">+ Calendar event</button>
+<a class="button button-secondary" href="calendar.html">Open calendar</a>
+</div>
+</section>
+<div class="connection-banner is-hidden" id="plannerConnectionBanner" role="status"></div><div class="planner-loading" id="plannerLoading" role="status"><span></span><p>Loading project…</p></div>
+<section class="planner-empty is-hidden" id="boardEmptyState">
+<h2>No projects yet</h2>
+<p>Create a project to start tracking work for your team.</p>
+<button class="button button-primary" data-open-workspace="" type="button">Set up a project</button>
+</section>
+<section class="is-hidden" id="plannerWorkspace">
+<header class="board-overview">
+<div class="board-overview-copy">
+<div class="board-title-row">
+<span class="team-badge" id="boardTeamBadge">Team</span>
+<span class="board-date-range" id="boardDateRange"></span>
+</div>
+<h1 id="boardTitle">Project</h1>
+<p id="boardDescription"></p>
+</div>
+<div class="board-overview-actions">
+<div class="board-primary-actions" hidden="">
+<button class="button button-primary button-small" id="newTaskButton" type="button">+ Task</button>
+<button aria-hidden="true" class="is-hidden" id="newEventButton" tabindex="-1" type="button">+ Event</button>
+</div>
+<details class="board-more-actions">
+<summary>More</summary>
+<div>
+<button class="button button-ghost button-small" id="calendarSubscriptionsButton" type="button">Open subscriptions</button>
+<button class="button button-ghost button-small" id="shareBoardButton" type="button">Copy link</button>
+<button class="button button-ghost button-small" id="exportBoardButton" type="button">Export CSV</button>
+<button class="button button-ghost button-small" id="exportCalendarButton" type="button">Download .ics snapshot</button>
+<button class="button button-ghost button-small" id="editBoardButton" type="button">Edit project</button>
+</div>
+</details>
+</div>
+</header>
+<section aria-label="Timeline summary" class="planner-metrics" id="plannerMetrics"></section><div aria-label="Planner view" class="planner-view-controls" role="group"><button aria-pressed="false" class="planner-view-button" data-planner-view="table" type="button">List</button>
+<button aria-pressed="false" class="planner-view-button is-active" data-planner-view="board" type="button">Board</button>
+<button aria-pressed="false" class="planner-view-button" data-planner-view="timeline" type="button">Schedule</button>
+<button aria-hidden="true" aria-pressed="false" class="planner-view-button is-hidden" data-planner-view="calendar" tabindex="-1" type="button">Calendar</button>
+<button aria-pressed="false" class="planner-view-button" data-planner-view="insights" type="button">Reports</button>
+</div>
+<section class="planner-toolbar"><div aria-label="Quick filters" class="quick-views" role="group"><button aria-pressed="true" class="is-active" data-quick-filter="all" type="button">All work</button><button aria-pressed="false" data-quick-filter="mine" type="button">My work</button><button aria-pressed="false" data-quick-filter="week" type="button">Due this week</button><button aria-pressed="false" data-quick-filter="attention" type="button">Needs attention</button></div>
+<div class="planner-search-tools"><label class="planner-search"><span class="sr-only">Search tasks</span><input id="taskSearch" placeholder="Search work…" type="search"/></label><details class="filter-disclosure"><summary>Filters <span id="activeFilterCount"></span></summary><div class="planner-filter-row">
+<label class="field compact-field"><span>Status</span><select id="statusFilter"><option value="">All statuses</option></select></label>
+<label class="field compact-field"><span>Priority</span><select id="priorityFilter"><option value="">All priorities</option></select></label>
+<label class="field compact-field"><span>Owner</span><select id="ownerFilter"><option value="">All owners</option></select></label>
+<label class="check-field planner-check"><input id="partsOnlyFilter" type="checkbox"/><span>Parts only</span></label>
+<label class="check-field planner-check"><input id="hideDoneFilter" type="checkbox"/><span>Hide done</span></label>
+<button class="button button-ghost button-small" id="clearPlannerFilters" type="button">Clear</button>
+</div></details></div><p aria-live="polite" class="result-count" id="plannerResultCount"></p></section>
+<div aria-live="polite" class="form-status" id="plannerMessage"></div>
+<section class="planner-view-panel" data-planner-panel="board" id="boardView">
+<div class="kanban-board" id="kanbanBoard"></div>
+</section>
+<section class="planner-view-panel is-hidden" data-planner-panel="timeline" id="timelineView">
+<div class="timeline-toolbar">
+<div>
+<strong>Schedule view</strong>
+<span>Schedule, milestones, deadlines, and dependencies</span>
+</div>
+<label class="field compact-field"><span>Scale</span><select id="timelineScale"><option value="compact">Compact</option><option selected="" value="normal">Standard</option><option value="wide">Detailed</option></select></label>
+</div>
+<div class="gantt-host" id="ganttHost"></div>
+</section>
+<section class="planner-view-panel is-hidden" data-planner-panel="calendar" id="calendarView">
+<div class="calendar-toolbar calendar-toolbar-simple">
+<div class="calendar-toolbar-title">
+<strong>Calendar</strong>
+<span>Use the Calendar page for events and live calendar subscriptions.</span>
+</div>
+<div class="calendar-toolbar-actions">
+<div class="calendar-navigation">
+<button aria-label="Previous month" class="icon-button" id="calendarPreviousButton" type="button">←</button>
+<button class="button button-ghost button-small" id="calendarTodayButton" type="button">Today</button>
+<button aria-label="Next month" class="icon-button" id="calendarNextButton" type="button">→</button>
+</div>
+<button class="button button-primary button-small" id="addCalendarEventButton" type="button">+ Event</button>
+<button class="button button-secondary button-small" id="openCalendarSubscriptionsButton" type="button">Subscribe</button>
+<button class="button button-ghost button-small" id="downloadCalendarButton" type="button">Snapshot</button>
+</div>
+</div>
+<div class="calendar-layout">
+<section aria-label="Monthly task calendar" class="calendar-month-panel">
+<header class="calendar-month-heading">
+<div><p class="panel-kicker">Selected month</p><h3 id="calendarMonthTitle">Month</h3></div>
+<div aria-label="Calendar status legend" class="calendar-legend">
+<span><i class="status-color-PLANNED"></i>Planned</span>
+<span><i class="status-color-IN_PROGRESS"></i>In progress</span>
+<span><i class="status-color-BLOCKED"></i>Blocked</span>
+<span><i class="status-color-DONE"></i>Done</span>
+</div>
+</header>
+<div aria-hidden="true" class="calendar-weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+<div class="planner-calendar-grid" id="plannerCalendarGrid"></div>
+</section>
+<aside class="calendar-agenda-panel">
+<div class="calendar-agenda-heading">
+<div><p class="panel-kicker">Month agenda</p><h3>Dated work</h3></div>
+<span class="calendar-count-badge" id="calendarAgendaCount">0</span>
+</div>
+<div class="calendar-agenda" id="calendarAgenda"></div>
+</aside>
+</div>
+</section>
+<section class="planner-view-panel is-hidden" data-planner-panel="table" id="tableView"><div class="work-list" id="workList"></div></section>
+<section class="planner-view-panel is-hidden" data-planner-panel="insights" id="insightsView">
+<div class="insights-toolbar">
+<div>
+<strong>Insights</strong>
+<span>Review workload, deadlines, funding, purchasing, status, and priority.</span>
+</div>
+<label class="field compact-field"><span>Scope</span><select id="insightsScope"><option value="board">Current project</option><option value="all">All teams</option></select></label>
+</div>
+<div aria-live="polite" class="planner-insights" id="plannerInsights"></div>
+</section>
+</section>
+</div></main>
+<dialog class="modal planner-modal" id="identityDialog">
+<div class="modal-card identity-dialog-card">
+<p class="eyebrow">Before you edit</p>
+<h2>Your name</h2>
+<p>Your name is recorded in task history and comments.</p>
+<label class="field"><span>Your full name</span><input autocomplete="name" id="identityDialogName" maxlength="80" placeholder="Full name"/></label>
+<div class="dialog-actions"><button class="button button-ghost" data-close-dialog="identityDialog" type="button">Cancel</button><button class="button button-primary" id="identityDialogSave" type="button">Save name</button></div>
+<p aria-live="polite" class="form-status" id="identityDialogStatus"></p>
+</div>
+</dialog>
+<dialog class="modal modal-wide planner-modal" id="workspaceDialog">
+<div class="modal-card">
+<button aria-label="Close" class="modal-close" data-close-dialog="workspaceDialog" type="button">×</button>
+<div class="workspace-dialog-header"><div><p class="eyebrow">Planner setup</p><h2>Teams &amp; projects</h2><p>Create teams and projects for builds, testing, purchasing, or other work.</p></div></div>
+<div class="workspace-dialog-grid">
+<form class="workspace-form" id="teamForm" novalidate="">
+<input id="teamId" type="hidden"/>
+<div class="panel-heading"><div><p class="panel-kicker">Team</p><h3 id="teamFormTitle">Create a team</h3></div><span class="panel-number">01</span></div>
+<label class="field"><span>Team name</span><input id="teamName" maxlength="100" placeholder="Battery Systems" required=""/></label>
+<label class="field"><span>Description</span><textarea id="teamDescription" maxlength="600" placeholder="What this team owns and delivers" rows="3"></textarea></label>
+<label class="field"><span>Short label</span><input id="teamIcon" maxlength="8" placeholder="BATT"/></label>
+<div class="dialog-actions"><button class="button button-primary" type="submit">Save team</button><button class="button button-ghost" id="resetTeamForm" type="button">New</button></div>
+</form>
+<form class="workspace-form" id="boardForm" novalidate="">
+<input id="boardId" type="hidden"/>
+<div class="panel-heading"><div><p class="panel-kicker">Project</p><h3 id="boardFormTitle">Create a project</h3></div><span class="panel-number">02</span></div>
+<label class="field"><span>Team</span><select id="boardTeamId" required=""></select></label>
+<label class="field"><span>Project name</span><input id="boardName" maxlength="140" placeholder="2026 Battery Redesign" required=""/></label>
+<label class="field"><span>Purpose</span><textarea id="boardFormDescription" maxlength="800" placeholder="Scope, goal, or definition of done" rows="3"></textarea></label>
+<div class="field-grid two-col">
+<label class="field"><span>Target start</span><span class="date-input-wrap"><input id="boardTargetStart" type="date"/></span></label>
+<label class="field"><span>Target finish</span><span class="date-input-wrap"><input id="boardTargetEnd" type="date"/></span></label>
+</div>
+<div class="dialog-actions"><button class="button button-primary" type="submit">Save project</button><button class="button button-ghost" id="resetBoardForm" type="button">New</button></div>
+</form>
+</div>
+<div class="workspace-directory">
+<div class="workspace-directory-heading"><h3>Existing team or project</h3><span>Select an item to edit</span></div>
+<div class="workspace-directory-list" id="workspaceDirectoryList"></div>
+</div>
+<p aria-live="polite" class="form-status" id="workspaceDialogStatus"></p>
+</div>
+</dialog>
+<dialog class="modal modal-wide planner-modal task-dialog" id="taskDialog">
+<form class="modal-card task-modal-card task-modal-1" id="taskForm" novalidate="">
+<input id="taskId" type="hidden"/>
+<input id="taskExpectedUpdatedAt" type="hidden"/>
+<header class="task-modal-header">
+<div>
+<p class="eyebrow" id="taskDialogEyebrow">New task</p>
+<h2 id="taskDialogTitle">Task details</h2>
+<p class="task-updated-meta" id="taskUpdatedMeta"></p>
+</div>
+<button aria-label="Close" class="modal-close" data-close-dialog="taskDialog" type="button">×</button>
+</header>
+<nav aria-label="Task editor sections" class="task-tabs">
+<button class="task-tab is-active" data-task-tab="overview" type="button">Overview</button>
+<button class="task-tab" data-task-tab="schedule" type="button">Scheduling</button>
+<button class="task-tab" data-task-tab="details" type="button">Parts &amp; funding</button>
+<button class="task-tab" data-task-tab="collaboration" type="button">Comments &amp; history</button>
+</nav>
+<div class="task-tab-panel" data-task-panel="overview">
+<div class="field-grid two-col task-placement-fields">
+<label class="field"><span>Project <b aria-hidden="true">*</b></span><select id="taskBoardId" required=""></select></label>
+<label class="field"><span>Title <b aria-hidden="true">*</b></span><input id="taskTitle" maxlength="180" placeholder="Design battery enclosure mounts" required=""/></label>
+</div>
+<div class="field-grid four-col task-core-fields">
+<label class="field"><span>Type</span><select id="taskType"></select></label>
+<label class="field"><span>Status</span><select id="taskStatus"></select></label>
+<label class="field"><span>Priority</span><select id="taskPriority"></select></label>
+<label class="field"><span>Progress (%)</span><input id="taskProgress" max="100" min="0" step="1" type="number" value="0"/></label>
+</div><div class="field-grid two-col">
+<label class="field"><span>Start date</span><span class="date-input-wrap"><input id="taskStartDate" type="date"/></span></label>
+<label class="field"><span>Due / end date</span><span class="date-input-wrap"><input id="taskDueDate" type="date"/></span></label>
+</div>
+<div class="field-grid two-col">
+<label class="field"><span>Owners</span><input id="taskOwners" maxlength="300" placeholder="Names separated by commas"/></label>
+<label class="field"><span>Tags</span><input id="taskTags" maxlength="300" placeholder="CAD, testing, safety"/></label>
+</div>
+<label class="field"><span>Description / done criteria</span><textarea id="taskDescription" maxlength="4000" placeholder="Describe the work and how to know it is complete." rows="6"></textarea></label>
+</div>
+<div class="task-tab-panel is-hidden" data-task-panel="schedule">
+<div class="schedule-grid">
+<section class="task-subsection compact-subsection">
+<div class="task-subsection-heading"><div><p class="panel-kicker">Dates</p><h3>Schedule</h3></div></div>
+<div class="event-time-fields" id="taskTimeFields">
+<label class="check-field"><input checked="" id="taskAllDay" type="checkbox"/><span>All-day item</span></label>
+<div class="field-grid two-col">
+<label class="field"><span>Start time</span><input id="taskStartTime" type="time"/></label>
+<label class="field"><span>End time</span><input id="taskEndTime" type="time"/></label>
+</div>
+<label class="field"><span>Location</span><input id="taskLocation" maxlength="240" placeholder="Innovation Hall, track, or online"/></label>
+</div>
+<div class="task-calendar-flags">
+<label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"/><span>Milestone</span></label>
+<label class="check-field milestone-check"><input id="taskImportantDate" type="checkbox"/><span>Show on Important Dates calendar</span></label>
+</div>
+</section>
+<section class="task-health-card" id="taskHealthCard"></section>
+</div>
+</div>
+<div class="task-tab-panel is-hidden" data-task-panel="details">
+<section class="task-subsection funding-editor is-hidden" id="taskFundingSection">
+<div class="task-subsection-heading"><div><p class="panel-kicker">Funding opportunity</p><h3>Eligibility, amount, and application route</h3></div></div>
+<div class="field-grid two-col">
+<label class="field"><span>Campus / eligibility area</span><input id="taskCampus" maxlength="120" placeholder="Indianapolis, West Lafayette, or Purdue-wide"/></label>
+<label class="field"><span>Amount label</span><input id="taskFundingAmountLabel" maxlength="160" placeholder="Up to $8,000"/></label>
+</div>
+<div class="field-grid three-col">
+<label class="field"><span>Minimum value</span><input id="taskFundingMin" max="10000000" min="0" step="0.01" type="number"/></label>
+<label class="field"><span>Maximum value</span><input id="taskFundingMax" max="10000000" min="0" step="0.01" type="number"/></label>
+<label class="field"><span>Source confidence</span><select id="taskSourceConfidence"></select></label>
+</div>
+<label class="field"><span>Official source</span><input id="taskSourceUrl" maxlength="1000" placeholder="https://..." type="url"/></label>
+<label class="field"><span>Requirements / next step</span><textarea id="taskRequirements" maxlength="3000" rows="4"></textarea></label>
+</section>
+<section class="task-subsection">
+<div class="task-subsection-heading"><div><p class="panel-kicker">Parts &amp; purchasing</p><h3>Part details</h3></div><span>Optional</span></div>
+<div class="field-grid two-col">
+<label class="field"><span>Part / material</span><input id="taskPartName" maxlength="180"/></label>
+<label class="field"><span>Part number</span><input id="taskPartNumber" maxlength="120"/></label>
+</div>
+<div class="field-grid four-col">
+<label class="field"><span>Vendor</span><input id="taskVendor" maxlength="160"/></label>
+<label class="field"><span>Quantity</span><input id="taskQuantity" max="100000" min="0" step="1" type="number"/></label>
+<label class="field"><span>Est. cost</span><input id="taskEstimatedCost" max="1000000" min="0" step="0.01" type="number"/></label>
+<label class="field"><span>Order status</span><select id="taskOrderStatus"></select></label>
+</div>
+</section>
+<section class="task-subsection">
+<div class="task-subsection-heading"><div><p class="panel-kicker">Dependencies</p><h3>Dependencies</h3></div><span>Optional</span></div>
+<div class="dependency-picker" id="taskDependencyList"></div>
+</section>
+</div>
+<div class="task-tab-panel is-hidden" data-task-panel="collaboration">
+<div class="collaboration-grid">
+<section class="task-conversation is-hidden" id="taskConversation">
+<div class="task-subsection-heading"><div><p class="panel-kicker">Conversation</p><h3>Comments</h3></div></div>
+<div class="task-comments" id="taskComments"></div>
+<div class="comment-compose">
+<label class="field"><span>Add a comment</span><textarea id="taskCommentBody" maxlength="1500" placeholder="Decision, blocker, update, or handoff" rows="3"></textarea></label>
+<button class="button button-secondary" id="addTaskCommentButton" type="button">Post comment</button>
+</div>
+</section>
+<section class="task-activity-section is-hidden" id="taskActivitySection">
+<div class="task-subsection-heading"><div><p class="panel-kicker">History</p><h3>Recent activity</h3></div></div>
+<ol class="task-activity" id="taskActivity"></ol>
+</section>
+<div class="collaboration-empty" id="taskCollaborationEmpty">Save the task first to start comments and activity history.</div>
+</div>
+</div>
+<footer class="task-dialog-footer task-dialog-footer-1">
+<div class="task-dialog-footer-secondary">
+<button class="button button-danger button-small is-hidden" id="archiveTaskButton" type="button">Archive</button>
+<button class="button button-secondary button-small is-hidden" id="downloadTaskCalendarButton" type="button">Download .ics</button>
+</div>
+<p aria-live="polite" class="form-status" id="taskFormStatus"></p>
+<div class="task-dialog-footer-main">
+<button class="button button-ghost" id="taskCancelButton" type="button">Cancel</button>
+<button class="button button-primary" id="taskSaveButton" type="submit">Save task</button>
+</div>
+</footer>
+</form>
+</dialog>
+<dialog class="modal planner-modal event-dialog" id="eventDialog">
+<form class="modal-card event-modal-card" id="eventForm" novalidate="">
+<input id="eventId" type="hidden"/>
+<input id="eventExpectedUpdatedAt" type="hidden"/>
+<header class="event-modal-header">
+<div><p class="eyebrow">Calendar</p><h2 id="eventDialogTitle">Add event</h2><p class="task-updated-meta" id="eventUpdatedMeta"></p></div>
+<button aria-label="Close" class="modal-close" data-close-dialog="eventDialog" type="button">×</button>
+</header>
+<label class="field"><span>Event title <b aria-hidden="true">*</b></span><input id="eventTitle" maxlength="180" placeholder="EV Grand Prix race" required=""/></label>
+<div class="field-grid two-col">
+<label class="field"><span>Project</span><select id="eventBoardId" required=""></select></label>
+<label class="field"><span>Location</span><input id="eventLocation" maxlength="240" placeholder="Track, room, or online"/></label>
+</div>
+<div class="field-grid two-col">
+<label class="field"><span>Start date</span><span class="date-input-wrap"><input id="eventStartDate" required="" type="date"/></span></label>
+<label class="field"><span>End date</span><span class="date-input-wrap"><input id="eventEndDate" type="date"/></span></label>
+</div>
+<label class="check-field"><input checked="" id="eventAllDay" type="checkbox"/><span>All-day event</span></label>
+<div class="field-grid two-col is-hidden" id="eventTimeFields">
+<label class="field"><span>Start time</span><input id="eventStartTime" type="time"/></label>
+<label class="field"><span>End time</span><input id="eventEndTime" type="time"/></label>
+</div>
+<div class="field-grid two-col">
+<label class="field"><span>Owner / contact</span><input id="eventOwners" maxlength="300"/></label>
+<label class="field"><span>Priority</span><select id="eventPriority"></select></label>
+</div>
+<label class="field"><span>Notes</span><textarea id="eventDescription" maxlength="4000" placeholder="Purpose, arrival time, preparation, or link" rows="4"></textarea></label>
+<label class="check-field milestone-check"><input id="eventImportantDate" type="checkbox"/><span>Show on Important Dates calendar</span></label>
+<p aria-live="polite" class="form-status" id="eventFormStatus"></p>
+<footer class="event-dialog-footer">
+<div><button class="button button-danger button-small is-hidden" id="eventArchiveButton" type="button">Archive</button><button class="button button-ghost button-small is-hidden" id="eventOpenFullTaskButton" type="button">Open full task editor</button></div>
+<div><button class="button button-ghost" id="eventCancelButton" type="button">Cancel</button><button class="button button-primary" id="eventSaveButton" type="submit">Save event</button></div>
+</footer>
+</form>
+</dialog>
+<dialog class="modal modal-wide planner-modal calendar-subscriptions-dialog" id="calendarSubscriptionsDialog">
+<div class="modal-card subscription-modal-card">
+<button aria-label="Close" class="modal-close" data-close-dialog="calendarSubscriptionsDialog" type="button">×</button>
+<div class="subscription-heading">
+<div>
+<p class="eyebrow">Live calendar subscriptions</p>
+<h2>Subscribe to the calendars you use.</h2>
+<p>Calendar subscriptions are read-only. Make changes in SponsorFlow and your calendar app will pick them up on its next refresh.</p>
+</div>
+<span class="live-feed-badge">LIVE .ICS</span>
+</div>
+<div class="subscription-callout">
+<strong>Recommended:</strong> add <b>Club-wide</b> for the full portfolio and <b>Important Dates</b> for critical deadlines. Team members can then add Mechanical, Kart Setup, Wiring Harness, Battery, Software, Manufacturing, or Finance separately.
       </div>
-      <div class="planner-intro-actions">
-        <button id="newTaskTopButton" class="button button-primary" type="button">+ Task</button>
-        <button id="newEventTopButton" class="is-hidden" type="button" aria-hidden="true" tabindex="-1">+ Calendar event</button>
-        <a class="button button-secondary" href="calendar.html">Open calendar</a>
-        <button id="manageWorkspaceButton" class="button button-dark-outline" type="button">Teams & timelines</button>
-      </div>
-    </section>
-
-    <div id="plannerConnectionBanner" class="connection-banner is-hidden" role="status"></div>
-
-    <section class="planner-control-deck" aria-label="Planner controls">
-      <div class="planner-identity-block">
-        <label class="field compact-field" for="plannerActorName"><span>Your name</span><input id="plannerActorName" maxlength="80" placeholder="Full name"></label>
-        <button id="savePlannerNameButton" class="button button-secondary button-small" type="button">Use this name</button>
-        <span id="plannerNameStatus" class="planner-name-status">Required to edit</span>
-      </div>
-      <div class="planner-context-controls">
-        <label class="field compact-field"><span>Team</span><select id="teamFilter"><option value="">Loading teams…</option></select></label>
-        <label class="field compact-field"><span>Timeline</span><select id="boardSelect"><option value="">Loading timelines…</option></select></label>
-      </div>
-      <div class="planner-view-controls" role="group" aria-label="Planner view">
-        <button class="planner-view-button is-active" type="button" data-planner-view="board">Board</button>
-        <button class="planner-view-button" type="button" data-planner-view="timeline">Timeline</button>
-        <button class="planner-view-button is-hidden" type="button" data-planner-view="calendar" aria-hidden="true" tabindex="-1">Calendar</button>
-        <button class="planner-view-button" type="button" data-planner-view="table">Table</button>
-        <button class="planner-view-button" type="button" data-planner-view="insights">Insights</button>
-      </div>
-    </section>
-
-    <section id="boardEmptyState" class="planner-empty is-hidden">
-      <span>◇</span>
-      <h2>Choose a timeline</h2>
-      <p>Select a team and timeline, or create a new one.</p>
-      <button class="button button-primary" type="button" data-open-workspace>Set up a timeline</button>
-    </section>
-
-    <section id="plannerWorkspace" class="is-hidden">
-      <header class="board-overview">
-        <div class="board-overview-copy">
-          <div class="board-title-row">
-            <span id="boardTeamBadge" class="team-badge">Team</span>
-            <span id="boardDateRange" class="board-date-range"></span>
-          </div>
-          <h2 id="boardTitle">Timeline</h2>
-          <p id="boardDescription"></p>
-        </div>
-        <div class="board-overview-actions">
-          <div class="board-primary-actions">
-            <button id="newTaskButton" class="button button-primary button-small" type="button">+ Task</button>
-            <button id="newEventButton" class="is-hidden" type="button" aria-hidden="true" tabindex="-1">+ Event</button>
-            
-          </div>
-          <details class="board-more-actions">
-            <summary>More</summary>
-            <div>
-              <button id="calendarSubscriptionsButton" class="button button-ghost button-small" type="button">Open subscriptions</button>
-              <button id="shareBoardButton" class="button button-ghost button-small" type="button">Copy link</button>
-              <button id="exportBoardButton" class="button button-ghost button-small" type="button">Export CSV</button>
-              <button id="exportCalendarButton" class="button button-ghost button-small" type="button">Download .ics snapshot</button>
-              <button id="editBoardButton" class="button button-ghost button-small" type="button">Edit timeline</button>
-            </div>
-          </details>
-        </div>
-      </header>
-
-      <section id="plannerMetrics" class="planner-metrics" aria-label="Timeline summary"></section>
-
-      <section class="planner-toolbar">
-        <label class="planner-search"><span class="sr-only">Search tasks</span><input id="taskSearch" type="search" placeholder="Search tasks, parts, owners, or tags…"></label>
-        <div class="planner-filter-row">
-          <label class="field compact-field"><span>Status</span><select id="statusFilter"><option value="">All statuses</option></select></label>
-          <label class="field compact-field"><span>Priority</span><select id="priorityFilter"><option value="">All priorities</option></select></label>
-          <label class="field compact-field"><span>Owner</span><select id="ownerFilter"><option value="">All owners</option></select></label>
-          <label class="check-field planner-check"><input id="partsOnlyFilter" type="checkbox"><span>Parts only</span></label>
-          <label class="check-field planner-check"><input id="hideDoneFilter" type="checkbox"><span>Hide done</span></label>
-          <button id="clearPlannerFilters" class="button button-ghost button-small" type="button">Clear</button>
-        </div>
-      </section>
-
-      <div id="plannerLoading" class="planner-loading" role="status"><span></span><p>Loading timeline…</p></div>
-      <div id="plannerMessage" class="form-status" aria-live="polite"></div>
-
-      <section id="boardView" class="planner-view-panel" data-planner-panel="board">
-        <div id="kanbanBoard" class="kanban-board"></div>
-      </section>
-
-      <section id="timelineView" class="planner-view-panel is-hidden" data-planner-panel="timeline">
-        <div class="timeline-toolbar">
-          <div>
-            <strong>Schedule view</strong>
-            <span>Schedule, milestones, deadlines, and dependencies</span>
-          </div>
-          <label class="field compact-field"><span>Scale</span><select id="timelineScale"><option value="compact">Compact</option><option value="normal" selected>Standard</option><option value="wide">Detailed</option></select></label>
-        </div>
-        <div id="ganttHost" class="gantt-host"></div>
-      </section>
-
-      <section id="calendarView" class="planner-view-panel is-hidden" data-planner-panel="calendar">
-        <div class="calendar-toolbar calendar-toolbar-simple">
-          <div class="calendar-toolbar-title">
-            <strong>Calendar</strong>
-            <span>Use the Calendar page for events and live calendar subscriptions.</span>
-          </div>
-          <div class="calendar-toolbar-actions">
-            <div class="calendar-navigation">
-              <button id="calendarPreviousButton" class="icon-button" type="button" aria-label="Previous month">←</button>
-              <button id="calendarTodayButton" class="button button-ghost button-small" type="button">Today</button>
-              <button id="calendarNextButton" class="icon-button" type="button" aria-label="Next month">→</button>
-            </div>
-            <button id="addCalendarEventButton" class="button button-primary button-small" type="button">+ Event</button>
-            <button id="openCalendarSubscriptionsButton" class="button button-secondary button-small" type="button">Subscribe</button>
-            <button id="downloadCalendarButton" class="button button-ghost button-small" type="button">Snapshot</button>
-          </div>
-        </div>
-        <div class="calendar-layout">
-          <section class="calendar-month-panel" aria-label="Monthly task calendar">
-            <header class="calendar-month-heading">
-              <div><p class="panel-kicker">Selected month</p><h3 id="calendarMonthTitle">Month</h3></div>
-              <div class="calendar-legend" aria-label="Calendar status legend">
-                <span><i class="status-color-PLANNED"></i>Planned</span>
-                <span><i class="status-color-IN_PROGRESS"></i>In progress</span>
-                <span><i class="status-color-BLOCKED"></i>Blocked</span>
-                <span><i class="status-color-DONE"></i>Done</span>
-              </div>
-            </header>
-            <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
-            <div id="plannerCalendarGrid" class="planner-calendar-grid"></div>
-          </section>
-          <aside class="calendar-agenda-panel">
-            <div class="calendar-agenda-heading">
-              <div><p class="panel-kicker">Month agenda</p><h3>Dated work</h3></div>
-              <span id="calendarAgendaCount" class="calendar-count-badge">0</span>
-            </div>
-            <div id="calendarAgenda" class="calendar-agenda"></div>
-          </aside>
-        </div>
-      </section>
-
-      <section id="tableView" class="planner-view-panel is-hidden" data-planner-panel="table">
-        <div class="task-table-wrap">
-          <table class="task-table">
-            <thead><tr><th>Task</th><th>Status</th><th>Priority</th><th>Owner</th><th>Dates</th><th>Funding / part</th><th>Progress</th><th>Updated</th></tr></thead>
-            <tbody id="taskTableBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section id="insightsView" class="planner-view-panel is-hidden" data-planner-panel="insights">
-        <div class="insights-toolbar">
-          <div>
-            <strong>Insights</strong>
-            <span>Review workload, deadlines, funding, purchasing, status, and priority.</span>
-          </div>
-          <label class="field compact-field"><span>Scope</span><select id="insightsScope"><option value="board">Current timeline</option><option value="all">All teams</option></select></label>
-        </div>
-        <div id="plannerInsights" class="planner-insights" aria-live="polite"></div>
-      </section>
-    </section>
-  </main>
-
-  <dialog id="identityDialog" class="modal planner-modal">
-    <div class="modal-card identity-dialog-card">
-      <p class="eyebrow">Before you edit</p>
-      <h2>Your name</h2>
-      <p>Your name is recorded in task history and comments.</p>
-      <label class="field"><span>Your full name</span><input id="identityDialogName" maxlength="80" autocomplete="name" placeholder="Full name"></label>
-      <div class="dialog-actions"><button id="identityDialogSave" class="button button-primary" type="button">Enter planner</button></div>
-      <p id="identityDialogStatus" class="form-status" aria-live="polite"></p>
-    </div>
-  </dialog>
-
-  <dialog id="workspaceDialog" class="modal modal-wide planner-modal">
-    <div class="modal-card">
-      <button class="modal-close" type="button" data-close-dialog="workspaceDialog" aria-label="Close">×</button>
-      <div class="workspace-dialog-header"><div><p class="eyebrow">Planner setup</p><h2>Teams & timelines</h2><p>Create teams and timelines for builds, testing, purchasing, or other work.</p></div></div>
-      <div class="workspace-dialog-grid">
-        <form id="teamForm" class="workspace-form" novalidate>
-          <input id="teamId" type="hidden">
-          <div class="panel-heading"><div><p class="panel-kicker">Team</p><h3 id="teamFormTitle">Create a team</h3></div><span class="panel-number">01</span></div>
-          <label class="field"><span>Team name</span><input id="teamName" maxlength="100" required placeholder="Battery Systems"></label>
-          <label class="field"><span>Description</span><textarea id="teamDescription" rows="3" maxlength="600" placeholder="What this team owns and delivers"></textarea></label>
-          <label class="field"><span>Short label</span><input id="teamIcon" maxlength="8" placeholder="BATT"></label>
-          <div class="dialog-actions"><button class="button button-primary" type="submit">Save team</button><button id="resetTeamForm" class="button button-ghost" type="button">New</button></div>
-        </form>
-
-        <form id="boardForm" class="workspace-form" novalidate>
-          <input id="boardId" type="hidden">
-          <div class="panel-heading"><div><p class="panel-kicker">Timeline</p><h3 id="boardFormTitle">Create a timeline</h3></div><span class="panel-number">02</span></div>
-          <label class="field"><span>Team</span><select id="boardTeamId" required></select></label>
-          <label class="field"><span>Timeline name</span><input id="boardName" maxlength="140" required placeholder="2026 Battery Redesign"></label>
-          <label class="field"><span>Purpose</span><textarea id="boardFormDescription" rows="3" maxlength="800" placeholder="Scope, goal, or definition of done"></textarea></label>
-          <div class="field-grid two-col">
-            <label class="field"><span>Target start</span><span class="date-input-wrap"><input id="boardTargetStart" type="date"></span></label>
-            <label class="field"><span>Target finish</span><span class="date-input-wrap"><input id="boardTargetEnd" type="date"></span></label>
-          </div>
-          <div class="dialog-actions"><button class="button button-primary" type="submit">Save timeline</button><button id="resetBoardForm" class="button button-ghost" type="button">New</button></div>
-        </form>
-      </div>
-      <div class="workspace-directory">
-        <div class="workspace-directory-heading"><h3>Existing team or timeline</h3><span>Select an item to edit</span></div>
-        <div id="workspaceDirectoryList" class="workspace-directory-list"></div>
-      </div>
-      <p id="workspaceDialogStatus" class="form-status" aria-live="polite"></p>
-    </div>
-  </dialog>
-
-  <dialog id="taskDialog" class="modal modal-wide planner-modal task-dialog">
-    <form id="taskForm" class="modal-card task-modal-card task-modal-1" novalidate>
-      <input id="taskId" type="hidden">
-      <input id="taskExpectedUpdatedAt" type="hidden">
-      <header class="task-modal-header">
-        <div>
-          <p class="eyebrow" id="taskDialogEyebrow">New task</p>
-          <h2 id="taskDialogTitle">Task details</h2>
-          <p id="taskUpdatedMeta" class="task-updated-meta"></p>
-        </div>
-        <button class="modal-close" type="button" data-close-dialog="taskDialog" aria-label="Close">×</button>
-      </header>
-
-      <nav class="task-tabs" aria-label="Task editor sections">
-        <button class="task-tab is-active" type="button" data-task-tab="overview">Overview</button>
-        <button class="task-tab" type="button" data-task-tab="schedule">Schedule</button>
-        <button class="task-tab" type="button" data-task-tab="details">Details</button>
-        <button class="task-tab" type="button" data-task-tab="collaboration">Comments & history</button>
-      </nav>
-
-      <div class="task-tab-panel" data-task-panel="overview">
-        <div class="field-grid two-col task-placement-fields">
-          <label class="field"><span>Timeline <b aria-hidden="true">*</b></span><select id="taskBoardId" required></select></label>
-          <label class="field"><span>Title <b aria-hidden="true">*</b></span><input id="taskTitle" maxlength="180" required placeholder="Design battery enclosure mounts"></label>
-        </div>
-        <div class="field-grid four-col task-core-fields">
-          <label class="field"><span>Type</span><select id="taskType"></select></label>
-          <label class="field"><span>Status</span><select id="taskStatus"></select></label>
-          <label class="field"><span>Priority</span><select id="taskPriority"></select></label>
-          <label class="field"><span>Progress</span><select id="taskProgress"><option value="0">0%</option><option value="10">10%</option><option value="25">25%</option><option value="50">50%</option><option value="75">75%</option><option value="90">90%</option><option value="100">100%</option></select></label>
-        </div>
-        <div class="field-grid two-col">
-          <label class="field"><span>Owners</span><input id="taskOwners" maxlength="300" placeholder="Names separated by commas"></label>
-          <label class="field"><span>Tags</span><input id="taskTags" maxlength="300" placeholder="CAD, testing, safety"></label>
-        </div>
-        <label class="field"><span>Description / done criteria</span><textarea id="taskDescription" rows="6" maxlength="4000" placeholder="What needs to be done, why it matters, and what finished looks like"></textarea></label>
-      </div>
-
-      <div class="task-tab-panel is-hidden" data-task-panel="schedule">
-        <div class="schedule-grid">
-          <section class="task-subsection compact-subsection">
-            <div class="task-subsection-heading"><div><p class="panel-kicker">Dates</p><h3>Schedule</h3></div></div>
-            <div class="field-grid two-col">
-              <label class="field"><span>Start date</span><span class="date-input-wrap"><input id="taskStartDate" type="date"></span></label>
-              <label class="field"><span>Due / end date</span><span class="date-input-wrap"><input id="taskDueDate" type="date"></span></label>
-            </div>
-            <div id="taskTimeFields" class="event-time-fields">
-              <label class="check-field"><input id="taskAllDay" type="checkbox" checked><span>All-day item</span></label>
-              <div class="field-grid two-col">
-                <label class="field"><span>Start time</span><input id="taskStartTime" type="time"></label>
-                <label class="field"><span>End time</span><input id="taskEndTime" type="time"></label>
-              </div>
-              <label class="field"><span>Location</span><input id="taskLocation" maxlength="240" placeholder="Innovation Hall, track, or online"></label>
-            </div>
-            <div class="task-calendar-flags">
-              <label class="check-field milestone-check"><input id="taskIsMilestone" type="checkbox"><span>Milestone</span></label>
-              <label class="check-field milestone-check"><input id="taskImportantDate" type="checkbox"><span>Show on Important Dates calendar</span></label>
-            </div>
-          </section>
-          <section id="taskHealthCard" class="task-health-card"></section>
-        </div>
-      </div>
-
-      <div class="task-tab-panel is-hidden" data-task-panel="details">
-        <section id="taskFundingSection" class="task-subsection funding-editor is-hidden">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Funding opportunity</p><h3>Eligibility, amount, and application route</h3></div></div>
-          <div class="field-grid two-col">
-            <label class="field"><span>Campus / eligibility area</span><input id="taskCampus" maxlength="120" placeholder="Indianapolis, West Lafayette, or Purdue-wide"></label>
-            <label class="field"><span>Amount label</span><input id="taskFundingAmountLabel" maxlength="160" placeholder="Up to $8,000"></label>
-          </div>
-          <div class="field-grid three-col">
-            <label class="field"><span>Minimum value</span><input id="taskFundingMin" type="number" min="0" max="10000000" step="0.01"></label>
-            <label class="field"><span>Maximum value</span><input id="taskFundingMax" type="number" min="0" max="10000000" step="0.01"></label>
-            <label class="field"><span>Source confidence</span><select id="taskSourceConfidence"></select></label>
-          </div>
-          <label class="field"><span>Official source</span><input id="taskSourceUrl" type="url" maxlength="1000" placeholder="https://..."></label>
-          <label class="field"><span>Requirements / next step</span><textarea id="taskRequirements" rows="4" maxlength="3000"></textarea></label>
-        </section>
-
-        <section class="task-subsection">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Parts & purchasing</p><h3>Part details</h3></div><span>Optional</span></div>
-          <div class="field-grid two-col">
-            <label class="field"><span>Part / material</span><input id="taskPartName" maxlength="180"></label>
-            <label class="field"><span>Part number</span><input id="taskPartNumber" maxlength="120"></label>
-          </div>
-          <div class="field-grid four-col">
-            <label class="field"><span>Vendor</span><input id="taskVendor" maxlength="160"></label>
-            <label class="field"><span>Quantity</span><input id="taskQuantity" type="number" min="0" max="100000" step="1"></label>
-            <label class="field"><span>Est. cost</span><input id="taskEstimatedCost" type="number" min="0" max="1000000" step="0.01"></label>
-            <label class="field"><span>Order status</span><select id="taskOrderStatus"></select></label>
-          </div>
-        </section>
-
-        <section class="task-subsection">
-          <div class="task-subsection-heading"><div><p class="panel-kicker">Dependencies</p><h3>Dependencies</h3></div><span>Optional</span></div>
-          <div id="taskDependencyList" class="dependency-picker"></div>
-        </section>
-      </div>
-
-      <div class="task-tab-panel is-hidden" data-task-panel="collaboration">
-        <div class="collaboration-grid">
-          <section id="taskConversation" class="task-conversation is-hidden">
-            <div class="task-subsection-heading"><div><p class="panel-kicker">Conversation</p><h3>Comments</h3></div></div>
-            <div id="taskComments" class="task-comments"></div>
-            <div class="comment-compose">
-              <label class="field"><span>Add a comment</span><textarea id="taskCommentBody" rows="3" maxlength="1500" placeholder="Decision, blocker, update, or handoff"></textarea></label>
-              <button id="addTaskCommentButton" class="button button-secondary" type="button">Post comment</button>
-            </div>
-          </section>
-          <section id="taskActivitySection" class="task-activity-section is-hidden">
-            <div class="task-subsection-heading"><div><p class="panel-kicker">History</p><h3>Recent activity</h3></div></div>
-            <ol id="taskActivity" class="task-activity"></ol>
-          </section>
-          <div id="taskCollaborationEmpty" class="collaboration-empty">Save the task first to start comments and activity history.</div>
-        </div>
-      </div>
-
-      <footer class="task-dialog-footer task-dialog-footer-1">
-        <div class="task-dialog-footer-secondary">
-          <button id="archiveTaskButton" class="button button-danger button-small is-hidden" type="button">Archive</button>
-          <button id="downloadTaskCalendarButton" class="button button-secondary button-small is-hidden" type="button">Download .ics</button>
-        </div>
-        <p id="taskFormStatus" class="form-status" aria-live="polite"></p>
-        <div class="task-dialog-footer-main">
-          <button id="taskCancelButton" class="button button-ghost" type="button">Cancel</button>
-          <button id="taskSaveButton" class="button button-primary" type="submit">Save task</button>
-        </div>
-      </footer>
-    </form>
-  </dialog>
-
-  <dialog id="eventDialog" class="modal planner-modal event-dialog">
-    <form id="eventForm" class="modal-card event-modal-card" novalidate>
-      <input id="eventId" type="hidden">
-      <input id="eventExpectedUpdatedAt" type="hidden">
-      <header class="event-modal-header">
-        <div><p class="eyebrow">Calendar</p><h2 id="eventDialogTitle">Add event</h2><p id="eventUpdatedMeta" class="task-updated-meta"></p></div>
-        <button class="modal-close" type="button" data-close-dialog="eventDialog" aria-label="Close">×</button>
-      </header>
-      <label class="field"><span>Event title <b aria-hidden="true">*</b></span><input id="eventTitle" maxlength="180" required placeholder="EV Grand Prix race"></label>
-      <div class="field-grid two-col">
-        <label class="field"><span>Timeline</span><select id="eventBoardId" required></select></label>
-        <label class="field"><span>Location</span><input id="eventLocation" maxlength="240" placeholder="Track, room, or online"></label>
-      </div>
-      <div class="field-grid two-col">
-        <label class="field"><span>Start date</span><span class="date-input-wrap"><input id="eventStartDate" type="date" required></span></label>
-        <label class="field"><span>End date</span><span class="date-input-wrap"><input id="eventEndDate" type="date"></span></label>
-      </div>
-      <label class="check-field"><input id="eventAllDay" type="checkbox" checked><span>All-day event</span></label>
-      <div id="eventTimeFields" class="field-grid two-col is-hidden">
-        <label class="field"><span>Start time</span><input id="eventStartTime" type="time"></label>
-        <label class="field"><span>End time</span><input id="eventEndTime" type="time"></label>
-      </div>
-      <div class="field-grid two-col">
-        <label class="field"><span>Owner / contact</span><input id="eventOwners" maxlength="300"></label>
-        <label class="field"><span>Priority</span><select id="eventPriority"></select></label>
-      </div>
-      <label class="field"><span>Notes</span><textarea id="eventDescription" rows="4" maxlength="4000" placeholder="Purpose, arrival time, preparation, or link"></textarea></label>
-      <label class="check-field milestone-check"><input id="eventImportantDate" type="checkbox"><span>Show on Important Dates calendar</span></label>
-      <p id="eventFormStatus" class="form-status" aria-live="polite"></p>
-      <footer class="event-dialog-footer">
-        <div><button id="eventArchiveButton" class="button button-danger button-small is-hidden" type="button">Archive</button><button id="eventOpenFullTaskButton" class="button button-ghost button-small is-hidden" type="button">Open full task editor</button></div>
-        <div><button id="eventCancelButton" class="button button-ghost" type="button">Cancel</button><button id="eventSaveButton" class="button button-primary" type="submit">Save event</button></div>
-      </footer>
-    </form>
-  </dialog>
-
-  <dialog id="calendarSubscriptionsDialog" class="modal modal-wide planner-modal calendar-subscriptions-dialog">
-    <div class="modal-card subscription-modal-card">
-      <button class="modal-close" type="button" data-close-dialog="calendarSubscriptionsDialog" aria-label="Close">×</button>
-      <div class="subscription-heading">
-        <div>
-          <p class="eyebrow">Live calendar subscriptions</p>
-          <h2>Subscribe to the calendars you use.</h2>
-          <p>Calendar subscriptions are read-only. Make changes in SponsorFlow and your calendar app will pick them up on its next refresh.</p>
-        </div>
-        <span class="live-feed-badge">LIVE .ICS</span>
-      </div>
-      <div class="subscription-callout">
-        <strong>Recommended:</strong> add <b>Club-wide</b> for the full portfolio and <b>Important Dates</b> for critical deadlines. Team members can then add Mechanical, Kart Setup, Wiring Harness, Battery, Software, Manufacturing, or Finance separately.
-      </div>
-      <div id="calendarSubscriptionList" class="calendar-subscription-list"></div>
-      <section class="subscription-help">
-        <div><h3>Apple Calendar</h3><p>Use “Open subscription,” or choose File → New Calendar Subscription on Mac and paste the URL.</p></div>
-        <div><h3>Google Calendar</h3><p>On a computer, open Other calendars → From URL and paste the subscription URL.</p></div>
-        <div><h3>Outlook</h3><p>Use Add calendar → Subscribe from web and paste the URL.</p></div>
-      </section>
-      <p id="calendarSubscriptionStatus" class="form-status" aria-live="polite"></p>
-      <div class="dialog-actions"><button class="button button-secondary" type="button" data-close-dialog="calendarSubscriptionsDialog">Done</button></div>
-    </div>
-  </dialog>
-
-  <iframe name="sponsorflow-api-frame" class="api-frame" title="SponsorFlow data response"></iframe>
-  <script src="assets/config.js?v=20"></script>
-  <script src="assets/api.js?v=20"></script>
-  <script src="assets/planner.js?v=20"></script>
-  <script src="assets/theme.js?v=20"></script>
+<div class="calendar-subscription-list" id="calendarSubscriptionList"></div>
+<section class="subscription-help">
+<div><h3>Apple Calendar</h3><p>Use “Open subscription,” or choose File → New Calendar Subscription on Mac and paste the URL.</p></div>
+<div><h3>Google Calendar</h3><p>On a computer, open Other calendars → From URL and paste the subscription URL.</p></div>
+<div><h3>Outlook</h3><p>Use Add calendar → Subscribe from web and paste the URL.</p></div>
+</section>
+<p aria-live="polite" class="form-status" id="calendarSubscriptionStatus"></p>
+<div class="dialog-actions"><button class="button button-secondary" data-close-dialog="calendarSubscriptionsDialog" type="button">Done</button></div>
+</div>
+</dialog>
+<iframe class="api-frame" name="sponsorflow-api-frame" title="SponsorFlow data response"></iframe>
+<script src="assets/config.js?v=30"></script>
+<script src="assets/api.js?v=30"></script>
+<script src="assets/planner.js?v=30"></script>
+<script src="assets/theme.js?v=30"></script>
 </body>
 </html>

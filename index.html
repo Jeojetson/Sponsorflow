@@ -1,11 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Purdue Indianapolis ASME shared workspace for sponsor outreach, project planning, and club calendars.">
-  <meta name="theme-color" content="#111111">
-  <script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
+<meta content="Purdue Indianapolis ASME shared workspace for sponsor outreach, project planning, and club calendars." name="description"/>
+<meta content="#111111" name="theme-color"/>
+<script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
       const theme = savedTheme === "dark" ? "dark" : "light";
@@ -13,103 +14,90 @@
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
   </script>
-  <title>ASME Indy Workspace</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/app.css?v=20">
-  <link rel="stylesheet" href="assets/ui-20.css?v=20">
+<title>ASME Indianapolis · Member workspace</title>
+
+
+
+<link href="assets/app.css?v=30" rel="stylesheet"/>
+
+<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=30" rel="stylesheet"/><script src="assets/workspace.js?v=30"></script>
 </head>
 <body class="home-page">
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <a class="brand" href="index.html" aria-label="ASME Indy Workspace home">
-      <span class="brand-mark">ASME</span>
-      <span class="brand-copy"><strong>Indy Workspace</strong><small>Purdue Indianapolis</small></span>
-    </a>
-    <nav class="top-nav" aria-label="Primary navigation">
-      <a class="nav-link is-active" href="index.html">Home</a>
-      <a class="nav-link" href="outreach.html">Outreach</a>
-      <a class="nav-link" href="planner.html">Planner</a>
-      <a class="nav-link" href="calendar.html">Calendar</a>
-      <a class="nav-link" href="attendance.html">Attendance</a>
-      <a class="nav-link" href="https://asmevk.webflow.io" target="_blank" rel="noreferrer">Team site</a>
-      <a class="nav-link nav-link-admin" href="admin.html">Admin</a>
-    </nav>
-  </header>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header">
+<a aria-label="ASME Indy Workspace home" class="brand" href="index.html">
+<span class="brand-mark">ASME</span>
+<span class="brand-copy"><strong>ASME Indianapolis</strong><small>Member workspace</small></span>
+</a>
+<nav aria-label="Primary navigation" class="top-nav">
+<a aria-current="page" class="nav-link is-active" href="index.html">Home</a>
+<a class="nav-link" href="outreach.html">Outreach</a>
+<a class="nav-link" href="planner.html">Projects</a>
+<a class="nav-link" href="calendar.html">Calendar</a>
+<a class="nav-link" href="attendance.html">Attendance</a>
 
-  <main id="main" class="home-main">
-    <section class="home-hero">
-      <div class="home-hero-copy">
-        <p class="eyebrow">ASME Indianapolis</p>
-        <h1>The club workspace.</h1>
-        <p>Sponsor outreach, project work, calendars, and attendance in one place.</p>
-        <div class="home-hero-actions">
-          <a class="button button-primary" href="planner.html">Project planner</a>
-          <a class="button button-secondary" href="calendar.html">Club calendar</a>
-          <a class="button button-secondary" href="attendance.html">Attendance</a>
-        </div>
-      </div>
-      <div class="home-hero-visual" aria-label="ASME EV-Kart team highlights">
-        <img src="assets/img/team.jpg" alt="Purdue Indianapolis ASME EV-Kart team with their kart">
-        <div class="home-hero-stat"><strong>5th of 27</strong><span>EV Grand Prix finish</span></div>
-      </div>
-    </section>
+<a class="nav-link nav-link-admin" href="admin.html">Admin</a>
+</nav>
+</header>
+<main class="home-main" id="main">
+<section class="home-hero">
+<div class="home-hero-copy">
+<p class="eyebrow">ASME Indianapolis</p>
+<h1>ASME Indianapolis.</h1>
+<p>Projects, schedules, sponsor outreach, and meeting check-in for ASME members.</p>
+<div class="home-hero-actions">
+<a class="button button-primary" href="planner.html">Projects</a>
+<a class="button button-secondary" href="calendar.html">Club calendar</a>
+<a class="button button-secondary" href="attendance.html">Attendance</a>
+</div>
+</div>
+<div aria-label="ASME EV-Kart team highlights" class="home-hero-visual">
+<img alt="Purdue Indianapolis ASME EV-Kart team with their kart" src="assets/img/team.jpg"/>
 
-    <section class="home-modules" aria-labelledby="workspaceHeading">
-      <div class="home-section-heading">
-        <p class="eyebrow">Tools</p>
-        <h2 id="workspaceHeading">Choose what you need.</h2>
-      </div>
-      <div class="home-module-grid">
-        <a class="home-module-card" href="outreach.html">
-          <span class="home-module-index">01</span>
-          <div class="home-module-icon" aria-hidden="true">↗</div>
-          <h3>Sponsor outreach</h3>
-          <p>Draft sponsor emails, avoid duplicate outreach, and send requests to officers for review.</p>
-          <span class="home-module-link">Open outreach <b>→</b></span>
-        </a>
-        <a class="home-module-card" href="planner.html">
-          <span class="home-module-index">02</span>
-          <div class="home-module-icon" aria-hidden="true">✓</div>
-          <h3>Project planner</h3>
-          <p>Track team tasks, deadlines, dependencies, parts, funding, and progress.</p>
-          <span class="home-module-link">Open planner <b>→</b></span>
-        </a>
-        <a class="home-module-card" href="calendar.html">
-          <span class="home-module-index">03</span>
-          <div class="home-module-icon" aria-hidden="true">□</div>
-          <h3>Club calendar</h3>
-          <p>Create events, view team deadlines, and subscribe to live calendars.</p>
-          <span class="home-module-link">Open calendar <b>→</b></span>
-        </a>
-        <a class="home-module-card" href="attendance.html">
-          <span class="home-module-index">04</span>
-          <div class="home-module-icon" aria-hidden="true">◎</div>
-          <h3>Attendance</h3>
-          <p>Check in to meetings with your name and the meeting password. Officers can manage rosters and exports.</p>
-          <span class="home-module-link">Open attendance <b>→</b></span>
-        </a>
-      </div>
-    </section>
+</div>
+</section>
+<section aria-labelledby="workspaceHeading" class="home-modules">
+<div class="home-section-heading">
+<p class="eyebrow">Tools</p>
+<h2 id="workspaceHeading">Your workspace</h2>
+</div>
+<div class="home-module-grid">
+<a class="home-module-card" href="outreach.html">
+<span class="home-module-index">01</span>
 
-    <section class="home-operations">
-      <div>
-        <p class="eyebrow">How it works</p>
-        <h2>Shared tools, with a record of who changed what.</h2>
-      </div>
-      <div class="home-operation-list">
-        <article><strong>Names, not accounts</strong><p>Your name is attached to task edits, comments, outreach requests, and attendance.</p></article>
-        <article><strong>Team views</strong><p>Each subteam gets its own project and calendar views, with club-wide views when needed.</p></article>
-        <article><strong>Calendar subscriptions</strong><p>Subscribe to a team calendar or download individual events as .ics files.</p></article>
-      </div>
-    </section>
-  </main>
+<h3>Sponsor outreach</h3>
+<p>Prepare sponsor emails and submit them for officer review.</p>
+<span class="home-module-link">Open outreach <b>→</b></span>
+</a>
+<a class="home-module-card" href="planner.html">
+<span class="home-module-index">02</span>
 
-  <footer class="site-footer home-footer">
-    <span>Purdue University Indianapolis ASME</span>
-    <span>Club email: asmeindy@purdue.edu</span>
-  </footer>
-  <script src="assets/theme.js?v=20"></script>
-</body>
+<h3>Projects</h3>
+<p>Tasks, parts, funding, and progress, organized by team.</p>
+<span class="home-module-link">Open projects <b>→</b></span>
+</a>
+<a class="home-module-card" href="calendar.html">
+<span class="home-module-index">03</span>
+
+<h3>Calendar</h3>
+<p>Meetings, milestones, and deadlines. View the month or scan the agenda.</p>
+<span class="home-module-link">Open calendar <b>→</b></span>
+</a>
+<a class="home-module-card" href="attendance.html">
+<span class="home-module-index">04</span>
+
+<h3>Attendance</h3>
+<p>Check in with your name and the meeting password.</p>
+<span class="home-module-link">Open attendance <b>→</b></span>
+</a>
+</div>
+</section><section class="resource-banner"><div><p class="eyebrow">Team resources</p><h2>Reference files, in one place.</h2><p id="resourceDescription">The shared resource library is being prepared.</p></div><span class="resource-status" id="resourceStatus">Coming soon</span><a class="button button-secondary is-hidden" href="#" id="resourceLink" rel="noopener" target="_blank">Open resources ↗</a></section>
+
+</main>
+<footer class="site-footer home-footer">
+<span>Purdue University Indianapolis ASME</span>
+<span>Club email: asmeindy@purdue.edu</span>
+</footer>
+<script src="assets/theme.js?v=30"></script>
+<script src="assets/resources.js?v=30"></script></body>
 </html>
