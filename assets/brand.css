@@ -3763,3 +3763,9 @@ dialog.modal {
   }
 
 }
+
+/* Games join the member navigation; officer tools retain a mobile header link. */
+.mobile-officer-link {display:none;}
+.home-games-banner {display:flex;align-items:center;justify-content:space-between;gap:24px;padding:30px 34px;margin:32px 0;background:var(--brand-slate);color:#fff;border-radius:10px;}
+.home-games-banner .eyebrow {color:var(--brand-gold);}.home-games-banner h2 {font-size:27px;margin:8px 0;letter-spacing:-.04em;color:#fff;}.home-games-banner p:not(.eyebrow) {font-size:13px;color:#e0e2e9;margin:0;}.home-games-banner .button {flex:none;}
+@media(max-width:720px){.site-header{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;}.mobile-officer-link{display:block;color:var(--muted);font-size:11px;margin-left:auto;padding:12px 4px;}.site-header .theme-toggle{margin-left:8px;}.home-games-banner{align-items:start;flex-direction:column;padding:25px 22px;gap:20px;}.home-games-banner h2{font-size:24px;}}

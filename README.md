@@ -1,8 +1,12 @@
-# SponsorFlow 3.0 — ASME Indianapolis workspace
+# SponsorFlow 4.0 — ASME Indianapolis workspace
 
 A shared workspace for project work, calendars, sponsor outreach, and meeting attendance. GitHub Pages serves the website; the existing Google Apps Script deployment and Google Sheet hold shared records.
 
-## What changed
+## Games
+
+Seven mobile-friendly daily games and a shared club leaderboard: Word Sprint, Common Ground, Crown Grid, Equal Split, Waypoint, Number Garage, and Kart Sprint. Games save progress on the device, offer unranked practice, and share scores through the existing SponsorFlow Google Apps Script deployment. See `GAMES-RELEASE.md` and `games-backend/README.md` for the one-time leaderboard setup. The leaderboard uses two new tabs in the existing spreadsheet. Current attendance and officer code is preserved.
+
+## Workspace redesign
 
 - One theme system in `assets/brand.css`, with Mona Sans and the ASME gold, slate, and blue palette.
 - Projects organized in a team/project sidebar. List, Board, Schedule, and Reports share the same records and filters.

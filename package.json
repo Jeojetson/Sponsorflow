@@ -1,7 +1,13 @@
 {
   "name": "asme-sponsorflow",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
-  "scripts": { "test": "node tests/browser.cjs" },
-  "devDependencies": { "playwright": "1.62.1" }
+  "scripts": {
+    "test": "node tests/browser.cjs",
+    "test:games": "node tests/games-core.cjs && node tests/games-browser.cjs",
+    "build:games": "node games-backend/build.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
 }
