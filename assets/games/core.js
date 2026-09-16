@@ -1,4 +1,4 @@
-/* Shared deterministic rules. Also used by the isolated Games leaderboard service. */
+/* Shared deterministic rules. Also used by the shared Games leaderboard service. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -6,7 +6,8 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   /* GAME_CORE_START */
   'use strict';
-  const VERSION = 1;
+  const VERSION = 1; // Keep the original daily puzzle seeds stable.
+  const SCORING_VERSION = 2;
   const GAMES = [
     {
       id: 'word',
@@ -55,14 +56,6 @@
       minutes: '2–4 min',
       description: 'Use four numbers to build the target.',
       icon: 'numbers',
-    },
-    {
-      id: 'kart',
-      name: 'Kart Sprint',
-      kind: 'Arcade',
-      minutes: '45 sec',
-      description: 'Dodge cones, collect charge, and set your best run.',
-      icon: 'kart',
     },
   ];
   function hash(text) {
@@ -1297,6 +1290,57 @@
     }
     return { win, points, detail };
   }
+  function scoreTimed(id, p, proof) {
+    if (!GAMES.some((game) => game.id === id))
+      throw new Error('This game is not in the current challenge.');
+    const result = validate(id, p, proof);
+    const elapsedMs = Number(proof.elapsedMs),
+      corrections = Number(proof.corrections || 0);
+    if (
+      !Number.isSafeInteger(elapsedMs) ||
+      elapsedMs < 1000 ||
+      elapsedMs > 35 * 86400000
+    )
+      throw new Error('Invalid challenge time.');
+    if (
+      !Number.isSafeInteger(corrections) ||
+      corrections < 0 ||
+      corrections > 100000
+    )
+      throw new Error('Invalid correction count.');
+    let mistakes = corrections;
+    if (id === 'word') mistakes = proof.guesses.length - (result.win ? 1 : 0);
+    if (id === 'groups')
+      mistakes = proof.attempts.filter(
+        (attempt) =>
+          !p.groups.some((group) =>
+            attempt.every((word) => group.words.includes(word)),
+          ),
+      ).length;
+    const accuracy = result.win ? Math.max(10, 100 - mistakes * 10) : 0;
+    const targetSeconds = {
+      word: 120,
+      groups: 180,
+      queens: 180,
+      binary: 180,
+      path: 120,
+      numbers: 120,
+    }[id];
+    const accuracyPoints = result.win ? accuracy * 8 : 0;
+    const speedPoints = result.win
+      ? Math.round(200 * Math.exp(-(elapsedMs - 1000) / (targetSeconds * 1000)))
+      : 0;
+    return {
+      ...result,
+      points: accuracyPoints + speedPoints,
+      version: SCORING_VERSION,
+      elapsedMs,
+      mistakes,
+      accuracy,
+      accuracyPoints,
+      speedPoints,
+    };
+  }
   function rank(records, period, day, game = 'all') {
     const end = new Date(day + 'T12:00:00Z'),
       start = new Date(end);
@@ -1339,6 +1383,8 @@
   }
   return {
     VERSION,
+    SCORING_VERSION,
+    scoreTimed,
     GAMES,
     WORDS,
     ANSWERS,

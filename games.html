@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta
@@ -9,15 +9,15 @@
     <meta name="theme-color" content="#ffffff" />
     <meta
       name="description"
-      content="Daily puzzles, a kart time trial, and friendly competition for ASME Indianapolis members."
+      content="Six daily puzzles scored on time and accuracy, with shared Purdue ASME standings."
     />
-    <title>Games · ASME Indianapolis</title>
+    <title>Games · Purdue ASME</title>
     <script>
       try {
         const t =
-          localStorage.getItem('asmeWorkspaceTheme') === 'dark'
-            ? 'dark'
-            : 'light';
+          localStorage.getItem('asmeWorkspaceTheme') === 'light'
+            ? 'light'
+            : 'dark';
         document.documentElement.dataset.theme = t;
         document.documentElement.style.colorScheme = t;
       } catch (_) {}
@@ -32,16 +32,17 @@
     <link rel="stylesheet" href="assets/app.css?v=40" />
     <link rel="stylesheet" href="assets/brand.css?v=40" />
     <link rel="stylesheet" href="assets/games/games.css?v=40" />
-    <script src="assets/workspace.js?v=40"></script>
+    <script src="assets/workspace.js?v=50"></script>
+    <link href="assets/experience.css?v=50" rel="stylesheet" />
   </head>
   <body class="games-page">
     <a class="skip-link" href="#main">Skip to games</a>
     <header class="site-header">
-      <a aria-label="ASME Indy Workspace home" class="brand" href="index.html">
+      <a aria-label="Purdue ASME home" class="brand" href="index.html">
         <span class="brand-mark">ASME</span>
         <span class="brand-copy"
-          ><strong>ASME Indianapolis</strong
-          ><small>Member workspace</small></span
+          ><strong>Purdue ASME</strong
+          ><small>Indianapolis Student Section</small></span
         >
       </a>
       <nav aria-label="Primary navigation" class="top-nav">
@@ -63,7 +64,7 @@
           <div>
             <p class="eyebrow">The off-track club</p>
             <h1>A little friendly competition.</h1>
-            <p>Seven games. A new challenge every day. See you at the top.</p>
+            <p>Six games. A new challenge every day. See you at the top.</p>
           </div>
           <div class="games-date">
             <span id="gamesDate"></span
@@ -77,12 +78,10 @@
             ><button type="button" data-category="Words" aria-pressed="false">
               Words</button
             ><button type="button" data-category="Logic" aria-pressed="false">
-              Logic</button
-            ><button type="button" data-category="Arcade" aria-pressed="false">
-              Arcade
+              Logic
             </button>
           </div>
-          <p id="gamesDailyProgress">0 of 7 played today</p>
+          <p id="gamesDailyProgress">0 of 6 played today</p>
         </div>
         <div class="game-catalog" id="gameCatalog"></div>
         <section class="games-leaderboard" aria-labelledby="leaderboardTitle">
@@ -91,8 +90,8 @@
               <p class="eyebrow">Club competition</p>
               <h2 id="leaderboardTitle">The standings</h2>
               <p>
-                One daily result per puzzle. Your best kart run. Up to 700
-                points a day.
+                One daily result per puzzle. Up to 6,000 points a day. Accuracy
+                leads; speed adds a bonus.
               </p>
             </div>
             <button
@@ -134,9 +133,20 @@
             id="gamesServiceStatus"
             role="status"
           ></p>
+          <p id="gamesSyncStatus" class="status-text" aria-live="polite">
+            Timed scoring · up to 1,000 points per game. Previous scores are
+            preserved separately.
+          </p>
+          <button
+            id="gamesSyncButton"
+            class="button button-secondary button-small"
+            type="button"
+          >
+            Sync scores
+          </button>
           <div id="leaderboardRows"></div>
           <p class="leaderboard-note">
-            Ties share a place. Puzzles reward solving, not speed. Display names
+            Ties share a place. Scores combine accuracy and elapsed time. Display names
             and scores are visible to everyone who visits the games page.
           </p>
         </section>
@@ -159,6 +169,14 @@
           <span class="game-points" id="gamePoints">Daily challenge</span>
         </div>
         <p id="gameDescription" class="game-description"></p>
+        <div class="game-session-stats">
+          <span>Time <strong id="gameTimer">0:00</strong></span
+          ><span>Corrections <strong id="gameCorrections">0</strong></span>
+        </div>
+        <p class="game-timer-note">
+          The timer runs from opening to finishing, including time away.
+          Practice is unranked.
+        </p>
         <div id="gameStage"></div>
         <p
           id="gameMessage"
@@ -279,10 +297,10 @@
       ><a href="admin.html">Officer workspace</a>
     </footer>
     <script src="assets/config.js?v=41"></script>
-    <script src="assets/games/config.js?v=41"></script>
-    <script src="assets/games/core.js?v=40"></script>
-    <script src="assets/games/service.js?v=41"></script>
-    <script src="assets/games/app.js?v=40"></script>
-    <script src="assets/theme.js?v=40"></script>
+    <script src="assets/games/config.js?v=50"></script>
+    <script src="assets/games/core.js?v=50"></script>
+    <script src="assets/games/service.js?v=50"></script>
+    <script src="assets/games/app.js?v=50"></script>
+    <script src="assets/theme.js?v=50"></script>
   </body>
 </html>

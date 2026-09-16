@@ -46,7 +46,7 @@ const mock=`(() => {
 })();`;
 async function pageFor(browser,width,theme='light',identity=true) {
  const ctx=await browser.newContext({viewport:{width,height:1000},deviceScaleFactor:1});
- await ctx.addInitScript(({theme,identity})=>{localStorage.setItem('asmeWorkspaceTheme',theme);if(identity)localStorage.setItem('asmePlannerName','Jordan Lee');},{theme,identity});
+ await ctx.addInitScript(({theme,identity})=>{if(theme)localStorage.setItem('asmeWorkspaceTheme',theme);if(identity)localStorage.setItem('asmePlannerName','Jordan Lee');},{theme,identity});
  await ctx.route('**/*',route=>{
   const u=new URL(route.request().url());
   if(u.pathname==='/assets/api.js')return route.fulfill({contentType:'text/javascript',body:mock});
@@ -57,7 +57,7 @@ async function pageFor(browser,width,theme='light',identity=true) {
  return page;
 }
 async function open(page,name) {await page.goto(`${base}/${name}.html`);await page.waitForFunction(()=>document.fonts.status==='loaded');await page.waitForTimeout(120);}
-async function screenshot(page,name) {await page.screenshot({path:path.join(output,name+'.png'),fullPage:!(await page.locator('dialog[open]').count())});}
+async function screenshot(page,name) {await page.evaluate(async()=>{await Promise.all([...document.images].map(img=>{img.loading='eager';return img.decode().catch(()=>{});}));});await page.screenshot({path:path.join(output,name+'.png'),fullPage:!(await page.locator('dialog[open]').count())});}
 async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth,offenders:[...document.querySelectorAll('body *')].filter(e=>{const r=e.getBoundingClientRect();return r.width && r.right>innerWidth+2 && !e.closest('.gantt-scroll,.kanban-board,dialog,[hidden],.is-hidden')}).slice(0,8).map(e=>e.className||e.id||e.tagName)}));}
 (async()=>{
  const browser=await chromium.launch({channel:process.env.SPONSORFLOW_BROWSER || 'chrome',headless:true});
@@ -76,12 +76,32 @@ async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scrol
   fs.writeFileSync(path.join(output,'visual-report.json'),JSON.stringify(report,null,2));
   console.log('Visual checks:',report.length,'pages/sizes/themes');
   if(process.env.VISUAL_ONLY==='1') {console.log(JSON.stringify(errors,null,2));return;}
+  const defaults=await pageFor(browser,390,null);
+  await open(defaults,'index');assert.equal(await defaults.locator('html').getAttribute('data-theme'),'dark');
+  assert.equal(await defaults.locator('.top-nav .is-active').getAttribute('href'),'index.html');
+  await defaults.click('[data-theme-toggle]');await open(defaults,'calendar');assert.equal(await defaults.locator('html').getAttribute('data-theme'),'light');
+  assert.equal(await defaults.locator('body').getAttribute('data-calendar-view'),'agenda');assert.equal(await defaults.locator('.calendar-day').count(),0);
+  assert.equal(await defaults.locator('.workspace-explorer').evaluate(e=>e.open),true);
+  await defaults.click('button[data-calendar-view="month"]');assert.equal(await defaults.locator('.calendar-day').count(),42);
+  await defaults.context().close();
   const p=await pageFor(browser,1440);await open(p,'planner');
-  assert.equal(await p.locator('.work-row').count(),fixture.tasks.length);
-  await p.click('[data-quick-filter="mine"]');assert.equal(await p.locator('.work-row').count(),4);
+  assert.equal(await p.locator('.sidebar-group:not([open])').count(),0);
+  // Every list field supports both directions. Title order and saved preference
+  // are checked independently of the implementation's comparator.
+  for(const field of ['title','status','priority','ownerNames','dueDate','startDate','progress','taskType','team']){
+    await p.selectOption('#workSort',field);await p.click('#workSortDirection');await p.click('#workSortDirection');
+    assert.equal(await p.inputValue('#workSort'),field);
+  }
+  await p.selectOption('#workSort','title');
+  const titles=await p.locator('.work-row-title strong').allTextContents();assert.deepEqual(titles,[...titles].sort((a,b)=>a.localeCompare(b)));
+  await p.click('#workSortDirection');assert.deepEqual(await p.locator('.work-row-title strong').allTextContents(),[...titles].reverse());
+  await p.reload();await p.waitForSelector('.work-row');assert.equal(await p.inputValue('#workSort'),'title');assert.match(await p.locator('#workSortDirection').innerText(),/Descending/);
+
+  assert.equal(await p.locator('.work-row').count(),fixture.tasks.filter(task => task.boardId !== 'BOARD-OPS').length);
+  await p.click('[data-quick-filter="mine"]');assert.equal(await p.locator('.work-row').count(),3);
   await p.click('[data-quick-filter="attention"]');assert.equal(await p.locator('.work-row').count(),1);
   await p.click('[data-quick-filter="all"]');
-  await p.fill('#taskSearch','grant');assert.equal(await p.locator('.work-row').count(),1);await p.fill('#taskSearch','');
+  await p.fill('#taskSearch','grant');assert.equal(await p.locator('.work-row').count(),0);await p.fill('#taskSearch','');await p.click('.legacy-work summary');await p.click('[data-project-id="BOARD-OPS"]');assert.equal(await p.locator('.work-row').count(),2);
   await p.click('[data-project-id="BOARD-ELEC"]');assert.equal(await p.locator('.work-row').count(),2);
   await p.click('[data-project-id="BOARD-CLUB-PORTFOLIO"]');
   for(const view of ['board','timeline','insights','table']) {await p.click(`[data-planner-view="${view}"]`);await p.waitForTimeout(50);assert.equal(await p.locator(`[data-planner-panel="${view}"]`).isVisible(),true);await screenshot(p,`planner-${view}-desktop`);}
@@ -105,9 +125,9 @@ async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scrol
   await p.context().close();
   const cal=await pageFor(browser,1440);await open(cal,'calendar');
   await cal.click('[data-calendar-scope="board:BOARD-ELEC"]');assert.equal(await cal.locator('.calendar-agenda-item').count(),2);
-  await cal.click('[data-calendar-scope="all"]');await cal.click('[data-calendar-view="agenda"]');assert.equal(await cal.locator('.standalone-calendar-panel').isVisible(),false);
+  await cal.click('[data-calendar-scope="all"]');await cal.click('button[data-calendar-view="agenda"]');assert.equal(await cal.locator('.standalone-calendar-panel').isVisible(),false);
   await cal.click('[data-calendar-kind="events"]');assert.equal(await cal.locator('.calendar-agenda-item').count(),3);
-  await cal.click('[data-calendar-kind="all"]');await cal.fill('#calendarSearch','equipment');assert.equal(await cal.locator('.calendar-agenda-item').count(),1);
+  await cal.click('[data-calendar-kind="all"]');await cal.click('.legacy-work summary');await cal.click('[data-calendar-scope="team:TEAM-OPS"]');await cal.fill('#calendarSearch','equipment');assert.equal(await cal.locator('.calendar-agenda-item').count(),1);
   await cal.click('[data-agenda-task="TASK-6"]');assert.equal(await cal.inputValue('#calendarEventStartDate'),'');assert.equal(await cal.inputValue('#calendarEventProgress'),'25');
   await screenshot(cal,'calendar-event-editor');
   assert.equal(await cal.locator('#calendarEventDialog').evaluate(e=>e.scrollWidth<=e.clientWidth+2),true);
@@ -115,7 +135,7 @@ async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scrol
   saved=await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload);
   assert.equal(saved.startDate,'');assert.equal(saved.dueDate,fixture.tasks[5].dueDate);
   for(const key of ['partName','partNumber','vendor','fundingMin','fundingMax','quantity','estimatedCost','requirements','tags','sourceUrl'])assert.equal(saved[key],fixture.tasks[5][key],key);
-  await cal.fill('#calendarSearch','');await cal.click('[data-agenda-task="TASK-1"]');assert.equal(await cal.inputValue('#calendarEventProgress'),'40');await cal.click('#calendarEventSave');await cal.waitForSelector('#calendarEventDialog:not([open])',{state:'attached'});
+  await cal.fill('#calendarSearch','');await cal.click('[data-calendar-scope="all"]');await cal.click('[data-agenda-task="TASK-1"]');assert.equal(await cal.inputValue('#calendarEventProgress'),'40');await cal.click('#calendarEventSave');await cal.waitForSelector('#calendarEventDialog:not([open])',{state:'attached'});
   saved=await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload);assert.deepEqual(JSON.parse(saved.dependencyIds),fixture.tasks[0].dependencyIds);assert.equal(saved.progress,40);
   await cal.click('#calendarNewEventTop');await cal.fill('#calendarEventTitle','Test meeting');await cal.evaluate(()=>window.__failAfterSave=true);await cal.click('#calendarEventSave');await cal.waitForFunction(()=>document.querySelector('#calendarEventId').value.startsWith('CREATED-'));const eventId=await cal.inputValue('#calendarEventId');await cal.click('#calendarEventSave');await cal.waitForSelector('#calendarEventDialog:not([open])',{state:'attached'});assert.equal(await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload.id),eventId);
   await cal.context().close();

@@ -22,7 +22,7 @@
   }
 
   function currentTheme() {
-    return savedTheme() === "dark" ? "dark" : "light";
+    return savedTheme() === "light" ? "light" : "dark";
   }
 
   function renderToggle(button, theme) {

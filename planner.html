@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1, viewport-fit=cover" name="viewport"/>
@@ -8,21 +8,22 @@
 <script>
     try {
       const savedTheme = localStorage.getItem("asmeWorkspaceTheme");
-      const theme = savedTheme === "dark" ? "dark" : "light";
+      const theme = savedTheme === "light" ? "light" : "dark";
       document.documentElement.dataset.theme = theme;
       document.documentElement.style.colorScheme = theme;
     } catch (_) {}
   </script>
-<title>Projects · ASME Indianapolis</title>
+<title>Projects · Purdue ASME</title>
 <link href="assets/app.css?v=30" rel="stylesheet"/>
-<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=40" rel="stylesheet"/><script src="assets/workspace.js?v=30"></script>
+<link as="font" crossorigin="" href="assets/fonts/mona-sans-variable.woff2" rel="preload" type="font/woff2"/><link href="assets/brand.css?v=40" rel="stylesheet"/><script src="assets/workspace.js?v=50"></script>
+<link href="assets/experience.css?v=50" rel="stylesheet"/>
 </head>
 <body class="planner-page">
 <a class="skip-link" href="#plannerMain">Skip to planner</a>
 <header class="site-header">
 <a aria-label="SponsorFlow home" class="brand" href="index.html">
 <span class="brand-mark">ASME</span>
-<span class="brand-copy"><strong>ASME Indianapolis</strong><small>Member workspace</small></span>
+<span class="brand-copy"><strong>Purdue ASME</strong><small>Indianapolis Student Section</small></span>
 </a>
 <nav aria-label="Primary navigation" class="top-nav">
 <a class="nav-link" href="index.html">Home</a>
@@ -98,7 +99,7 @@
 <label class="check-field planner-check"><input id="hideDoneFilter" type="checkbox"/><span>Hide done</span></label>
 <button class="button button-ghost button-small" id="clearPlannerFilters" type="button">Clear</button>
 </div></details></div><p aria-live="polite" class="result-count" id="plannerResultCount"></p></section>
-<div aria-live="polite" class="form-status" id="plannerMessage"></div>
+<p class="sync-indicator" id="plannerSyncStatus" role="status"></p><div aria-live="polite" class="form-status" id="plannerMessage"></div>
 <section class="planner-view-panel" data-planner-panel="board" id="boardView">
 <div class="kanban-board" id="kanbanBoard"></div>
 </section>
@@ -152,7 +153,7 @@
 </aside>
 </div>
 </section>
-<section class="planner-view-panel is-hidden" data-planner-panel="table" id="tableView"><div class="work-list" id="workList"></div></section>
+<section class="planner-view-panel is-hidden" data-planner-panel="table" id="tableView"><div class="sort-toolbar"><label for="workSort">Sort by</label><select id="workSort"><option value="title">Work item</option><option value="status">Status</option><option value="priority">Priority</option><option value="ownerNames">Owner</option><option value="dueDate">Due date</option><option value="startDate">Start date</option><option value="progress">Progress</option><option value="taskType">Type</option><option value="team">Team</option></select><button class="button button-secondary button-small" id="workSortDirection" type="button" aria-label="Change sort direction">Ascending ↑</button></div><div class="work-list" id="workList"></div></section>
 <section class="planner-view-panel is-hidden" data-planner-panel="insights" id="insightsView">
 <div class="insights-toolbar">
 <div>
@@ -390,8 +391,8 @@
 </dialog>
 <iframe class="api-frame" name="sponsorflow-api-frame" title="SponsorFlow data response"></iframe>
 <script src="assets/config.js?v=30"></script>
-<script src="assets/api.js?v=30"></script>
-<script src="assets/planner.js?v=30"></script>
-<script src="assets/theme.js?v=40"></script>
+<script src="assets/api.js?v=50"></script>
+<script src="assets/planner.js?v=50"></script>
+<script src="assets/theme.js?v=50"></script>
 </body>
 </html>

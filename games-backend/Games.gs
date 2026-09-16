@@ -2,7 +2,8 @@
 var SFGames = (function () {
 
   'use strict';
-  const VERSION = 1;
+  const VERSION = 1; // Keep the original daily puzzle seeds stable.
+  const SCORING_VERSION = 2;
   const GAMES = [
     {
       id: 'word',
@@ -51,14 +52,6 @@ var SFGames = (function () {
       minutes: '2–4 min',
       description: 'Use four numbers to build the target.',
       icon: 'numbers',
-    },
-    {
-      id: 'kart',
-      name: 'Kart Sprint',
-      kind: 'Arcade',
-      minutes: '45 sec',
-      description: 'Dodge cones, collect charge, and set your best run.',
-      icon: 'kart',
     },
   ];
   function hash(text) {
@@ -1293,6 +1286,57 @@ var SFGames = (function () {
     }
     return { win, points, detail };
   }
+  function scoreTimed(id, p, proof) {
+    if (!GAMES.some((game) => game.id === id))
+      throw new Error('This game is not in the current challenge.');
+    const result = validate(id, p, proof);
+    const elapsedMs = Number(proof.elapsedMs),
+      corrections = Number(proof.corrections || 0);
+    if (
+      !Number.isSafeInteger(elapsedMs) ||
+      elapsedMs < 1000 ||
+      elapsedMs > 35 * 86400000
+    )
+      throw new Error('Invalid challenge time.');
+    if (
+      !Number.isSafeInteger(corrections) ||
+      corrections < 0 ||
+      corrections > 100000
+    )
+      throw new Error('Invalid correction count.');
+    let mistakes = corrections;
+    if (id === 'word') mistakes = proof.guesses.length - (result.win ? 1 : 0);
+    if (id === 'groups')
+      mistakes = proof.attempts.filter(
+        (attempt) =>
+          !p.groups.some((group) =>
+            attempt.every((word) => group.words.includes(word)),
+          ),
+      ).length;
+    const accuracy = result.win ? Math.max(10, 100 - mistakes * 10) : 0;
+    const targetSeconds = {
+      word: 120,
+      groups: 180,
+      queens: 180,
+      binary: 180,
+      path: 120,
+      numbers: 120,
+    }[id];
+    const accuracyPoints = result.win ? accuracy * 8 : 0;
+    const speedPoints = result.win
+      ? Math.round(200 * Math.exp(-(elapsedMs - 1000) / (targetSeconds * 1000)))
+      : 0;
+    return {
+      ...result,
+      points: accuracyPoints + speedPoints,
+      version: SCORING_VERSION,
+      elapsedMs,
+      mistakes,
+      accuracy,
+      accuracyPoints,
+      speedPoints,
+    };
+  }
   function rank(records, period, day, game = 'all') {
     const end = new Date(day + 'T12:00:00Z'),
       start = new Date(end);
@@ -1335,6 +1379,8 @@ var SFGames = (function () {
   }
   return {
     VERSION,
+    SCORING_VERSION,
+    scoreTimed,
     GAMES,
     WORDS,
     ANSWERS,
@@ -1381,6 +1427,12 @@ const SF_GAMES = Object.freeze({
       'detail',
       'proofHash',
       'completedAt',
+      'version',
+      'elapsedMs',
+      'mistakes',
+      'accuracy',
+      'accuracyPoints',
+      'speedPoints',
     ],
   },
 });
@@ -1395,11 +1447,20 @@ function setupGames() {
     // under either reserved name must already match this Games schema.
     for (const name of Object.keys(SF_GAMES.HEADERS)) {
       const sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
-      if (sheet && sheet.getLastRow() > 0) gamesCheckHeaders_(sheet, name);
+      if (sheet && sheet.getLastRow() > 0)
+        gamesCheckHeaders_(sheet, name, true);
     }
     for (const name of Object.keys(SF_GAMES.HEADERS)) {
       let sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
-      if (sheet && sheet.getLastRow() > 0) continue;
+      if (sheet && sheet.getLastRow() > 0) {
+        const existingColumns = sheet.getLastColumn();
+        const missing = SF_GAMES.HEADERS[name].slice(existingColumns);
+        if (missing.length)
+          sheet
+            .getRange(1, existingColumns + 1, 1, missing.length)
+            .setValues([missing]);
+        continue;
+      }
       if (!sheet) sheet = book.insertSheet(SF_GAMES.SHEETS[name]);
       const headers = SF_GAMES.HEADERS[name];
       sheet
@@ -1421,12 +1482,14 @@ function gamesBook_() {
   if (!id) throw new Error('SponsorFlow spreadsheet is not configured.');
   return SpreadsheetApp.openById(id);
 }
-function gamesCheckHeaders_(sheet, name) {
+function gamesCheckHeaders_(sheet, name, allowUpgrade) {
   const expected = SF_GAMES.HEADERS[name];
-  const actual = sheet.getRange(1, 1, 1, expected.length).getValues()[0];
+  const width = sheet.getLastColumn();
+  const previous = name === 'Results' && width === 9 && allowUpgrade;
+  const actual = sheet.getRange(1, 1, 1, width).getValues()[0];
   if (
-    sheet.getLastColumn() !== expected.length ||
-    expected.some((header, i) => actual[i] !== header)
+    (!previous && width !== expected.length) ||
+    actual.some((header, i) => expected[i] !== header)
   ) {
     throw new Error(
       SF_GAMES.SHEETS[name] +
@@ -1485,22 +1548,45 @@ function gamesPublicRecord_(r, name) {
   return {
     playerId: r.playerId,
     name: name || '',
-    day: String(r.day),
+    day: gamesDateOnly_(r.day),
     game: r.game,
     points: Number(r.points),
     win: r.win === true || String(r.win) === 'true',
     detail: String(r.detail),
     completedAt: r.completedAt,
+    version: Number(r.version || 1),
+    elapsedMs: Number(r.elapsedMs || 0),
+    mistakes: Number(r.mistakes || 0),
+    accuracy: Number(r.accuracy || 0),
+    accuracyPoints: Number(r.accuracyPoints || 0),
+    speedPoints: Number(r.speedPoints || 0),
     synced: true,
   };
+}
+function gamesDateOnly_(value) {
+  if (value instanceof Date)
+    return Utilities.formatDate(
+      value,
+      'America/Indiana/Indianapolis',
+      'yyyy-MM-dd',
+    );
+  return String(value || '').slice(0, 10);
 }
 function gamesInvalidate_() {
   const keys = [];
   for (const period of ['today', 'week', 'month'])
-    for (const game of ['all'].concat(SFGames.GAMES.map((g) => g.id)))
-      keys.push(
-        'ASME_GAMES_BOARD_V1:' + gamesDay_() + ':' + period + ':' + game,
-      );
+    for (const game of ['all', 'kart'].concat(SFGames.GAMES.map((g) => g.id)))
+      for (const version of [1, 2])
+        keys.push(
+          'ASME_GAMES_BOARD_V2:' +
+            version +
+            ':' +
+            gamesDay_() +
+            ':' +
+            period +
+            ':' +
+            game,
+        );
   CacheService.getScriptCache().removeAll(keys);
 }
 function gamesJoin_(input) {
@@ -1544,7 +1630,10 @@ function gamesJoin_(input) {
     playerId: player.playerId,
     name,
     results: gamesRows_('Results')
-      .filter((r) => r.playerId === player.playerId && String(r.day) >= cutoff)
+      .filter(
+        (r) =>
+          r.playerId === player.playerId && gamesDateOnly_(r.day) >= cutoff,
+      )
       .map((r) => gamesPublicRecord_(r, name)),
   };
 }
@@ -1552,11 +1641,13 @@ function gamesScore_(input) {
   const player = gamesProfile_(input.code);
   const day = String(input.day || ''),
     game = String(input.game || '');
-  if (Number(input.version) !== SFGames.VERSION)
+  const version = Number(input.version || 1);
+  if (![1, SFGames.SCORING_VERSION].includes(version))
     throw new Error('Refresh the games page before syncing this result.');
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
-    !SFGames.GAMES.some((g) => g.id === game)
+    (!SFGames.GAMES.some((g) => g.id === game) &&
+      !(version === 1 && game === 'kart'))
   )
     throw new Error('Invalid challenge.');
   const date = new Date(day + 'T12:00:00Z');
@@ -1578,8 +1669,17 @@ function gamesScore_(input) {
   } catch (_) {
     throw new Error('Invalid result.');
   }
-  const result = SFGames.validate(game, SFGames.puzzle(game, day), proof);
-  const id = player.playerId + ':' + day + ':' + game,
+  const result =
+    version === 2
+      ? SFGames.scoreTimed(game, gamesPuzzle_(game, day), proof)
+      : SFGames.validate(game, gamesPuzzle_(game, day), proof);
+  const id =
+      player.playerId +
+      ':' +
+      day +
+      ':' +
+      game +
+      (version === 1 ? '' : ':v' + version),
     existing = gamesRows_('Results').find((r) => r.id === id);
   // Puzzles keep the first result; racing keeps the best. Retried writes are idempotent.
   if (existing && (game !== 'kart' || Number(existing.points) >= result.points))
@@ -1594,6 +1694,12 @@ function gamesScore_(input) {
     detail: result.detail,
     proofHash: gamesHash_(proofText),
     completedAt: new Date().toISOString(),
+    version,
+    elapsedMs: result.elapsedMs || '',
+    mistakes: result.mistakes || 0,
+    accuracy: result.accuracy || '',
+    accuracyPoints: result.accuracyPoints || 0,
+    speedPoints: result.speedPoints || 0,
   };
   const sheet = gamesSheet_('Results'),
     values = SF_GAMES.HEADERS.Results.map((k) => record[k]);
@@ -1603,26 +1709,52 @@ function gamesScore_(input) {
   gamesInvalidate_();
   return { record: gamesPublicRecord_(record, player.name) };
 }
+function gamesPuzzle_(game, day) {
+  const key = 'ASME_PUZZLE_V1:' + day + ':' + game;
+  const cache = CacheService.getScriptCache();
+  const saved = cache.get(key);
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  const puzzle = SFGames.puzzle(game, day);
+  cache.put(key, JSON.stringify(puzzle), 21600);
+  return puzzle;
+}
 function gamesLeaderboard_(input) {
+  const version = Number(input.version || 1);
+  if (![1, 2].includes(version))
+    throw new Error('Refresh Games to load the current rankings.');
   const period = String(input.period || 'today'),
     game = String(input.game || 'all'),
     day = gamesDay_();
   if (
     !['today', 'week', 'month'].includes(period) ||
-    !['all'].concat(SFGames.GAMES.map((g) => g.id)).includes(game)
+    !['all']
+      .concat(
+        version === 1 ? ['kart'] : [],
+        SFGames.GAMES.map((g) => g.id),
+      )
+      .includes(game)
   )
     throw new Error('Invalid standings filter.');
   const cache = CacheService.getScriptCache(),
-    key = 'ASME_GAMES_BOARD_V1:' + day + ':' + period + ':' + game;
+    key =
+      'ASME_GAMES_BOARD_V2:' + version + ':' + day + ':' + period + ':' + game;
   const saved = cache.get(key);
   if (saved) return JSON.parse(saved);
   const players = gamesRows_('Players'),
     names = {};
   players.forEach((p) => (names[p.playerId] = p.name));
-  const records = gamesRows_('Results').map((r) =>
-    gamesPublicRecord_(r, names[r.playerId] || 'Club member'),
-  );
+  const records = gamesRows_('Results')
+    .map((r) => gamesPublicRecord_(r, names[r.playerId] || 'Club member'))
+    .filter(
+      (record) =>
+        record.version === version && (version === 1 || record.game !== 'kart'),
+    );
   const result = {
+    version,
     day,
     rows: SFGames.rank(records, period, day, game).slice(0, 200),
     updatedAt: new Date().toISOString(),

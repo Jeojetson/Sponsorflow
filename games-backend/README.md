@@ -1,5 +1,7 @@
 # Add Games to your existing SponsorFlow Google Sheet
 
+**Already installed Games?** Replace only Games.gs, run `setupGames` once to append the timed-scoring columns, and deploy a new version of the existing web app. Keep your existing Code.gs routing hooks and Admin.html. See [RELEASE-5.0.md](../RELEASE-5.0.md) for the full update.
+
 Use the **same Google Sheet, Apps Script project, and web app URL** that already run SponsorFlow. The current Code.gs you supplied includes the 2.1 attendance cache and officer attendance analytics. Keep that file and your current Admin.html; the repository's historical `apps-script/Code.gs` and `apps-script/Admin.html` are not replacements for them.
 
 ## Install in the existing project
@@ -38,14 +40,14 @@ Use the **same Google Sheet, Apps Script project, and web app URL** that already
 
 Only the four routing lines above change Code.gs. Attendance passwords, officer sessions, planner records, calendars, comments, sponsor data, and the admin password stay in their existing code and tables. Games reads the existing `SPREADSHEET_ID` and `FRONTEND_ORIGIN` settings and uses the existing script lock; it does not change those settings or run SponsorFlow schema migrations.
 
-If `Games Players` or `Games Results` already contains different columns, setup stops before adding or editing either tab. It never deletes tabs or creates another spreadsheet. Correctly initialized Games tabs keep their rows when setup is rerun.
+The previous nine-column Games Results schema is upgraded by appending six columns. For other unrecognized columns in `Games Players` or `Games Results`, setup stops before adding or editing either tab. It never deletes tabs or creates another spreadsheet. Correctly initialized Games tabs keep their rows when setup is rerun.
 
 ## What gets stored
 
 - **Games Players**: a derived ID, a hash of the private player code, display name, and timestamps. The raw code stays in that player's browser.
-- **Games Results**: one row per player, date, and game; points, win status, a short summary, proof hash, and timestamp. The game service does not read attendance or project rows.
+- **Games Results**: one row per player, date, game, and scoring version; points, win status, a short summary, proof hash, timestamp, elapsed time, corrections, and accuracy/speed breakdown. The game service does not read attendance or project rows.
 - Display names and rankings are public on the Games page. Player codes and hashes are never returned in standings.
-- The server calculates each score from the puzzle solution or kart replay. Puzzles retain their first result; racing retains the best result. Retrying a submission does not create another row.
+- The server validates puzzle solutions and calculates time/accuracy scores. Browser-reported time and corrections are intended for casual competition. Puzzles retain their first result. Historical kart and 100-point scores are kept separately as version 1. Retrying a submission does not create another row.
 - Everyone uses the Indianapolis calendar date. Today, last seven days, and current-month filters share the same records. Ties share a rank.
 - A player code restores identity and completed results on another device. Unfinished boards stay on their original device. Offline results can sync for 35 days; the spreadsheet retains historical scores.
 
