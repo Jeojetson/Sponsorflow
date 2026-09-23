@@ -22,6 +22,7 @@ html[data-theme='light'] {
   --surface-2: #e9e5db;
   --text: #242735;
   --muted: #51576a;
+  --faint: #5b6171;
   --line: #b8b7b5;
   --line-strong: #40455c;
 }
@@ -787,4 +788,55 @@ h3 {
 .calendar-agenda-date {
   font-size: 13px;
   font-weight: 750;
+}
+
+/* The shared identity prompt uses the same surfaces in both themes. */
+.member-name-button {
+  max-width: 150px; min-height: 44px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; padding: 8px 12px; border: 2px solid var(--line-strong);
+  background: var(--surface); color: var(--text); font: 750 13px var(--font-body);
+  flex-shrink: 0; cursor: pointer;
+}
+.member-name-button:focus-visible { outline: 3px solid var(--blue-ink); outline-offset: 3px; }
+.member-welcome {
+  width: min(520px, calc(100% - 32px)); max-height: calc(100dvh - 32px);
+  overflow: auto; padding: 30px; border: 2px solid var(--line-strong);
+  border-radius: 3px; background: var(--surface); color: var(--text);
+  box-shadow: 7px 7px 0 var(--brand-slate);
+}
+.member-welcome::backdrop { background: #10121ade; }
+.member-welcome h2 { margin: 8px 0 18px; font-size: clamp(25px, 5vw, 34px); line-height: 1.15; }
+.member-welcome p { line-height: 1.55; }
+.member-welcome .field { margin: 22px 0 12px; }
+.member-welcome .member-privacy { color: var(--muted); font-size: 13px; }
+.member-welcome-actions { display: flex; gap: 12px; margin-top: 18px; }
+@media (max-width: 1180px) { .site-header { flex-wrap: wrap; } }
+@media (max-width: 720px) {
+  .member-name-button { max-width: 120px; margin-left: auto; }
+  .member-welcome { padding: 24px 20px; }
+}
+
+/* Explicit foreground/background pairs prevent theme inheritance mismatches. */
+.skip-link { background: var(--text); color: var(--surface); }
+.process-grid article > span { color: var(--accent-ink); }
+/* Name and theme controls have assigned grid cells at every breakpoint. */
+.site-header { grid-template-columns: auto minmax(0, 1fr) auto auto; }
+.site-header .brand { grid-column: 1; grid-row: 1; }
+.site-header .top-nav { grid-column: 2; grid-row: 1; }
+.site-header .member-name-button { grid-column: 3; grid-row: 1; }
+.site-header .theme-toggle { grid-column: 4; grid-row: 1; }
+@media (min-width: 721px) and (max-width: 1180px) {
+  .site-header { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .site-header .top-nav { grid-column: 1 / -1; grid-row: 2; justify-self: start; }
+  .site-header .member-name-button { grid-column: 2; }
+  .site-header .theme-toggle { grid-column: 3; }
+}
+@media (max-width: 720px) {
+  .site-header { grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; padding: 12px 16px; }
+  .site-header .brand { grid-column: 1 / 3; grid-row: 1; max-width: none; }
+  .site-header .brand-copy strong { white-space: normal; overflow: visible; font-size: 15px; }
+  .site-header .brand-copy small { display: block; font-size: 9px; }
+  .site-header .theme-toggle { grid-column: 3; grid-row: 1; margin: 0; }
+  .site-header .member-name-button { grid-column: 1 / 3; grid-row: 2; margin: 0; max-width: 100%; justify-self: start; }
+  .site-header .mobile-officer-link { grid-column: 3; grid-row: 2; margin: 0; justify-self: center; }
 }

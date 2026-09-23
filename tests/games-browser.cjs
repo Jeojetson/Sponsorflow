@@ -13,6 +13,7 @@ const errors = [];
 const backend = makeBackend(base);
 let offline = false;
 let legacyDeployment = false;
+let loseJoinReply = false;
 const requests = [];
 const replies = new Map();
 async function makePage(browser, width, theme = 'light', configured = true) {
@@ -25,7 +26,7 @@ async function makePage(browser, width, theme = 'light', configured = true) {
     hasTouch: width < 720,
   });
   await ctx.addInitScript(
-    ({ theme }) => localStorage.setItem('asmeWorkspaceTheme', theme),
+    ({ theme }) => { localStorage.setItem('asmeWorkspaceTheme', theme); localStorage.setItem('asmeMemberName','Jordan Lee'); },
     { theme },
   );
   await ctx.route('**/*', async (route) => {
@@ -54,7 +55,7 @@ async function makePage(browser, width, theme = 'light', configured = true) {
         ok: false,
         error: 'Unknown SponsorFlow action.',
       };
-      const body = legacyDeployment
+      let body = legacyDeployment
         ? route.request().method() === 'POST'
           ? '<script>window.top.postMessage(' +
             JSON.stringify(legacyReply) +
@@ -71,6 +72,10 @@ async function makePage(browser, width, theme = 'light', configured = true) {
         : route.request().method() === 'POST'
           ? backend.post(input)
           : backend.get(input);
+      if (loseJoinReply && input.action === 'gamesJoin') {
+        loseJoinReply = false; // The backend accepted it, but the client gets an uncertain failure.
+        body = '<script>window.top.postMessage(' + JSON.stringify({type:'asme-games',callId:input.callId,ok:false,error:'Connection interrupted. Please retry.'}) + ',' + JSON.stringify(base) + ');</script>';
+      }
       if (route.request().method() === 'POST') {
         replies.set(input.callId, body);
         return route.fulfill({
@@ -148,10 +153,7 @@ async function saved(page, id) {
           await page.context().close();
         }
     console.log('Games layout checks:', layouts);
-    if (process.env.VISUAL_ONLY === '1') {
-      assert.deepEqual(errors, []);
-      return;
-    }
+    if (process.env.VISUAL_ONLY === '1') { assert.deepEqual(errors, []); return; }
     const page = await makePage(browser, 390);
     await open(page);
     await page.click('#gamesProfileOpen');
@@ -346,7 +348,7 @@ async function saved(page, id) {
     await legacy.waitForFunction(() =>
       document
         .querySelector('#gamesServiceStatus')
-        .textContent.includes('Shared rankings are not open yet'),
+        .textContent.includes('Shared rankings need the latest Apps Script deployment'),
     );
     const legacyError = await legacy.evaluate(async () => {
       try {
@@ -355,12 +357,59 @@ async function saved(page, id) {
         return error.message;
       }
     });
-    assert.match(legacyError, /Shared rankings are not open yet/);
+    assert.match(legacyError, /Shared rankings need the latest Apps Script deployment/);
     assert.equal(
       await legacy.evaluate(() => window.SFGamesService.data.profile),
       null,
     );
     await legacy.context().close();
+    legacyDeployment = false;
+    loseJoinReply = true;
+    const recovery = await makePage(browser,390,'dark');
+    await recovery.context().addInitScript(()=>localStorage.setItem('asmeMemberName','Recovery Test'));
+    await open(recovery);
+    await recovery.waitForFunction(()=>document.querySelector('#gamesSyncStatus').textContent.includes('Connection interrupted'));
+    const savedCode=await recovery.evaluate(()=>window.SFGamesService.data.joinAttempt.code);
+    await recovery.reload();
+    await recovery.waitForFunction(()=>window.SFGamesService.data.profile);
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.code),savedCode);
+    assert.equal(backend.sheets.get('Games Players').rows.filter(r=>r[2]==='Recovery Test').length,1);
+    // A bad proof remains recoverable but does not prevent a valid score or standings read.
+    await recovery.evaluate(({day,answer})=>{
+      const s=window.SFGamesService;
+      s.saveResult({day,game:'groups',version:2,points:0,proof:{},completedAt:'bad'});
+      s.saveResult({day,game:'word',version:2,points:999,proof:{guesses:[answer],elapsedMs:5000,corrections:0},completedAt:'good'});
+    },{day,answer:C.puzzle('word',day).answer});
+    await recovery.click('#gamesSyncButton');
+    await recovery.waitForFunction(()=>window.SFGamesService.data.results.find(r=>r.game==='word')?.synced);
+    await recovery.waitForSelector('.leaderboard-row.is-you');
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.pending.length),1);
+    assert.match(await recovery.locator('#gamesSyncStatus').innerText(),/waiting to sync/);
+    // Once the server has the first daily result, restoring replaces an uncertain local copy.
+    await recovery.evaluate(async()=>{
+      const s=window.SFGamesService; const r=s.data.results.find(r=>r.game==='word');
+      s.data.pending.push({...r,points:1});r.points=1;r.synced=false;
+      await s.join('Recovery Test');
+    });
+    assert(await recovery.evaluate(()=>window.SFGamesService.data.results.find(r=>r.game==='word').points)>800);
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.pending.some(r=>r.game==='word')),false);
+    await recovery.evaluate(()=>Promise.all([window.SFGamesService.join('Recovery Alpha'),window.SFGamesService.join('Recovery Beta')]));
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.name),'Recovery Beta');
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.code),savedCode);
+    await recovery.context().close();
+    const blocked = await makePage(browser,390,'light');
+    await blocked.context().addInitScript(()=>{
+      localStorage.setItem('asmeMemberName','Storage Test');
+      Storage.prototype.setItem=()=>{throw new Error('Storage unavailable');};
+    });
+    const playersBeforeBlocked=backend.sheets.get('Games Players').rows.length;
+    await open(blocked);
+    await blocked.waitForFunction(()=>document.querySelector('#gamesSyncStatus').textContent.includes('Enable browser storage'));
+    assert.equal(backend.sheets.get('Games Players').rows.length,playersBeforeBlocked);
+    await blocked.click('[data-play="word"]');
+    await blocked.keyboard.type('A');
+    assert.equal(await blocked.evaluate(()=>window.SFGamesService.getRun(window.SFGames.dayKey(),'word').input),'A');
+    await blocked.context().close();
     assert.deepEqual(errors, []);
     console.log(
       'PASS: six games, physical/touch input, reload/resume, real transport against isolated backend, shared standings, second-device restore, timed scoring, no duplicate results, and local-only fallback.',

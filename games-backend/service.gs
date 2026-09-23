@@ -35,34 +35,7 @@ function setupGames() {
   if (!lock.tryLock(20000))
     throw new Error('SponsorFlow is busy. Try setup again in a moment.');
   try {
-    const book = gamesBook_();
-    // Preflight both names before adding or formatting anything. Existing data
-    // under either reserved name must already match this Games schema.
-    for (const name of Object.keys(SF_GAMES.HEADERS)) {
-      const sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
-      if (sheet && sheet.getLastRow() > 0)
-        gamesCheckHeaders_(sheet, name, true);
-    }
-    for (const name of Object.keys(SF_GAMES.HEADERS)) {
-      let sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
-      if (sheet && sheet.getLastRow() > 0) {
-        const existingColumns = sheet.getLastColumn();
-        const missing = SF_GAMES.HEADERS[name].slice(existingColumns);
-        if (missing.length)
-          sheet
-            .getRange(1, existingColumns + 1, 1, missing.length)
-            .setValues([missing]);
-        continue;
-      }
-      if (!sheet) sheet = book.insertSheet(SF_GAMES.SHEETS[name]);
-      const headers = SF_GAMES.HEADERS[name];
-      sheet
-        .getRange(1, 1, sheet.getMaxRows(), headers.length)
-        .setNumberFormat('@');
-      sheet.appendRow(headers);
-      sheet.setFrozenRows(1);
-    }
-    return book.getUrl();
+    return gamesEnsureSchema_().getUrl();
   } finally {
     lock.releaseLock();
   }
@@ -75,40 +48,81 @@ function gamesBook_() {
   if (!id) throw new Error('SponsorFlow spreadsheet is not configured.');
   return SpreadsheetApp.openById(id);
 }
-function gamesCheckHeaders_(sheet, name, allowUpgrade) {
-  const expected = SF_GAMES.HEADERS[name];
-  const width = sheet.getLastColumn();
-  const previous = name === 'Results' && width === 9 && allowUpgrade;
-  const actual = sheet.getRange(1, 1, 1, width).getValues()[0];
-  if (
-    (!previous && width !== expected.length) ||
-    actual.some((header, i) => expected[i] !== header)
-  ) {
-    throw new Error(
-      SF_GAMES.SHEETS[name] +
-        ' has different columns. Existing data was left unchanged.',
-    );
+// Header names define the schema. Officers may reorder columns or keep extra
+// notes; neither changes the meaning of stored player IDs and score records.
+function gamesCheckHeaders_(sheet, name) {
+  const actual = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+    .map(header => String(header).trim());
+  const required = name === 'Results' ? SF_GAMES.HEADERS.Results.slice(0, 9) : SF_GAMES.HEADERS.Players;
+  const missing = required.filter(header => !actual.includes(header));
+  const duplicated = SF_GAMES.HEADERS[name].filter(header => actual.filter(value => value === header).length > 1);
+  if (missing.length || duplicated.length) {
+    const error = new Error(SF_GAMES.SHEETS[name] + ' has different columns. ' +
+      (missing.length ? 'Missing: ' + missing.join(', ') + '. ' : '') +
+      (duplicated.length ? 'Duplicate: ' + duplicated.join(', ') + '. ' : '') +
+      'Ask an officer to check the header row. Existing data was left unchanged.');
+    error.code = 'GAMES_SCHEMA';
+    throw error;
   }
+  return actual;
+}
+// Called only while holding the Games write lock. Preflight every existing
+// sheet first, then append missing timing headers without rewriting any rows.
+function gamesEnsureSchema_() {
+  const book = gamesBook_();
+  const checked = {};
+  for (const name of Object.keys(SF_GAMES.HEADERS)) {
+    const sheet = book.getSheetByName(SF_GAMES.SHEETS[name]);
+    checked[name] = { sheet, headers: sheet && sheet.getLastRow() ? gamesCheckHeaders_(sheet, name) : null };
+  }
+  for (const name of Object.keys(SF_GAMES.HEADERS)) {
+    let sheet = checked[name].sheet;
+    if (!sheet) sheet = book.insertSheet(SF_GAMES.SHEETS[name]);
+    if (!sheet.getLastRow()) {
+      sheet.getRange(1, 1, sheet.getMaxRows(), SF_GAMES.HEADERS[name].length).setNumberFormat('@');
+      sheet.appendRow(SF_GAMES.HEADERS[name]);
+      sheet.setFrozenRows(1);
+    } else {
+      const headers = checked[name].headers;
+      const missing = SF_GAMES.HEADERS[name].filter(header => !headers.includes(header));
+      if (missing.length) sheet.getRange(1, headers.length + 1, 1, missing.length).setValues([missing]);
+    }
+  }
+  return book;
 }
 function gamesSheet_(name) {
   const sheet = gamesBook_().getSheetByName(SF_GAMES.SHEETS[name]);
   if (!sheet || !sheet.getLastRow())
-    throw new Error('The club leaderboard is not open yet.');
-  gamesCheckHeaders_(sheet, name);
+    throw new Error('The club leaderboard needs setup. Ask an officer to run setupGames in Apps Script.');
   return sheet;
 }
 function gamesRows_(name) {
   const sheet = gamesSheet_(name);
-  const headers = SF_GAMES.HEADERS[name];
+  const headers = gamesCheckHeaders_(sheet, name);
   if (sheet.getLastRow() < 2) return [];
-  return sheet
-    .getRange(2, 1, sheet.getLastRow() - 1, headers.length)
-    .getValues()
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
     .map((row, index) => {
       const obj = { _row: index + 2 };
-      headers.forEach((key, i) => (obj[key] = row[i]));
+      headers.forEach((key, i) => { if (SF_GAMES.HEADERS[name].includes(key)) obj[key] = row[i]; });
       return obj;
-    });
+    }).filter(row => row.id || row.playerId);
+}
+function gamesWrite_(name, object, existing) {
+  const sheet = gamesSheet_(name);
+  const headers = gamesCheckHeaders_(sheet, name);
+  if (!existing) {
+    sheet.appendRow(headers.map(header => Object.prototype.hasOwnProperty.call(object, header) ? object[header] : ''));
+    return;
+  }
+  // Write only owned columns, leaving custom cells and their formulas intact.
+  for (let start = 0; start < headers.length;) {
+    if (!Object.prototype.hasOwnProperty.call(object, headers[start])) { start++; continue; }
+    let end = start + 1;
+    while (end < headers.length && Object.prototype.hasOwnProperty.call(object, headers[end])) end++;
+    sheet.getRange(existing._row, start + 1, 1, end - start)
+      .setValues([headers.slice(start, end).map(header => object[header])]);
+    start = end;
+  }
 }
 function gamesHash_(text) {
   return Utilities.computeDigest(
@@ -186,7 +200,7 @@ function gamesJoin_(input) {
   const name = String(input.name || '')
     .trim()
     .replace(/\s+/g, ' ');
-  if (!/^[\p{L}\p{N}][\p{L}\p{N} ._'’\-]{1,39}$/u.test(name))
+  if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N} ._'’\-]{1,39}$/u.test(name))
     throw new Error(
       'Use 2–40 letters, numbers, spaces, apostrophes, or hyphens for your name.',
     );
@@ -210,11 +224,7 @@ function gamesJoin_(input) {
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
-  const sheet = gamesSheet_('Players'),
-    values = SF_GAMES.HEADERS.Players.map((k) => player[k]);
-  if (existing)
-    sheet.getRange(existing._row, 1, 1, values.length).setValues([values]);
-  else sheet.appendRow(values);
+  gamesWrite_('Players', player, existing);
   gamesInvalidate_();
   const cutoff = new Date(Date.now() - 35 * 86400000)
     .toISOString()
@@ -294,11 +304,7 @@ function gamesScore_(input) {
     accuracyPoints: result.accuracyPoints || 0,
     speedPoints: result.speedPoints || 0,
   };
-  const sheet = gamesSheet_('Results'),
-    values = SF_GAMES.HEADERS.Results.map((k) => record[k]);
-  if (existing)
-    sheet.getRange(existing._row, 1, 1, values.length).setValues([values]);
-  else sheet.appendRow(values);
+  gamesWrite_('Results', record, existing);
   gamesInvalidate_();
   return { record: gamesPublicRecord_(record, player.name) };
 }
@@ -367,7 +373,7 @@ function asmeGamesGet_(e) {
     validateFrontendOrigin_(String(p.origin || ''));
     response = { ok: true, data: gamesLeaderboard_(p) };
   } catch (error) {
-    response = { ok: false, error: error.message };
+    response = { ok: false, error: error.message, code: error.code || '' };
   }
   return ContentService.createTextOutput(
     callback + '(' + JSON.stringify(response).replace(/</g, '\\u003c') + ');',
@@ -387,6 +393,7 @@ function asmeGamesPost_(e) {
         'The leaderboard is busy. Your score is saved; please retry.',
       );
     try {
+      gamesEnsureSchema_();
       if (p.action === 'gamesJoin') response.data = gamesJoin_(p);
       else if (p.action === 'gamesScore') response.data = gamesScore_(p);
       else throw new Error('Unknown game action.');
@@ -397,6 +404,7 @@ function asmeGamesPost_(e) {
   } catch (error) {
     response.ok = false;
     response.error = error.message;
+    response.code = error.code || '';
   }
   const data = JSON.stringify(response).replace(/</g, '\\u003c');
   return HtmlService.createHtmlOutput(

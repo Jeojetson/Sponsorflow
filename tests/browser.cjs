@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require(process.env.SPONSORFLOW_PLAYWRIGHT || 'playwright');
+process.env.SPONSORFLOW_TEST_DATE='2026-09-16T12:00:00-04:00';
 const fixture=require('./fixture.cjs');
 const base=process.env.SPONSORFLOW_BASE_URL || 'http://127.0.0.1:8765';
 const output=process.env.SPONSORFLOW_QA_DIR || '/tmp/sponsorflow-qa';fs.mkdirSync(output,{recursive:true});
@@ -46,14 +47,14 @@ const mock=`(() => {
 })();`;
 async function pageFor(browser,width,theme='light',identity=true) {
  const ctx=await browser.newContext({viewport:{width,height:1000},deviceScaleFactor:1});
- await ctx.addInitScript(({theme,identity})=>{if(theme)localStorage.setItem('asmeWorkspaceTheme',theme);if(identity)localStorage.setItem('asmePlannerName','Jordan Lee');},{theme,identity});
+ await ctx.addInitScript(({theme,identity})=>{if(theme)localStorage.setItem('asmeWorkspaceTheme',theme);if(identity){localStorage.setItem('asmePlannerName','Jordan Lee');localStorage.setItem('asmeMemberName','Jordan Lee');}},{theme,identity});
  await ctx.route('**/*',route=>{
   const u=new URL(route.request().url());
   if(u.pathname==='/assets/api.js')return route.fulfill({contentType:'text/javascript',body:mock});
   if(u.origin!==base)return route.abort(); // Tests can never send live writes.
   return route.continue();
  });
- const page=await ctx.newPage();page.on('pageerror',e=>errors.push(`${page.url()}: ${e.message}`));
+ const page=await ctx.newPage();await page.clock.install({time:new Date(process.env.SPONSORFLOW_TEST_DATE)});page.on('pageerror',e=>errors.push(`${page.url()}: ${e.message}`));
  return page;
 }
 async function open(page,name) {await page.goto(`${base}/${name}.html`);await page.waitForFunction(()=>document.fonts.status==='loaded');await page.waitForTimeout(120);}
@@ -139,7 +140,16 @@ async function overflow(page) {return page.evaluate(()=>({width:innerWidth,scrol
   saved=await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload);assert.deepEqual(JSON.parse(saved.dependencyIds),fixture.tasks[0].dependencyIds);assert.equal(saved.progress,40);
   await cal.click('#calendarNewEventTop');await cal.fill('#calendarEventTitle','Test meeting');await cal.evaluate(()=>window.__failAfterSave=true);await cal.click('#calendarEventSave');await cal.waitForFunction(()=>document.querySelector('#calendarEventId').value.startsWith('CREATED-'));const eventId=await cal.inputValue('#calendarEventId');await cal.click('#calendarEventSave');await cal.waitForSelector('#calendarEventDialog:not([open])',{state:'attached'});assert.equal(await cal.evaluate(()=>window.__calls.filter(c=>c.action==='savePlannerTask').at(-1).payload.id),eventId);
   await cal.context().close();
-  const anonymous=await pageFor(browser,390,'light',false);await open(anonymous,'planner');assert.equal(await anonymous.locator('dialog[open]').count(),0);await anonymous.click('#newTaskTopButton');assert.equal(await anonymous.locator('#identityDialog').evaluate(e=>e.open),true);await anonymous.fill('#identityDialogName','Jordan Lee');await anonymous.click('#identityDialogSave');await anonymous.waitForSelector('#taskDialog[open]');await screenshot(anonymous,'task-editor-mobile');assert.equal(await anonymous.locator('#taskDialog').evaluate(e=>e.scrollWidth<=e.clientWidth+2),true);await anonymous.context().close();
+  const anonymous=await pageFor(browser,390,'light',false);await open(anonymous,'planner');
+  assert.equal(await anonymous.locator('#memberWelcomeDialog').evaluate(e=>e.open),true);
+  await anonymous.keyboard.press('Escape');assert.equal(await anonymous.locator('#memberWelcomeDialog').evaluate(e=>e.open),true);
+  await anonymous.fill('#memberWelcomeName','Jordan Lee');await anonymous.click('#memberWelcomeForm button[type="submit"]');
+  await anonymous.click('#newTaskTopButton');await anonymous.waitForSelector('#taskDialog[open]');
+  assert.equal(await anonymous.inputValue('#plannerActorName'),'Jordan Lee');
+  await screenshot(anonymous,'task-editor-mobile');assert.equal(await anonymous.locator('#taskDialog').evaluate(e=>e.scrollWidth<=e.clientWidth+2),true);
+  await open(anonymous,'attendance');assert.equal(await anonymous.inputValue('#attendanceName'),'Jordan Lee');
+  assert.equal(await anonymous.locator('#memberWelcomeDialog').evaluate(e=>e.open),false);
+  await anonymous.context().close();
   await require('./attendance.cjs')({browser,pageFor,open,screenshot,base,output});
   assert.deepEqual(errors,[]);console.log('PASS: layout, themes, navigation, filters, task/event field preservation, conflicts, retry IDs, attendance member and officer workflows.');
  } finally {await browser.close();fs.writeFileSync(path.join(output,'errors.json'),JSON.stringify(errors,null,2));}

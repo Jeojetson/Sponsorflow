@@ -1,4 +1,5 @@
 const today = new Date();
+if (process.env.SPONSORFLOW_TEST_DATE) today.setTime(new Date(process.env.SPONSORFLOW_TEST_DATE).getTime());
 const date = offset => { const d = new Date(today); d.setDate(d.getDate()+offset); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 const teams = [
  {id:'TEAM-CLUB',name:'ASME Indianapolis',icon:'ASME',active:true},

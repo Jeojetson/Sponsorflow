@@ -1515,8 +1515,9 @@
       status.classList.add('is-error');
       return false;
     }
+    try { window.SponsorFlowIdentity.save(clean); }
+    catch (error) { status.textContent = error.message; status.classList.add('is-error'); return false; }
     state.actorName = clean;
-    window.SponsorFlowStorage.setItem('asmePlannerName', clean);
     $('#calendarActorName').value = clean;
     $('#calendarIdentityName').value = clean;
     updateIdentityUi();
@@ -1771,4 +1772,5 @@
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 500);
   }
+  window.addEventListener('sponsorflow:identity', () => { restoreIdentity(); });
 })();

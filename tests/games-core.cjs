@@ -417,3 +417,32 @@ assert.equal(
 console.log(
   'PASS: time/accuracy scoring, score bounds, failed rounds, version-separated standings, stable retries, date cells, and lossless v1 schema upgrade.',
 );
+// Production regression: old/partially upgraded, reordered and extra columns
+// must all retain their existing cells while reads/writes use header names.
+const flexible = makeBackend(undefined, { setup: false });
+const flexiblePlayers=flexible.book.insertSheet('Games Players');
+flexiblePlayers.appendRow(['notes','name','playerId','codeHash','createdAt','nameKey','updatedAt']);
+const flexibleResults=flexible.book.insertSheet('Games Results');
+flexibleResults.appendRow(['notes','game','playerId','day','id','points','win','detail','completedAt','proofHash','accuracy']);
+flexibleResults.appendRow(['=KEEP()', 'word','historical',today,'old-record',95,true,'Historical','saved','hash',90]);
+const preservedFlexibleRow=JSON.stringify(flexibleResults.rows[1]);
+assert.equal(flexible.context.gamesLeaderboard_({version:1,period:'today',game:'all'}).rows[0].points,95);
+assert.equal(flexibleResults.rows[0].length,11,'read must not mutate headers');
+const flexCode='d'.repeat(48);
+assert.match(flexible.post({action:'gamesJoin',name:'Morgan Rivera',code:flexCode}),/"ok":true/);
+assert.equal(flexibleResults.rows[0].length,16,'a normal join safely adds missing timing headers');
+assert.equal(JSON.stringify(flexibleResults.rows[1]),preservedFlexibleRow);
+flexiblePlayers.rows[1][0]='=KEEP_PLAYER_NOTE()';
+const flexProof=JSON.stringify({guesses:[C.puzzle('word',today).answer],elapsedMs:12000,corrections:0});
+assert.match(flexible.post({action:'gamesScore',code:flexCode,day:today,game:'word',proof:flexProof,version:2}),/"ok":true/);
+const flexBoard=flexible.context.gamesLeaderboard_({version:2,period:'today',game:'all'});
+assert.equal(flexBoard.rows[0].name,'Morgan Rivera');
+assert(flexBoard.rows[0].points>=800);
+assert.match(flexible.post({action:'gamesJoin',name:'Morgan R',code:flexCode}),/"ok":true/);
+assert.equal(flexiblePlayers.rows[1][0],'=KEEP_PLAYER_NOTE()');
+assert.equal(JSON.stringify(flexibleResults.rows[1]),preservedFlexibleRow);
+flexibleResults.rows[0].push('playerId');
+const beforeDuplicate=JSON.stringify([...flexible.sheets].map(([name,s])=>[name,s.rows]));
+assert.throws(()=>flexible.context.setupGames(),/Duplicate: playerId/);
+assert.equal(JSON.stringify([...flexible.sheets].map(([name,s])=>[name,s.rows])),beforeDuplicate);
+console.log('PASS: legacy reads, automatic additive upgrade, reordered/custom columns, formula preservation, and duplicate-header refusal.');
