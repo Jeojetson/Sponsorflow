@@ -434,8 +434,9 @@
       status.classList.add('is-error');
       return false;
     }
+    try { window.SponsorFlowIdentity.save(clean); }
+    catch (error) { status.textContent = error.message; status.classList.add('is-error'); return false; }
     state.actorName = clean;
-    window.SponsorFlowStorage.setItem('asmePlannerName', clean);
     $('#plannerActorName').value = clean;
     $('#identityDialogName').value = clean;
     status.textContent = 'Name saved';
@@ -3639,4 +3640,5 @@
         })[char],
     );
   }
+  window.addEventListener('sponsorflow:identity', () => { restoreIdentity(); renderCurrentBoard(); });
 })();

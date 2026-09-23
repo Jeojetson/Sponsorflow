@@ -746,4 +746,6 @@
   setSponsorMode("directory");
   updateQuality();
   bootstrap();
+  window.addEventListener('sponsorflow:identity', () => { $('#requesterName').value = window.SponsorFlowIdentity.name;
+    $('#requestLookupName').value = window.SponsorFlowIdentity.name; });
 })();

@@ -194,7 +194,7 @@
     if (!value) return;
     $("#attendanceName").value = value;
     if (!$("#attendanceAdminName").value) $("#attendanceAdminName").value = value;
-    try { window.SponsorFlowStorage.setItem("asmePlannerName", value); } catch (_) {}
+    try { window.SponsorFlowIdentity.save(value); } catch (_) {}
   }
 
   async function openAdmin() {
@@ -449,4 +449,5 @@
   function slug(value) { return String(value || "attendance").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "attendance"; }
   function csvCell(value) { const text = String(value ?? ""); return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text; }
   function downloadFile(name, body, type) { const blob = new Blob([body], { type }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 500); }
+  window.addEventListener('sponsorflow:identity', () => { restoreName(); });
 })();

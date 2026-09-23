@@ -97,17 +97,17 @@
       .map((g) => {
         const result = S.result(day, g.id),
           run = S.getRun(day, g.id);
-        return `<button class="game-card game-card-${g.id}" type="button" data-play="${g.id}"><span class="game-art" aria-hidden="true">${symbols[g.icon]}</span><span class="game-card-copy"><span class="game-card-meta">${g.kind} <span>· ${g.minutes}</span></span><strong>${g.name}</strong><span>${g.description}</span><span class="game-card-footer">${result ? `<b>${result.points} points</b><span>View result ↗</span>` : `<b>${run ? 'Continue' : 'Play today'}</b><span>↗</span>`}</span></span></button>`;
+        return `<button class="game-card game-card-${g.id}" type="button" data-play="${g.id}"><span class="game-art" aria-hidden="true">${symbols[g.icon]}</span><span class="game-card-copy"><span class="game-card-meta">${g.kind} <span>· ${g.minutes}</span></span><strong>${g.name}</strong><span>${g.description}</span><span class="game-card-footer">${result ? `<b>${result.points} points</b><span>${result.synced ? 'On leaderboard' : 'Saved on device'} ↗</span>` : `<b>${run ? 'Continue' : 'Play today'}</b><span>↗</span>`}</span></span></button>`;
       })
       .join('');
     $('#gamesProfileOpen').textContent = S.data.profile
       ? S.data.profile.name + ' · Your player'
-      : 'Join the leaderboard';
+      : 'Your player · Connect or restore';
   }
   function renderBoard(rows) {
     $('#leaderboardRows').innerHTML = rows?.length
       ? `<div class="leaderboard-table" role="table" aria-label="Club rankings"><div class="leaderboard-row leaderboard-head" role="row"><span role="columnheader">Rank</span><span role="columnheader">Player</span><span role="columnheader">Played</span><span role="columnheader">Points</span></div>${rows.map((r) => `<div class="leaderboard-row${r.playerId === S.data.profile?.playerId ? ' is-you' : ''}" role="row"><span role="cell">${r.rank}</span><strong role="cell">${esc(r.name)}${r.playerId === S.data.profile?.playerId ? '<small> You</small>' : ''}</strong><span role="cell">${r.played}</span><b role="cell">${r.points}</b></div>`).join('')}</div>`
-      : '<div class="games-empty"><strong>The first place is open.</strong><p>Finish a game and join the club rankings to put your name here.</p></div>';
+      : '<div class="games-empty"><strong>No scores yet.</strong><p>Complete a daily game to post the first score in this view.</p></div>';
   }
   async function loadBoard(force = false) {
     const request = ++boardRequest;
@@ -283,41 +283,64 @@
     $('#gameReset').hidden = true;
     message('');
   }
-  async function syncResults() {
+  let syncingUi = null, syncAgain = false;
+  function syncResults() {
+    if (syncingUi) { syncAgain = true; return syncingUi; }
+    syncingUi = (async () => {
+      do {
+        syncAgain = false;
+        await syncPlayerResults();
+      } while (syncAgain);
+    })().finally(() => { syncingUi = null; });
+    return syncingUi;
+  }
+  async function syncPlayerResults() {
     const status = $('#gamesSyncStatus');
     $('#gamesSyncButton').disabled = true;
     try {
       if (!S.data.profile) {
-        status.textContent = S.data.pending.length
-          ? `${S.data.pending.length} result(s) saved on this device. Join rankings to sync.`
-          : 'Join rankings to share your results.';
-        return;
+        status.textContent = 'Connecting your player…';
+        await S.join(window.SponsorFlowIdentity.name);
+        renderHub();
       }
-      status.textContent = S.data.pending.length
-        ? `Syncing ${S.data.pending.length} result(s)…`
-        : 'Checking your scores…';
-      await S.sync();
-      status.textContent = S.data.pending.length
-        ? `${S.data.pending.length} result(s) waiting to sync.`
-        : 'All scores synced to the club.';
+      status.textContent = S.data.pending.length ? `Syncing ${S.data.pending.length} result(s)…` : 'Your player is connected.';
+      const result = await S.sync();
+      status.textContent = result.pending
+        ? `${result.pending} result(s) saved on this device and waiting to sync. ${result.errors?.[0]?.message || ''}`
+        : S.data.results.some(r => r.synced && r.version === C.SCORING_VERSION)
+          ? 'Your saved scores are synced to the club.'
+          : 'Ready. Complete a daily game to post your first score.';
+      renderHub();
       if (current?.result && !current.practice) {
         current.result = S.result(current.day, current.id) || current.result;
         showResult(current.result);
       }
-      await loadBoard(true);
-    } catch (e) {
-      status.textContent =
-        e.message +
-        (S.data.pending.length
-          ? ` ${S.data.pending.length} result(s) still saved on this device.`
-          : '');
-      if (current?.result)
-        message('Saved on this device. Use Sync scores to retry.', 'error');
+    } catch (error) {
+      status.textContent = error.message + (S.data.pending.length ? ` ${S.data.pending.length} result(s) saved on this device.` : '');
     } finally {
-      $('#gamesSyncButton').disabled =
-        !S.data.profile || !S.data.pending.length;
+      $('#gamesSyncButton').disabled = !S.configured();
+      // Standings remain available even when one player's upload is rejected.
+      await loadBoard(true);
     }
   }
+  async function connectPlayer() {
+    if (!S.configured()) { loadBoard(); return; }
+    try {
+      await S.join(window.SponsorFlowIdentity.name);
+      renderHub();
+      if (current && !current.practice) {
+        const saved = S.result(current.day, current.id);
+        if (saved) { current.result = saved; showResult(saved); }
+      }
+      await syncResults();
+    } catch (error) {
+      $('#gamesSyncStatus').textContent = error.message;
+      $('#gamesSyncButton').disabled = false;
+      // Restore remains available when this name exists on another device.
+      renderHub();
+    }
+  }
+
   function updateTimer() {
     if (!current) return;
     const ms =
@@ -811,7 +834,7 @@
   );
   $('#gamesProfileOpen').addEventListener('click', profile);
   $('#leaderboardRefresh').addEventListener('click', () =>
-    S.data.profile ? syncResults() : loadBoard(true),
+    syncResults(),
   );
   $('#leaderboardGame').addEventListener('change', (e) => {
     boardGame = e.target.value;
@@ -823,6 +846,7 @@
     $('#gamesProfileStatus').textContent = 'Saving your player…';
     try {
       await S.join($('#gamesPlayerName').value, $('#gamesRestoreCode').value);
+      window.SponsorFlowIdentity.save(S.data.profile.name);
       $('#gamesProfileStatus').textContent =
         'Your player is ready. Save your private player code to use another device.';
       $('#gamesPlayerCode').hidden = false;
@@ -855,11 +879,11 @@
           );
         else renderHub();
       }
-      if (S.data.profile) syncResults();
+      if (window.SponsorFlowIdentity.name) syncResults();
     }
   });
   window.addEventListener('online', () => {
-    if (S.data.profile) syncResults();
+    if (window.SponsorFlowIdentity.name) syncResults();
   });
   window.addEventListener('hashchange', () => {
     const id = location.hash.slice(1);
@@ -871,8 +895,12 @@
     $('#leaderboardGame').add(option);
   }
   renderHub();
-  if (!S.data.profile) loadBoard();
-  if (C.GAMES.some((g) => g.id === location.hash.slice(1)))
-    openGame(location.hash.slice(1));
-  if (S.data.profile) syncResults();
+  loadBoard();
+  window.SponsorFlowIdentity.ready.then(() => {
+    if (C.GAMES.some(g => g.id === location.hash.slice(1))) openGame(location.hash.slice(1));
+    connectPlayer();
+    window.addEventListener('sponsorflow:identity', () => {
+      if (S.data.profile?.name !== window.SponsorFlowIdentity.name) connectPlayer();
+    });
+  });
 })();

@@ -43,7 +43,7 @@
     (record) => record.version === window.SFGames.SCORING_VERSION,
   );
   function persist() {
-    storage.setItem(key, JSON.stringify(data));
+    return storage.setItem(key, JSON.stringify(data));
   }
   function runKey(day, id) {
     return day + ':' + id;
@@ -74,18 +74,17 @@
       };
       const finish = (response) => {
         cleanup();
-        if (response?.ok) resolve(response.data);
-        else
-          reject(
-            new Error(
-              [
-                'This read action is unavailable.',
-                'Unknown SponsorFlow action.',
-              ].includes(response?.error)
-                ? 'Shared rankings are not open yet. Your results are saved on this device.'
-                : response?.error || 'The leaderboard could not be reached.',
-            ),
-          );
+        if (response?.ok) return resolve(response.data);
+        let message = response?.error || 'The leaderboard could not be reached.';
+        let code = response?.code || '';
+        if (['This read action is unavailable.', 'Unknown SponsorFlow action.'].includes(message)) {
+          message = 'Shared rankings need the latest Apps Script deployment. Your results are saved on this device.';
+          code = 'GAMES_SETUP';
+        } else if (/Games (Results|Players) has different columns/.test(message)) {
+          message = 'The club leaderboard needs a spreadsheet update. An officer must install the latest Games.gs and run setupGames. Your results are saved on this device.';
+          code = 'GAMES_SCHEMA';
+        }
+        reject(Object.assign(new Error(message), { code }));
       };
       const receive = (event) => {
         if (
@@ -158,14 +157,25 @@
       }
     });
   }
-  async function join(name, restoreCode) {
+  let joining = null, joiningKey = '';
+  function join(name, restoreCode) {
+    const key = JSON.stringify([String(name || '').trim().replace(/\s+/g, ' '), restoreCode || '']);
+    if (joining) {
+      if (key === joiningKey) return joining;
+      return joining.catch(() => {}).then(() => join(name, restoreCode));
+    }
+    joiningKey = key;
+    joining = joinPlayer(name, restoreCode).finally(() => { joining = null; });
+    return joining;
+  }
+  async function joinPlayer(name, restoreCode) {
     name = String(name || '')
       .trim()
       .replace(/\s+/g, ' ');
     if (name.length < 2 || name.length > 40)
       throw new Error('Use a name between 2 and 40 characters.');
     const code =
-      String(restoreCode || data.profile?.code || '')
+      String(restoreCode || data.profile?.code || data.joinAttempt?.code || '')
         .trim()
         .toLowerCase() ||
       Array.from(crypto.getRandomValues(new Uint8Array(24)), (b) =>
@@ -179,21 +189,22 @@
       throw new Error(
         'This browser already has a player. Use a separate browser profile to sign in as someone else.',
       );
+    data.joinAttempt = { name, code };
+    if (persist() === false) throw new Error('Enable browser storage to keep your player code before connecting to rankings. You can still play on this page.');
     const result = await request('join', { name, code });
+    data.joinAttempt = null;
     data.profile = { name: result.name, playerId: result.playerId, code };
     data.board = null;
-    // A new device restores the server's daily attempts before a player can submit again.
-    for (const record of result.results || [])
-      if (
-        !data.results.some(
-          (r) =>
-            r.day === record.day &&
-            r.game === record.game &&
-            (r.version || 1) === (record.version || 1),
-        )
-      ) {
-        data.results.push(record);
-      }
+    // The server owns the first ranked attempt, including after an uncertain
+    // response or a second-device restore. Keep local proof for recovery.
+    for (const record of result.results || []) {
+      const matches = r => r.day === record.day && r.game === record.game &&
+        (r.version || 1) === (record.version || 1);
+      const index = data.results.findIndex(matches);
+      if (index < 0) data.results.push(record);
+      else data.results[index] = { ...data.results[index], ...record, synced: true };
+      data.pending = data.pending.filter(r => !matches(r));
+    }
     persist();
     return data.profile;
   }
@@ -226,16 +237,29 @@
       const cutoff = new Date(Date.now() - 35 * 86400000)
         .toISOString()
         .slice(0, 10);
-      data.pending = data.pending.filter((record) => record.day >= cutoff);
-      persist();
-      for (const record of [...data.pending]) {
-        const result = await request('score', {
-          code: data.profile.code,
-          day: record.day,
-          game: record.game,
-          proof: record.proof,
-          version: record.version || window.SFGames.SCORING_VERSION,
-        });
+      const errors = [];
+      const attempted = new Set();
+      for (let record; (record = data.pending.find(r => !attempted.has(r)));) {
+        attempted.add(record);
+        let result;
+        try {
+          if (record.day < cutoff) throw new Error('This result is over 35 days old and is kept only on this device.');
+          result = await request('score', {
+            code: data.profile.code,
+            day: record.day,
+            game: record.game,
+            proof: record.proof,
+            version: record.version || window.SFGames.SCORING_VERSION,
+          });
+        } catch (error) {
+          record.syncError = error.message;
+          errors.push({ game: record.game, message: error.message });
+          persist();
+          // A rejected attempt must not block other games. System-wide outages
+          // stop this batch so we do not repeat a slow timeout for every result.
+          if (error.code?.startsWith('GAMES_') || /offline|longer than expected|busy|before submitting/.test(error.message)) break;
+          continue;
+        }
         data.board = null;
         const i = data.results.findIndex(
           (r) =>
@@ -270,11 +294,12 @@
         );
         persist();
       }
-      return { pending: data.pending.length };
+      return { pending: data.pending.length, errors };
     })().finally(() => (syncing = null));
     return syncing;
   }
   let boardRequest = 0;
+  const boardReads = new Map();
   async function leaderboard(period, game, force = false) {
     const cached = data.board;
     if (
@@ -287,11 +312,14 @@
     )
       return cached;
     const requestId = ++boardRequest;
-    const response = await request(
-      'leaderboard',
-      { period, game, version: window.SFGames.SCORING_VERSION },
-      true,
-    );
+    const key = period + ':' + game;
+    if (force) boardReads.delete(key);
+    if (!boardReads.has(key)) {
+      const read = request('leaderboard', { period, game, version: window.SFGames.SCORING_VERSION }, true)
+        .finally(() => { if (boardReads.get(key) === read) boardReads.delete(key); });
+      boardReads.set(key, read);
+    }
+    const response = await boardReads.get(key);
     if (response.version !== window.SFGames.SCORING_VERSION)
       throw new Error(
         'The new timed standings are not open yet. Your results are saved; try Sync scores after the club update.',
