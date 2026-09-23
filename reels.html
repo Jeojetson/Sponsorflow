@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#202431"><meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="description" content="Shorts shared by Purdue ASME. Watch, save, and send a reel to a teammate.">
+  <title>Reels · Purdue ASME</title>
+  <script>try { const t = localStorage.getItem('asmeWorkspaceTheme') === 'light' ? 'light' : 'dark'; document.documentElement.dataset.theme = t; document.documentElement.style.colorScheme = t; } catch (_) {}</script>
+  <link rel="preload" href="assets/fonts/mona-sans-variable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="assets/app.css?v=40"><link rel="stylesheet" href="assets/brand.css?v=40">
+  <link rel="stylesheet" href="assets/experience.css?v=53"><link rel="stylesheet" href="assets/reels/reels.css?v=53">
+  <script src="assets/workspace.js?v=52"></script>
+</head>
+<body class="reels-page">
+  <a class="skip-link" href="#main">Skip to reels</a>
+  <header class="site-header">
+    <a aria-label="Purdue ASME home" class="brand" href="index.html"><span class="brand-mark">ASME</span><span class="brand-copy"><strong>Purdue ASME</strong><small>Indianapolis Student Section</small></span></a>
+    <nav aria-label="Primary navigation" class="top-nav">
+      <a class="nav-link" href="index.html">Home</a><a class="nav-link" href="outreach.html">Outreach</a><a class="nav-link" href="planner.html">Projects</a><a class="nav-link" href="calendar.html">Calendar</a><a class="nav-link" href="attendance.html">Attendance</a><a class="nav-link" href="games.html">Games</a><a class="nav-link is-active" aria-current="page" href="reels.html">Reels</a><a class="nav-link nav-link-admin" href="admin.html">Admin</a>
+    </nav>
+  </header>
+  <main id="main" class="reels-shell">
+    <header class="reels-heading"><div><p class="eyebrow">Off the clock. Still on track.</p><h1>Reels</h1><p>A good lap. A great build. Something worth sending.</p></div><button class="button button-primary" id="reelsAdd" type="button">+ Add a Short</button></header>
+    <nav class="reels-tabs" aria-label="Reels sections"><button type="button" data-reels-tab="feed" aria-current="page">Feed</button><button type="button" data-reels-tab="saved">Saved <span id="reelsSavedCount">0</span></button><button type="button" data-reels-tab="messages">Messages <span id="reelsUnread" hidden>0</span></button></nav>
+    <p id="reelsStatus" class="reels-status" role="status"></p>
+    <section id="reelsWatch" aria-label="Watch reels">
+      <div class="reels-toolbar"><label>Show<select id="reelsFilter"><option value="mix">Karting first</option><option value="karting">Karting only</option><option value="newest">Newest</option></select></label><label class="reels-search">Find in loaded reels<input type="search" id="reelsSearch" placeholder="Title, caption, or member"></label><button class="button button-secondary" type="button" id="reelsRefresh">Refresh</button></div>
+      <p class="reels-hint" id="reelsFeedHint">A mix of club submissions, with karting up front. Add a Short to shape the feed.</p>
+      <div id="reelsEmpty" class="reels-empty" hidden></div>
+      <div id="reelsViewer" class="reels-viewer" hidden>
+        <div class="reels-stage-wrap"><div id="reelsStage" class="reels-stage"></div><p id="reelsPlaybackStatus" class="reels-hint" role="status"></p><div class="reels-stepper"><button type="button" class="button button-secondary" id="reelsPrev" aria-label="Previous reel">↑ Previous</button><span id="reelsPosition"></span><button type="button" class="button button-secondary" id="reelsNext" aria-label="Next reel">Next ↓</button></div></div>
+        <aside class="reels-detail"><p id="reelsCategory" class="eyebrow"></p><h2 id="reelsTitle"></h2><p id="reelsCaption" class="reels-caption"></p><p id="reelsAuthor" class="reels-hint"></p><div class="reels-actions"><button type="button" class="button button-primary" id="reelsSave" aria-pressed="false">Save reel</button><button type="button" class="button button-secondary" id="reelsSend">Send to a member</button><button type="button" class="button button-secondary" id="reelsCopy">Copy link</button><button type="button" class="button button-secondary" id="reelsShare">Share…</button></div><a id="reelsYoutube" target="_blank" rel="noopener" class="reels-source">Open on YouTube ↗</a><p class="reels-hint">YouTube playback · some videos may require sign-in or open only on YouTube.</p><label class="reels-check"><input type="checkbox" id="reelsAutoplay"> Play next reel automatically (muted)</label><p class="reels-hint">Use ↑ / ↓ to browse, or swipe the space around the player. YouTube controls stay available.</p></aside>
+      </div>
+      <details id="reelsBrowse" hidden><summary>Browse the feed</summary><div id="reelsList" class="reels-list"></div></details>
+      <button type="button" class="button button-secondary reels-more" id="reelsMore" hidden>Load more reels</button>
+    </section>
+    <section id="reelsMessages" hidden aria-label="Messages">
+      <p class="reels-notice"><strong>These inboxes are not private.</strong> Anyone entering your name can read your inbox and send messages as you. Keep messages suitable for the club; don’t share sensitive information.</p>
+      <div class="reels-message-tools"><button type="button" class="button button-primary" id="reelsNewMessage">New message</button><button type="button" class="button button-secondary" id="reelsRefreshMessages">Refresh messages</button><span id="reelsInboxName" class="reels-hint"></span></div>
+      <div class="reels-messenger"><aside><h2>Conversations</h2><div id="reelsConversations" class="reels-conversations"></div></aside><div class="reels-conversation"><div id="reelsThreadEmpty" class="reels-empty">Choose a conversation or start one with a member’s exact name.</div><div id="reelsThread" hidden><header class="reels-thread-heading"><h2 id="reelsPeer"></h2><span class="reels-hint">Name-only inbox</span></header><button type="button" id="reelsOlder" class="button button-secondary" hidden>Earlier messages</button><div id="reelsMessageList" class="reels-message-list" aria-label="Conversation history"></div><form id="reelsMessageForm"><div id="reelsAttachment" class="reels-attachment" hidden></div><label class="field"><span>Message</span><textarea id="reelsMessageBody" maxlength="1000" rows="3" placeholder="Write to your teammate…"></textarea></label><div class="reels-compose-footer"><small>Drafts stay on this browser.</small><button type="submit" class="button button-primary" id="reelsMessageSubmit">Send</button></div><p id="reelsSendStatus" role="status" class="reels-status"></p></form></div></div></div>
+    </section>
+  </main>
+  <dialog id="reelsAddDialog" class="reels-dialog" aria-labelledby="reelsAddTitle"><form id="reelsAddForm"><div class="reels-dialog-heading"><h2 id="reelsAddTitle">Found a good Short?</h2><button type="button" class="button button-secondary" data-close="reelsAddDialog" aria-label="Close add reel">×</button></div><p>Paste its YouTube link to share it with the club.</p><label class="field"><span>YouTube link</span><input type="url" id="reelsUrl" required maxlength="1000" placeholder="https://www.youtube.com/shorts/…"></label><label class="field"><span>Title</span><input id="reelsAddName" required minlength="2" maxlength="100" placeholder="Give the club a reason to watch"></label><label class="field"><span>Category</span><select id="reelsAddCategory"><option value="karting">Karting</option><option value="community">Everything else</option></select></label><label class="field"><span>Caption (optional)</span><textarea id="reelsAddCaption" rows="3" maxlength="500"></textarea></label><p class="reels-hint">Anyone visiting SponsorFlow can see this link and your name. YouTube videos remain on YouTube.</p><p id="reelsAddStatus" class="reels-status" role="status"></p><button type="submit" id="reelsAddSubmit" class="button button-primary">Share to Reels</button></form></dialog>
+  <dialog id="reelsRecipientDialog" class="reels-dialog" aria-labelledby="reelsRecipientTitle"><form id="reelsRecipientForm"><div class="reels-dialog-heading"><h2 id="reelsRecipientTitle">Message a member</h2><button type="button" class="button button-secondary" data-close="reelsRecipientDialog" aria-label="Close member chooser">×</button></div><label class="field"><span>Member’s exact name</span><input id="reelsRecipient" required minlength="2" maxlength="40" list="reelsPeople" autocomplete="off"></label><datalist id="reelsPeople"></datalist><p class="reels-hint">Capitalization and extra spaces don’t matter. Messages go to a name-only inbox that anyone using that name can open.</p><p id="reelsRecipientStatus" class="reels-status" role="status"></p><button type="submit" class="button button-primary">Open conversation</button></form></dialog>
+  <footer class="site-footer"><span>Purdue University Indianapolis ASME</span><a href="admin.html">Officer workspace</a></footer>
+  <script src="assets/config.js?v=41"></script><script src="assets/reels/core.js?v=53"></script><script src="assets/reels/service.js?v=53"></script><script src="assets/reels/app.js?v=53"></script><script src="assets/theme.js?v=53"></script>
+</body>
+</html>
