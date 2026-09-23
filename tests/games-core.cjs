@@ -108,10 +108,7 @@ const code = 'a'.repeat(48),
   other = 'b'.repeat(48);
 const player = ctx.gamesJoin_({ name: 'Jordan Lee', code });
 assert.equal(player.results.length, 0);
-assert.throws(
-  () => ctx.gamesJoin_({ name: 'Jordan Lee', code: other }),
-  /already/,
-);
+assert.equal(ctx.gamesJoin_({ name: '  JORDAN  Lee ' }).playerId, player.playerId);
 assert.throws(
   () => ctx.gamesJoin_({ name: '=IMPORTRANGE()', code: other }),
   /Use/,
@@ -141,12 +138,12 @@ assert.equal(
   ctx.gamesLeaderboard_({ period: 'today', game: 'all' }).rows[0].points,
   100,
 );
-ctx.gamesJoin_({ name: 'Jordan L.', code });
+assert.notEqual(ctx.gamesJoin_({ name: 'Jordan L.' }).playerId, player.playerId);
 assert.equal(
   ctx.gamesLeaderboard_({ period: 'today', game: 'all' }).rows[0].name,
-  'Jordan L.',
+  'Jordan Lee',
 );
-assert.equal(ctx.gamesJoin_({ name: 'Jordan L.', code }).results.length, 1);
+assert.equal(ctx.gamesJoin_({ name: 'Jordan Lee' }).results.length, 1);
 const racing = {
   code,
   day: today,
@@ -202,7 +199,7 @@ assert.deepEqual(
   [1, 1],
 );
 console.log(
-  'PASS: 120 daily sets, unique logic puzzles, all solutions, invalid proofs, deterministic kart replay, date rollover, ties, server identity, duplicate writes, restore, rename, origin and version checks.',
+  'PASS: 120 daily sets, unique logic puzzles, all solutions, invalid proofs, deterministic kart replay, date rollover, ties, name identity, duplicate writes, name recovery, distinct players, origin and version checks.',
 );
 
 // The Games extension shares the existing workbook without modifying its data,

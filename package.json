@@ -1,10 +1,10 @@
 {
   "name": "asme-sponsorflow",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "private": true,
   "scripts": {
     "test": "node tests/browser.cjs && node tests/performance.cjs && node tests/api-browser.cjs",
-    "test:games": "node tests/games-core.cjs && node tests/games-browser.cjs",
+    "test:games": "node tests/games-core.cjs && node tests/games-metrics.cjs && node tests/games-browser.cjs && node tests/games-insights-browser.cjs",
     "build:games": "node games-backend/build.cjs",
     "test:themes": "node tests/theme-contrast.cjs"
   },

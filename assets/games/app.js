@@ -101,12 +101,12 @@
       })
       .join('');
     $('#gamesProfileOpen').textContent = S.data.profile
-      ? S.data.profile.name + ' · Your player'
-      : 'Your player · Connect or restore';
+      ? S.data.profile.name + ' · Change name'
+      : 'Your name';
   }
   function renderBoard(rows) {
     $('#leaderboardRows').innerHTML = rows?.length
-      ? `<div class="leaderboard-table" role="table" aria-label="Club rankings"><div class="leaderboard-row leaderboard-head" role="row"><span role="columnheader">Rank</span><span role="columnheader">Player</span><span role="columnheader">Played</span><span role="columnheader">Points</span></div>${rows.map((r) => `<div class="leaderboard-row${r.playerId === S.data.profile?.playerId ? ' is-you' : ''}" role="row"><span role="cell">${r.rank}</span><strong role="cell">${esc(r.name)}${r.playerId === S.data.profile?.playerId ? '<small> You</small>' : ''}</strong><span role="cell">${r.played}</span><b role="cell">${r.points}</b></div>`).join('')}</div>`
+      ? `<div class="leaderboard-table" role="table" aria-label="Club rankings"><div class="leaderboard-row leaderboard-head" role="row"><span role="columnheader">Rank</span><span role="columnheader">Player</span><span role="columnheader">Played</span><span role="columnheader">Points</span></div>${rows.map((r) => `<div class="leaderboard-row${r.playerId === S.data.profile?.playerId ? ' is-you' : ''}" role="row"><span role="cell" class="rank-cell"><small class="mobile-label">Rank </small>${r.rank}</span><strong role="cell" class="player-cell">${esc(r.name)}${r.playerId === S.data.profile?.playerId ? '<small> You</small>' : ''}</strong><span role="cell" class="played-cell">${r.played}<small class="mobile-label"> played</small></span><b role="cell" class="points-cell">${r.points.toLocaleString()}<small class="mobile-label"> points</small></b></div>`).join('')}</div>`
       : '<div class="games-empty"><strong>No scores yet.</strong><p>Complete a daily game to post the first score in this view.</p></div>';
   }
   async function loadBoard(force = false) {
@@ -298,7 +298,7 @@
     const status = $('#gamesSyncStatus');
     $('#gamesSyncButton').disabled = true;
     try {
-      if (!S.data.profile) {
+      if (!S.data.profile || window.SFGamesMetrics.nameKey(S.data.ownerName) !== window.SFGamesMetrics.nameKey(window.SponsorFlowIdentity.name)) {
         status.textContent = 'Connecting your player…';
         await S.join(window.SponsorFlowIdentity.name);
         renderHub();
@@ -320,23 +320,30 @@
     } finally {
       $('#gamesSyncButton').disabled = !S.configured();
       // Standings remain available even when one player's upload is rejected.
-      await loadBoard(true);
+      await Promise.all([loadBoard(true), window.SFGamesInsights?.refresh(true)]);
     }
   }
+  let connecting = 0;
   async function connectPlayer() {
+    const request = ++connecting;
     if (!S.configured()) { loadBoard(); return; }
     try {
       await S.join(window.SponsorFlowIdentity.name);
+      if (request !== connecting) return;
       renderHub();
       if (current && !current.practice) {
         const saved = S.result(current.day, current.id);
         if (saved) { current.result = saved; showResult(saved); }
       }
-      await syncResults();
+      if (S.data.pending.length) await syncResults();
+      else {
+        $('#gamesSyncStatus').textContent = S.data.results.length ? 'Your saved scores are synced to the club.' : 'Ready. Complete a daily game to post your first score.';
+        await Promise.all([loadBoard(), window.SFGamesInsights?.refresh()]);
+      }
     } catch (error) {
+      if (request !== connecting) return;
       $('#gamesSyncStatus').textContent = error.message;
       $('#gamesSyncButton').disabled = false;
-      // Restore remains available when this name exists on another device.
       renderHub();
     }
   }
@@ -669,32 +676,19 @@
     try {
       await navigator.clipboard.writeText(text);
       if (current) message(success, 'success');
-      else $('#gamesProfileStatus').textContent = success;
+      else $('#gamesSyncStatus').textContent = success;
     } catch (_) {
       if (current)
         message(
           'Copy is unavailable in this browser. Your result is still saved.',
         );
       else
-        $('#gamesProfileStatus').textContent =
+        $('#gamesSyncStatus').textContent =
           'Copy is unavailable here. Use the same browser to keep your player profile.';
     }
   }
   function profile() {
-    $('#gamesPlayerName').value =
-      S.data.profile?.name ||
-      window.SponsorFlowStorage.getItem('asmePlannerName') ||
-      '';
-    $('#gamesRestoreCode').value = '';
-    $('#gamesProfileStatus').textContent = S.configured()
-      ? ''
-      : 'The club leaderboard is not open yet. Games and progress saving are available now.';
-    $('#gamesJoinButton').disabled = !S.configured();
-    $('#gamesJoinButton').textContent = S.data.profile
-      ? 'Save player name'
-      : 'Join club rankings';
-    $('#gamesPlayerCode').hidden = !S.data.profile;
-    $('#gamesProfileDialog').showModal();
+    window.SponsorFlowIdentity.open();
   }
   document.addEventListener('click', (e) => {
     const b = e.target.closest('button');
@@ -840,29 +834,6 @@
     boardGame = e.target.value;
     loadBoard();
   });
-  $('#gamesProfileForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    $('#gamesJoinButton').disabled = true;
-    $('#gamesProfileStatus').textContent = 'Saving your player…';
-    try {
-      await S.join($('#gamesPlayerName').value, $('#gamesRestoreCode').value);
-      window.SponsorFlowIdentity.save(S.data.profile.name);
-      $('#gamesProfileStatus').textContent =
-        'Your player is ready. Save your private player code to use another device.';
-      $('#gamesPlayerCode').hidden = false;
-      renderHub();
-      await syncResults();
-      loadBoard();
-    } catch (error) {
-      $('#gamesProfileStatus').textContent = error.message;
-    } finally {
-      $('#gamesJoinButton').disabled = !S.configured();
-    }
-  });
-  $('#gamesCopyCode').addEventListener('click', () => {
-    if (S.data.profile)
-      copyText(S.data.profile.code, 'Player code copied. Keep it private.');
-  });
   window.addEventListener('pagehide', () => {
     persist();
   });
@@ -897,10 +868,16 @@
   renderHub();
   loadBoard();
   window.SponsorFlowIdentity.ready.then(() => {
+    S.activate(window.SponsorFlowIdentity.name);
+    renderHub();
     if (C.GAMES.some(g => g.id === location.hash.slice(1))) openGame(location.hash.slice(1));
     connectPlayer();
     window.addEventListener('sponsorflow:identity', () => {
-      if (S.data.profile?.name !== window.SponsorFlowIdentity.name) connectPlayer();
+      const changed = window.SFGamesMetrics.nameKey(S.data.ownerName) !== window.SFGamesMetrics.nameKey(window.SponsorFlowIdentity.name);
+      if (changed && current) { persist(); back(); }
+      S.activate(window.SponsorFlowIdentity.name);
+      renderHub();
+      connectPlayer();
     });
   });
 })();

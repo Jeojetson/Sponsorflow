@@ -31,8 +31,8 @@
     />
     <link rel="stylesheet" href="assets/app.css?v=40" />
     <link rel="stylesheet" href="assets/brand.css?v=40" />
-    <link rel="stylesheet" href="assets/games/games.css?v=40" />
-    <script src="assets/workspace.js?v=51"></script>
+    <link rel="stylesheet" href="assets/games/games.css?v=52" />
+    <script src="assets/workspace.js?v=52"></script>
     <link href="assets/experience.css?v=51" rel="stylesheet" />
   </head>
   <body class="games-page">
@@ -147,8 +147,24 @@
           <div id="leaderboardRows"></div>
           <p class="leaderboard-note">
             Ties share a place. Scores combine accuracy and elapsed time. Display names
-            and scores are visible to everyone who visits the games page.
+            and scores are visible to everyone who visits the games page. Use the same name on any device to continue; capitalization and extra spaces do not matter.
           </p>
+        </section>
+        <section class="games-insights" aria-labelledby="insightsTitle">
+          <header class="insights-heading"><div><p class="eyebrow">Beyond the standings</p><h2 id="insightsTitle">The club, by the numbers</h2><p>Your progress. Our daily ritual.</p></div>
+            <a class="button button-secondary" href="#playerStats">Your stats ↓</a></header>
+          <p id="insightsStatus" class="status-text" role="status">Loading player stats…</p>
+          <div id="clubStats"></div>
+          <section id="playerStats" aria-labelledby="playerStatsTitle">
+            <div class="insights-heading"><div><p class="eyebrow">Player spotlight · all time</p><h3 id="playerStatsTitle">Your game, in focus</h3></div>
+              <label class="insights-select">Explore a player<select id="insightsPlayer" aria-label="Explore a player"></select></label></div>
+            <div id="playerMetrics"></div>
+          </section>
+          <details class="insights-definitions"><summary>How these numbers work</summary>
+            <p>Stats use synced daily results from the timed scoring season. Practice and older scoring seasons are excluded. Each name gets one ranked attempt per game per day.</p>
+            <p>A day win means the most total points across all six games on a completed Indianapolis calendar day. Positive-score ties share the win. Today’s lead is provisional, and late score syncs can change past winners.</p>
+            <p>Solve times include only solved puzzles with a recorded timer. The timer starts when you open a puzzle and includes breaks. Accuracy averages all ranked attempts; failed rounds count as 0%. Streaks count consecutive days with any ranked play and stay active through yesterday.</p>
+          </details>
         </section>
       </section>
       <section id="gamePlayer" hidden aria-labelledby="gameTitle">
@@ -224,83 +240,17 @@
         Got it
       </button>
     </dialog>
-    <dialog
-      class="games-dialog"
-      id="gamesProfileDialog"
-      aria-labelledby="gamesProfileTitle"
-    >
-      <div class="games-dialog-heading">
-        <h2 id="gamesProfileTitle">Your player</h2>
-        <button
-          class="modal-close"
-          type="button"
-          data-close-dialog="gamesProfileDialog"
-          aria-label="Close player profile"
-        >
-          ×
-        </button>
-      </div>
-      <p>
-        Your site name connects you to club rankings. Restore your private player code here to bring scores from another device.
-      </p>
-      <form id="gamesProfileForm">
-        <label class="field"
-          ><span>Display name</span
-          ><input
-            id="gamesPlayerName"
-            minlength="2"
-            maxlength="40"
-            autocomplete="nickname"
-            required
-        /></label>
-        <details id="gamesRestoreDetails">
-          <summary>Already play on another device?</summary>
-          <p>
-            Paste the player code from your profile on that device to keep your
-            scores together. Keep this code private.
-          </p>
-          <label class="field"
-            ><span>Player code</span
-            ><input
-              id="gamesRestoreCode"
-              autocomplete="off"
-              spellcheck="false"
-              maxlength="48"
-          /></label>
-        </details>
-        <button
-          class="button button-primary"
-          id="gamesJoinButton"
-          type="submit"
-        >
-          Join club rankings
-        </button>
-        <p id="gamesProfileStatus" role="status"></p>
-      </form>
-      <section id="gamesPlayerCode" hidden>
-        <h3>Play on another device</h3>
-        <p>
-          Your private player code restores your leaderboard identity. Treat it
-          like a password.
-        </p>
-        <button
-          class="button button-secondary"
-          id="gamesCopyCode"
-          type="button"
-        >
-          Copy player code
-        </button>
-      </section>
-    </dialog>
     <footer class="site-footer">
       <span>Purdue University Indianapolis ASME</span
       ><a href="admin.html">Officer workspace</a>
     </footer>
     <script src="assets/config.js?v=41"></script>
     <script src="assets/games/config.js?v=51"></script>
-    <script src="assets/games/core.js?v=51"></script>
-    <script src="assets/games/service.js?v=51"></script>
-    <script src="assets/games/app.js?v=51"></script>
+    <script src="assets/games/core.js?v=52"></script>
+    <script src="assets/games/metrics.js?v=52"></script>
+    <script src="assets/games/service.js?v=52"></script>
+    <script src="assets/games/insights.js?v=52"></script>
+    <script src="assets/games/app.js?v=52"></script>
     <script src="assets/theme.js?v=51"></script>
   </body>
 </html>

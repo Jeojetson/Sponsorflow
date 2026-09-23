@@ -16,11 +16,11 @@ The server validates puzzle solutions and calculates points. Elapsed time and co
 
 ## Sync and existing data
 
-Results are first saved on the device and explicitly marked pending until the server confirms them. **Sync scores** retries pending results and refreshes standings. Player codes restore identity and completed results on another device; unfinished boards stay on their original device. Offline timed results can sync for 35 days.
+Results are first saved on the device and explicitly marked pending until the server confirms them. **Sync scores** retries pending results and refreshes standings. The same normalized name reconnects to existing scores on another device without a player code; unfinished boards stay on their original device. Offline timed results can sync for 35 days.
 
-Scoring version 2 separates these scores from the previous 100-point format. Historical version-1 rows and kart results remain in the spreadsheet. Old local runs and pending records are retained separately. Existing player codes remain valid, and puzzle generation version 1 stays unchanged.
+Scoring version 2 separates these scores from the previous 100-point format. Historical version-1 rows and kart results remain in the spreadsheet. Old local runs and pending records are retained separately. Version 5.2 reconnects players by normalized name without codes; existing IDs and scores are preserved. Puzzle generation version 1 stays unchanged.
 
-Follow [RELEASE-5.0.md](RELEASE-5.0.md) to replace Games.gs, run `setupGames` once, and update the existing web app deployment. This uses the same spreadsheet and API URL. Current Code.gs routing hooks and Admin.html remain in place. An older backend produces a clear update-needed message and keeps new scores on the device.
+Follow [RELEASE-5.2.md](RELEASE-5.2.md) to replace Games.gs, run `setupGames` once, and update the existing web app deployment. This uses the same spreadsheet and API URL. Current Code.gs routing hooks and Admin.html remain in place. An older backend produces a clear update-needed message and keeps new scores on the device.
 
 ## Development and verification
 

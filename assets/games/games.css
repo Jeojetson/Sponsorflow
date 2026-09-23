@@ -1379,3 +1379,114 @@ html[data-theme='dark'] .region-5 {
     margin-top: 10px;
   }
 }
+
+/* Name-based standings and the player / club statistics dashboard. */
+.mobile-label { display:none; }
+.games-insights { margin-top:56px; }
+.insights-heading { display:flex; justify-content:space-between; align-items:end; gap:20px; margin:0 0 22px; }
+.insights-heading h2 { font-size:clamp(28px,4vw,48px); margin:0; }
+.insights-heading h3 { font-size:clamp(25px,3vw,36px); margin:0; overflow-wrap:anywhere; }
+.insights-heading p { color:var(--muted); margin:8px 0 0; }
+.games-stat-scope,.games-stat-footnote { color:var(--muted); }
+.games-stat-kpis { display:grid; gap:14px; margin:20px 0; }
+.club-kpis { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.player-kpis { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.games-stat-kpi { min-width:0; padding:22px; background:var(--surface); border:2px solid var(--line); }
+.games-stat-kpi > span { display:block; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.games-stat-kpi > strong { display:block; font-size:clamp(30px,3.5vw,46px); font-weight:900; line-height:1.2; margin:9px 0; overflow-wrap:anywhere; }
+.games-stat-kpi > small { display:block; color:var(--muted); font-size:13px; }
+.games-stat-kpi.games-stat-primary { background:var(--gold,#cfb991); color:#242735; border-color:#40455c; box-shadow:4px 4px 0 #40455c; }
+.games-stat-primary > span,.games-stat-primary > small { color:#303442; }
+.games-stat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin:20px 0; }
+.games-stat-panel { min-width:0; padding:24px; border:2px solid var(--line); background:var(--surface); }
+.games-stat-panel h3 { font-size:24px; line-height:1.2; margin:0 0 8px; }
+.games-stat-panel header p { color:var(--muted); margin:0 0 24px; font-size:14px; }
+.games-stat-chart { margin:0; }
+.games-stat-chart figcaption,.games-stat-axis,.games-stat-bar-heading,.games-stat-legend { display:flex; justify-content:space-between; gap:12px; font-size:13px; color:var(--muted); }
+.games-stat-chart figcaption strong { white-space:nowrap; color:var(--text); }
+.games-stat-plot { height:170px; margin-top:12px; border-bottom:2px solid var(--line); }
+.games-stat-plot svg { display:block; width:100%; height:100%; }
+.games-stat-bars { display:flex; gap:3px; height:100%; align-items:end; }
+.games-stat-bars > span { flex:1; height:var(--bar); min-height:2px; background:var(--line); }
+.games-stat-bars > .has-activity { background:var(--accent-ink); }
+.games-stat-gridline { stroke:var(--line); fill:none; stroke-width:1; }
+.games-stat-trend { stroke:var(--accent-ink); fill:none; stroke-width:3; vector-effect:non-scaling-stroke; }
+.games-stat-dot { fill:var(--text); stroke:var(--surface); stroke-width:1.5; }
+.games-stat-axis { margin-top:10px; }
+.chart-data { margin-top:18px; }
+.chart-data summary,.insights-definitions summary { cursor:pointer; font-weight:750; padding:12px 0; }
+.chart-data table { width:100%; border-collapse:collapse; margin:12px 0; }
+.chart-data caption { text-align:left; margin-bottom:12px; }
+.chart-data th,.chart-data td { padding:10px 6px; border-bottom:1px solid var(--line); text-align:left; }
+.chart-data td { text-align:right; }
+.games-stat-game-bars { display:grid; gap:18px; }
+.games-stat-bar-heading { color:var(--text); flex-wrap:wrap; }
+.games-stat-track { height:9px; background:var(--surface-2); margin:8px 0; }
+.games-stat-track i { display:block; height:100%; background:var(--accent-ink); }
+.games-stat-game-bars p { margin:0; color:var(--muted); font-size:13px; }
+.games-stat-champions,.games-stat-winners { list-style:none; padding:0; margin:0; }
+.games-stat-champions li { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid var(--line); }
+.games-stat-champions strong { font-size:24px; text-align:right; flex-shrink:0; }
+.games-stat-champions small { display:block; font-size:12px; color:var(--muted); }
+.games-stat-champions button,.games-stat-winners button { font:inherit; text-align:left; font-weight:800; color:var(--text); background:transparent; padding:8px 0; border:0; text-decoration:underline; text-underline-offset:4px; overflow-wrap:anywhere; cursor:pointer; }
+.games-stat-winners li { display:grid; grid-template-columns:64px minmax(0,1fr); gap:14px; padding:10px 0; border-bottom:1px solid var(--line); }
+.games-stat-winners li > span { color:var(--muted); padding-top:8px; font-size:14px; }
+.games-stat-winners button { display:block; }
+.games-stat-winners small { display:block; color:var(--muted); }
+#playerStats { scroll-margin-top:210px; margin-top:52px; }
+.insights-select { display:grid; gap:8px; font-weight:700; max-width:100%; }
+.insights-select select { min-width:200px; max-width:100%; padding:12px; color:var(--text); background:var(--surface); border:2px solid var(--line); border-radius:0; }
+.games-stat-leading { padding:14px; font-weight:800; color:var(--text); background:var(--accent-soft); border-left:4px solid var(--accent-ink); }
+.games-stat-records { display:flex; flex-wrap:wrap; gap:16px 28px; padding:18px 0; border-block:2px solid var(--line); }
+.games-stat-records span { color:var(--muted); }
+.games-stat-records strong { color:var(--text); display:block; margin-top:6px; }
+.games-stat-game-cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+.games-stat-game-cards article { padding:16px; background:var(--surface-2); border:1px solid var(--line); }
+.games-stat-game-cards h4 { margin:0 0 12px; font-size:17px; }
+.games-stat-game-cards dl { margin:0; }
+.games-stat-game-cards dl > div { display:flex; justify-content:space-between; gap:10px; margin:8px 0; font-size:13px; }
+.games-stat-game-cards dt { color:var(--muted); }
+.games-stat-game-cards dd { margin:0; font-weight:800; }
+.games-stat-heatmap { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:7px; }
+.games-stat-heatmap span { display:grid; place-items:center; aspect-ratio:1; border:1px solid var(--line); color:var(--muted); background:var(--surface-2); font-weight:800; }
+.games-stat-heatmap [data-level="1"] { background:#e5d9c2; color:#242735; }
+.games-stat-heatmap [data-level="2"] { background:#cfb991; color:#242735; }
+.games-stat-heatmap [data-level="3"] { background:#40455c; color:#fffdf7; border-color:#798098; }
+.games-stat-legend { margin-top:15px; flex-wrap:wrap; }
+.games-stat-empty { padding:24px 0; color:var(--muted); }
+.insights-definitions { border-block:2px solid var(--line); padding:8px 0; margin-top:32px; }
+.insights-definitions p { color:var(--muted); max-width:85ch; }
+@media(max-width:1000px) {
+  .club-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .games-stat-grid { grid-template-columns:1fr; }
+}
+@media(max-width:600px) {
+  .leaderboard-table { display:grid; gap:10px; }
+  .leaderboard-row.leaderboard-head { display:none; }
+  .leaderboard-table .leaderboard-row { grid-template-columns:36px minmax(0,1fr) auto; gap:8px 12px; padding:16px 12px; border:1px solid var(--line); background:var(--surface); }
+  .leaderboard-table .leaderboard-row.is-you { background:var(--accent-soft); }
+  .leaderboard-row .rank-cell { grid-column:1; grid-row:1 / span 2; font-size:20px; font-weight:800; text-align:left; }
+  .leaderboard-row .rank-cell small { display:block; font-size:10px; }
+  .leaderboard-row .player-cell { grid-column:2; grid-row:1; font-size:16px; line-height:1.35; }
+  .leaderboard-row .played-cell { grid-column:2; grid-row:2; text-align:left; color:var(--muted); font-size:13px; }
+  .leaderboard-row .points-cell { grid-column:3; grid-row:1 / span 2; font-size:22px; text-align:right; }
+  .leaderboard-row .mobile-label { display:inline; font-size:12px; }
+  .leaderboard-row .points-cell small { display:block; }
+  .leaderboard-row .player-cell small { display:block; }
+  .games-insights { margin-top:38px; }
+  .insights-heading { align-items:stretch; flex-direction:column; }
+  .insights-heading .button { align-self:start; }
+  .games-stat-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .games-stat-kpi { padding:15px 12px; }
+  .games-stat-kpi > strong { font-size:30px; }
+  .games-stat-kpi > span { font-size:11px; }
+  .games-stat-kpi > small { font-size:12px; }
+  .games-stat-panel { padding:18px 14px; }
+  .games-stat-game-cards { gap:10px; }
+  .games-stat-game-cards article { padding:12px 10px; }
+  .games-stat-game-cards dl > div { flex-wrap:wrap; gap:3px; }
+  .insights-select select { width:100%; min-width:0; }
+  .games-stat-bars { gap:2px; }
+  .games-stat-heatmap { gap:5px; }
+}
+@media(prefers-reduced-motion:reduce) { #playerStats { scroll-behavior:auto; } }
