@@ -1,4 +1,7 @@
 /* Purdue ASME member experience. Official colors, expanded type, clear edges. */
+@media (max-width: 720px) {
+  body .mobile-app-nav { grid-template-columns:repeat(7,minmax(64px,1fr)); overflow-x:auto; overscroll-behavior-x:contain; }
+}
 :root,
 html[data-theme] {
   --radius: 3px;

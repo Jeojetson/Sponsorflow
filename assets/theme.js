@@ -14,6 +14,7 @@
     calendar: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path><path d="M8 14h2M12 14h2M16 14h1M8 17h2M12 17h2"></path></svg>',
     attendance: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"></circle><path d="M3.5 19c.8-3.5 2.7-5.2 5.5-5.2s4.7 1.7 5.5 5.2"></path><path d="m15.5 12 2 2 3.5-4"></path></svg>',
     games: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="4"></rect><path d="M6 12h6M9 9v6M16 10h.01M18 14h.01"></path></svg>',
+    reels: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="m10 8 6 4-6 4Z"></path></svg>',
     admin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6l-8-3Z"></path><path d="M9 12l2 2 4-5"></path></svg>'
   };
 
@@ -71,9 +72,12 @@
       mobileLink("planner.html", "Projects", "planner", ["planner.html"]),
       mobileLink("calendar.html", "Calendar", "calendar", ["calendar.html"]),
       mobileLink("attendance.html", "Attend", "attendance", ["attendance.html"]),
-      mobileLink("games.html", "Games", "games", ["games.html"])
+      mobileLink("games.html", "Games", "games", ["games.html"]),
+      mobileLink("reels.html", "Reels", "reels", ["reels.html"])
     ].join("");
     document.body.appendChild(nav);
+    // Keep useful tap targets as the app grows. Scroll the current page into view.
+    requestAnimationFrame(() => { const active = nav.querySelector('[aria-current]'); if (active) nav.scrollLeft = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2; });
   }
 
   function enableMobileNavAutoHide() {
