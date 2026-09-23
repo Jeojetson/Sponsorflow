@@ -53,7 +53,8 @@ const SF_REELS = Object.freeze({
   Posts: ['id', 'videoId', 'title', 'caption', 'category', 'author', 'authorKey', 'createdAt', 'hidden'],
   Saves: ['id', 'nameKey', 'reelId', 'createdAt', 'active'],
   Messages: ['id', 'fromName', 'fromKey', 'toName', 'toKey', 'body', 'reelId', 'createdAt'],
-  Reads: ['id', 'nameKey', 'peerKey', 'through']
+  Reads: ['id', 'nameKey', 'peerKey', 'through'],
+  Discovery: ['id', 'videoId', 'title', 'caption', 'category', 'author', 'createdAt', 'hidden', 'fetchedAt']
 });
 function reelsBook_() {
   const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
@@ -81,6 +82,7 @@ function setupReels() {
         sheet.appendRow(SF_REELS[type]); sheet.setFrozenRows(1);
       }
     });
+    seedReelsDiscovery_();
     return book.getUrl();
   });
 }
@@ -115,11 +117,11 @@ function reelsLock_(fn) {
 }
 function reelsHash_(value) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, value).map(b => (b + 256).toString(16).slice(-2)).join(''); }
 function reelsPublic_(row) {
-  return { id: row.id, videoId: row.videoId, title: row.title, caption: row.caption, category: row.category, author: row.author, createdAt: row.createdAt };
+  return { id: row.id, videoId: row.videoId, title: row.title, caption: row.caption, category: row.category, author: row.author, createdAt: row.createdAt, source: row.fetchedAt ? 'discover' : 'club' };
 }
-function reelsVisible_(row) { return /^[\w-]{11}$/.test(row.videoId) && row.id === 'REEL-' + row.videoId && String(row.hidden).toLowerCase() !== 'true'; }
+function reelsVisible_(row) { return (!row.fetchedAt || row.fetchedAt === 'curated' || Date.parse(row.fetchedAt) > Date.now() - 28 * 86400000) && /^[\w-]{11}$/.test(row.videoId) && row.id === 'REEL-' + row.videoId && String(row.hidden).toLowerCase() !== 'true'; }
 function reelsFeed_(p) {
-  let rows = reelsRows_('Posts').filter(reelsVisible_).sort(SFReels.compare);
+  let rows = (p.id ? Array.from(reelsLookup_().values()) : reelsRows_('Posts')).filter(reelsVisible_).sort(SFReels.compare);
   if (p.id) rows = rows.filter(r => r.id === String(p.id));
   else if (p.filter === 'karting') rows = rows.filter(r => r.category === 'karting');
   else if (p.filter !== 'newest') rows = SFReels.kartingFirst(rows);
@@ -146,12 +148,12 @@ function reelsSubmit_(p) {
 }
 function reelsSaved_(p) {
   const key = SFReels.nameKey(p.name), saves = reelsRows_('Saves').filter(r => r.nameKey === key && r.active === 'true').sort(SFReels.compare);
-  const posts = new Map(reelsRows_('Posts').filter(reelsVisible_).map(r => [r.id, r]));
+  const posts = new Map(Array.from(reelsLookup_()).filter(([, r]) => reelsVisible_(r)));
   return { items: saves.filter(s => posts.has(s.reelId)).map(s => reelsPublic_(posts.get(s.reelId))) };
 }
 function reelsSave_(p) {
   const key = SFReels.nameKey(p.name), reelId = String(p.reelId || ''), active = String(p.active) === 'true';
-  if (active && !reelsRows_('Posts').some(r => r.id === reelId && reelsVisible_(r))) throw new Error('That reel is no longer available.');
+  if (active && !Array.from(reelsLookup_().values()).some(r => r.id === reelId && reelsVisible_(r))) throw new Error('That reel is no longer available.');
   const id = reelsHash_(key + '|' + reelId), rows = reelsRows_('Saves'), old = rows.find(r => r.id === id);
   if (active && (!old || old.active !== 'true') && rows.filter(r => r.nameKey === key && r.active === 'true').length >= 500) throw new Error('You have saved 500 reels. Unsave one before adding another.');
   if (!active && !old) return { reelId, active: false };
@@ -177,7 +179,7 @@ function reelsThread_(p) {
   const rows = reelsRows_('Messages').filter(r => (r.fromKey === key && r.toKey === peer) || (r.fromKey === peer && r.toKey === key)).sort(SFReels.compare);
   const before = SFReels.text(p.before, 120, 'History cursor');
   const selected = (before ? rows.filter(r => SFReels.orderKey(r) < before) : rows).slice(0, 50);
-  const posts = new Map(reelsRows_('Posts').map(r => [r.id, r]));
+  const posts = reelsLookup_();
   if (!before && selected.length && String(p.markRead) === 'true') {
     const id = reelsHash_(key + '|' + peer), old = reelsRows_('Reads').find(r => r.id === id);
     const through = SFReels.orderKey(selected[0]);
@@ -194,7 +196,7 @@ function reelsSend_(p) {
   const requestId = String(p.requestId || '');
   if (!/^[a-f0-9]{32}$/.test(requestId)) throw new Error('Refresh Reels before sending.');
   const id = reelsHash_(fromKey + '|' + requestId), rows = reelsRows_('Messages'), old = rows.find(r => r.id === id);
-  const posts = new Map(reelsRows_('Posts').map(r => [r.id, r]));
+  const posts = reelsLookup_();
   if (old) {
     if (old.toKey !== toKey || old.body !== body || old.reelId !== reelId) throw new Error('That send attempt already has different contents. Refresh to check the conversation.');
     return { message: reelsMessagePublic_(old, posts), duplicate: true };
@@ -210,11 +212,11 @@ function reelsSend_(p) {
 }
 function asmeReelsGet_(e) {
   const p = e && e.parameter || {};
-  if (p.action !== 'reelsFeed') return null;
+  if (!['reelsFeed', 'reelsDiscover'].includes(p.action)) return null;
   const callback = String(p.callback || '');
   if (!/^__asmeReels_[a-f0-9]{32}$/.test(callback)) return ContentService.createTextOutput('Invalid callback');
   let response;
-  try { validateFrontendOrigin_(String(p.origin || '')); response = { ok: true, data: reelsFeed_(p) }; }
+  try { validateFrontendOrigin_(String(p.origin || '')); response = { ok: true, data: p.action === 'reelsDiscover' ? reelsDiscover_(p) : reelsFeed_(p) }; }
   catch (error) { response = { ok: false, error: error.message }; }
   return ContentService.createTextOutput(callback + '(' + JSON.stringify(response).replace(/</g, '\\u003c') + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
@@ -229,4 +231,74 @@ function asmeReelsPost_(e) {
     response.data = readOnly ? handlers[p.action](p) : reelsLock_(function () { return handlers[p.action](p); }); response.ok = true;
   } catch (error) { response.ok = false; response.error = error.message; }
   return HtmlService.createHtmlOutput('<!doctype html><meta charset="utf-8"><script>window.top.postMessage(' + JSON.stringify(response).replace(/</g, '\\u003c') + ',' + JSON.stringify(String(p.origin || '')).replace(/</g, '\\u003c') + ');</script>').setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** Separate discovery catalogue. Public reads never call the YouTube Data API. */
+const REELS_STARTER_ = [
+  ['Jb7ZMp3DZGY', 'A team day at Kiro Karting', 'TPS', 'https://www.tps.com.pt/en/2025/07/11/karting-championship-lisboa-edition-2/'],
+  ['RdxY-sNHuC0', 'Meet a young kart racer: Iannis Printsios', 'Academy for Winners', 'https://academyforwinners.com/iannis-printsios-conquista-academy-for-winners-a-soli-11-anni-dopo-il-kart-test-day/'],
+  ['WxbGRtaJ3Pg', 'First test in an OKN Junior kart', 'Academy for Winners', 'https://academyforwinners.com/gualtiero-castaldo-inizia-in-okn-junior-con-academy-for-winners/'],
+  ['G7BG_LF87p4', 'Inside a karting swap meet', 'Extra Kart Parts', 'https://extrakartparts.com/blog/2025-karting-swap-meet-in-northern-california/']
+];
+function seedReelsDiscovery_() {
+  const known = new Set(reelsRows_('Discovery').map(r => r.id));
+  REELS_STARTER_.forEach((v, i) => {
+    if (!known.has('REEL-' + v[0])) reelsWrite_('Discovery', { id: 'REEL-' + v[0], videoId: v[0], title: v[1], author: v[2], category: 'karting', caption: '', createdAt: new Date(Date.UTC(2026, 8, 23, 0, 0, 4-i)).toISOString(), hidden: 'false', fetchedAt: 'curated' });
+  });
+}
+function reelsDiscoveryRows_() {
+  // Old deployments can keep using club saves/messages until setupReels is rerun.
+  return reelsBook_().getSheetByName('Reels Discovery') ? reelsRows_('Discovery') : [];
+}
+function reelsLookup_() {
+  // An officer-hidden club post also suppresses its discovery counterpart.
+  return new Map([...reelsDiscoveryRows_(), ...reelsRows_('Posts')].map(r => [r.id, r]));
+}
+function reelsDiscover_(p) {
+  reelsSheet_('Discovery');
+  const hidden = new Set(reelsRows_('Posts').filter(r => r.hidden === 'true').map(r => r.id));
+  const all = reelsDiscoveryRows_().filter(r => reelsVisible_(r) && !hidden.has(r.id));
+  const rows = SFReels.kartingFirst(all.sort(SFReels.compare));
+  const after = String(p.after || ''), i = after ? rows.findIndex(r => r.id === after) : -1;
+  if (after && i < 0) throw new Error('Discover has new videos. Refresh to start the latest feed.');
+  const items = rows.slice(i + 1, i + 13);
+  const latest = all.filter(r => r.fetchedAt !== 'curated').map(r => r.fetchedAt).sort().pop() || '';
+  return { items: items.map(reelsPublic_), next: rows.length > i + 13 ? items[items.length - 1].id : '', total: rows.length, updatedAt: latest, live: Boolean(latest) };
+}
+function reelsDurationSeconds_(value) {
+  const m = String(value || '').match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/);
+  return m ? Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0) : 0;
+}
+/** Run in the editor after adding Services > YouTube Data API v3. */
+function refreshReelsDiscovery() {
+  if (typeof YouTube === 'undefined') throw new Error('In Apps Script, add Services > YouTube Data API v3, then run enableReelsDiscovery. Members do not need a YouTube account.');
+  // Bounded, scheduled searches keep scrolling fast and independent of API quota.
+  const categories = new Map();
+  ['karting #shorts', 'go kart racing #shorts', 'motorsport #shorts', 'engineering #shorts'].forEach((q, i) => {
+    const result = YouTube.Search.list('id', { q, type: 'video', maxResults: 50, videoDuration: 'short', videoEmbeddable: 'true', videoSyndicated: 'true', safeSearch: 'strict', relevanceLanguage: 'en', order: new Date().getUTCDate() % 2 ? 'relevance' : 'date' });
+    (result.items || []).forEach(r => { const id = r.id && r.id.videoId; if (/^[\w-]{11}$/.test(id) && !categories.has(id)) categories.set(id, i < 2 ? 'karting' : 'community'); });
+  });
+  const ids = Array.from(categories.keys()), found = [];
+  for (let offset = 0; offset < ids.length; offset += 50) {
+    const result = YouTube.Videos.list('snippet,contentDetails,status', { id: ids.slice(offset, offset+50).join(',') });
+    (result.items || []).forEach(v => {
+      const seconds = reelsDurationSeconds_(v.contentDetails && v.contentDetails.duration);
+      if (seconds <= 0 || seconds > 180 || !v.status || v.status.embeddable !== true || v.status.privacyStatus !== 'public' || v.snippet.liveBroadcastContent !== 'none') return;
+      found.push({ id: 'REEL-' + v.id, videoId: v.id, title: String(v.snippet.title || 'YouTube Short').slice(0,100), caption: '', author: String(v.snippet.channelTitle || 'YouTube').slice(0,100), category: categories.get(v.id), createdAt: v.snippet.publishedAt || new Date().toISOString(), fetchedAt: new Date().toISOString() });
+    });
+  }
+  if (!found.length) throw new Error('YouTube returned no playable short videos. The existing catalogue was kept. Try refreshReelsDiscovery later.');
+  return reelsLock_(function () {
+    const rows = reelsRows_('Discovery'), byId = new Map(rows.map(r => [r.id,r]));
+    found.forEach(item => { const old = byId.get(item.id); reelsWrite_('Discovery', Object.assign({}, item, { hidden: old ? old.hidden : 'false' }), old); });
+    // Expire API metadata after 28 days. Keep IDs, officer hide choices and extra columns.
+    rows.filter(r => r.fetchedAt !== 'curated' && !found.some(v => v.id === r.id) && Date.parse(r.fetchedAt) <= Date.now() - 28*86400000).forEach(r => reelsWrite_('Discovery', { videoId: '', title: '', caption: '', author: '', category: '', createdAt: '', fetchedAt: '' }, r));
+    return { refreshed: found.length };
+  });
+}
+function enableReelsDiscovery() {
+  setupReels();
+  const result = refreshReelsDiscovery();
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'refreshReelsDiscovery')) ScriptApp.newTrigger('refreshReelsDiscovery').timeBased().everyDays(1).atHour(5).create();
+  return result;
 }

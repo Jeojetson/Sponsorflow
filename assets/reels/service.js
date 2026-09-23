@@ -5,7 +5,7 @@
   function request(action, payload = {}) {
     const url = window.SPONSORFLOW_CONFIG?.API_URL || '';
     if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(url)) return Promise.reject(new Error('Reels needs the SponsorFlow data connection.'));
-    const callId = id(), read = action === 'reelsFeed';
+    const callId = id(), read = ['reelsFeed','reelsDiscover'].includes(action);
     return new Promise((resolve, reject) => {
       let script, frame, timeout;
       const callback = '__asmeReels_' + callId;
