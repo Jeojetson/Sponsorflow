@@ -26,7 +26,7 @@ async function makePage(browser, width, theme = 'light', configured = true) {
     hasTouch: width < 720,
   });
   await ctx.addInitScript(
-    ({ theme }) => { localStorage.setItem('asmeWorkspaceTheme', theme); localStorage.setItem('asmeMemberName','Jordan Lee'); },
+    ({ theme }) => { if(window!==window.top)return; localStorage.setItem('asmeWorkspaceTheme', theme); localStorage.setItem('asmeMemberName','Jordan Lee'); },
     { theme },
   );
   await ctx.route('**/*', async (route) => {
@@ -157,15 +157,15 @@ async function saved(page, id) {
     const page = await makePage(browser, 390);
     await open(page);
     await page.click('#gamesProfileOpen');
-    await page.fill('#gamesPlayerName', 'Jordan Lee');
-    await page.click('#gamesJoinButton');
+    await page.fill('#memberWelcomeName', 'Jordan Lee');
+    await page.locator('#memberWelcomeForm button[type=submit]').click();
     await page.waitForFunction(
       () => JSON.parse(localStorage.getItem('asmeGamesV1')).profile,
     );
     const profile = await page.evaluate(
       () => JSON.parse(localStorage.getItem('asmeGamesV1')).profile,
     );
-    await page.click('[data-close-dialog="gamesProfileDialog"]');
+
     const day = C.dayKey();
     await page.click('[data-play="word"]');
     await page.keyboard.type('ZZZZZ');
@@ -282,16 +282,12 @@ async function saved(page, id) {
     // A second device restores the same profile and server-locked puzzle results.
     const second = await makePage(browser, 1440, 'dark');
     await open(second);
-    await second.click('#gamesProfileOpen');
-    await second.fill('#gamesPlayerName', 'Jordan Lee');
-    await second.locator('#gamesRestoreDetails summary').click();
-    await second.fill('#gamesRestoreCode', profile.code);
-    await second.click('#gamesJoinButton');
     await second.waitForFunction(
       () =>
         JSON.parse(localStorage.getItem('asmeGamesV1')).results.length === 6,
     );
-    await second.click('[data-close-dialog="gamesProfileDialog"]');
+    assert.equal(await second.locator('#gamesRestoreCode').count(),0);
+    assert.equal(await second.evaluate(()=>window.SFGamesService.data.profile.playerId),profile.playerId);
     await second.click('[data-play="word"]');
     assert.equal(
       await second.locator('.word-keyboard button:not([disabled])').count(),
@@ -339,7 +335,7 @@ async function saved(page, id) {
     assert(requests.some((r) => r.action === 'gamesLeaderboard'));
     assert(
       requests.every((r) =>
-        ['gamesJoin', 'gamesScore', 'gamesLeaderboard'].includes(r.action),
+        ['gamesJoin', 'gamesScore', 'gamesLeaderboard', 'gamesInsights'].includes(r.action),
       ),
     );
     legacyDeployment = true;
@@ -366,13 +362,13 @@ async function saved(page, id) {
     legacyDeployment = false;
     loseJoinReply = true;
     const recovery = await makePage(browser,390,'dark');
-    await recovery.context().addInitScript(()=>localStorage.setItem('asmeMemberName','Recovery Test'));
+    await recovery.context().addInitScript(()=>{if(window===window.top)localStorage.setItem('asmeMemberName','Recovery Test');});
     await open(recovery);
     await recovery.waitForFunction(()=>document.querySelector('#gamesSyncStatus').textContent.includes('Connection interrupted'));
-    const savedCode=await recovery.evaluate(()=>window.SFGamesService.data.joinAttempt.code);
+    const recoveryId=backend.context.gamesJoin_({name:'Recovery Test'}).playerId;
     await recovery.reload();
     await recovery.waitForFunction(()=>window.SFGamesService.data.profile);
-    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.code),savedCode);
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.playerId),recoveryId);
     assert.equal(backend.sheets.get('Games Players').rows.filter(r=>r[2]==='Recovery Test').length,1);
     // A bad proof remains recoverable but does not prevent a valid score or standings read.
     await recovery.evaluate(({day,answer})=>{
@@ -395,17 +391,22 @@ async function saved(page, id) {
     assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.pending.some(r=>r.game==='word')),false);
     await recovery.evaluate(()=>Promise.all([window.SFGamesService.join('Recovery Alpha'),window.SFGamesService.join('Recovery Beta')]));
     assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.name),'Recovery Beta');
-    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.profile.code),savedCode);
+    assert.notEqual(await recovery.evaluate(()=>window.SFGamesService.data.profile.playerId),recoveryId);
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.results.length),0);
+    await recovery.evaluate(()=>window.SFGamesService.join('Recovery Test'));
+    assert(await recovery.evaluate(()=>window.SFGamesService.data.results.some(r=>r.game==='word' && r.synced)));
+    assert.equal(await recovery.evaluate(()=>window.SFGamesService.data.pending.length),1);
     await recovery.context().close();
     const blocked = await makePage(browser,390,'light');
     await blocked.context().addInitScript(()=>{
+      if(window!==window.top)return;
       localStorage.setItem('asmeMemberName','Storage Test');
       Storage.prototype.setItem=()=>{throw new Error('Storage unavailable');};
     });
     const playersBeforeBlocked=backend.sheets.get('Games Players').rows.length;
     await open(blocked);
-    await blocked.waitForFunction(()=>document.querySelector('#gamesSyncStatus').textContent.includes('Enable browser storage'));
-    assert.equal(backend.sheets.get('Games Players').rows.length,playersBeforeBlocked);
+    await blocked.waitForFunction(()=>window.SFGamesService.data.profile?.name === 'Storage Test');
+    assert.equal(backend.sheets.get('Games Players').rows.length,playersBeforeBlocked+1);
     await blocked.click('[data-play="word"]');
     await blocked.keyboard.type('A');
     assert.equal(await blocked.evaluate(()=>window.SFGamesService.getRun(window.SFGames.dayKey(),'word').input),'A');

@@ -1404,6 +1404,95 @@ var SFGames = (function () {
   };
   
 })();
+var SFGamesMetrics = (function () {
+
+  const GAME_IDS = ['word', 'groups', 'queens', 'binary', 'path', 'numbers'];
+  const nameKey = value => String(value || '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+  function shift(day, amount) {
+    const date = new Date(day + 'T12:00:00Z');
+    date.setUTCDate(date.getUTCDate() + amount);
+    return date.toISOString().slice(0, 10);
+  }
+  // First accepted attempt counts, including when historical same-name IDs
+  // resolve to one person. Never give duplicate daily attempts extra weight.
+  function records(input, day) {
+    const seen = new Set();
+    return input.filter(r => r.playerId && r.version === 2 && GAME_IDS.includes(r.game) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(r.day) && r.day <= day && Number.isFinite(r.points) && r.points >= 0 && r.points <= 1000)
+      .slice().sort((a, b) => String(a.completedAt || '').localeCompare(String(b.completedAt || '')))
+      .filter(r => { const key = `${r.playerId}:${r.day}:${r.game}`; if (seen.has(key)) return false; seen.add(key); return true; });
+  }
+  function stats(rows) {
+    const solved = rows.filter(r => r.win === true);
+    const times = solved.map(r => r.elapsedMs).filter(v => Number.isFinite(v) && v >= 1000).sort((a, b) => a - b);
+    const accuracies = rows.map(r => r.accuracy).filter(v => Number.isFinite(v) && v >= 0 && v <= 100);
+    const middle = Math.floor(times.length / 2);
+    return {
+      played: rows.length, solved: solved.length, points: rows.reduce((s, r) => s + r.points, 0),
+      solveRate: rows.length ? Math.round(solved.length / rows.length * 100) : null,
+      accuracy: accuracies.length ? Math.round(accuracies.reduce((s, n) => s + n, 0) / accuracies.length) : null,
+      averageMs: times.length ? Math.round(times.reduce((s, n) => s + n, 0) / times.length) : null,
+      medianMs: times.length ? Math.round(times.length % 2 ? times[middle] : (times[middle - 1] + times[middle]) / 2) : null,
+      fastestMs: times.length ? times[0] : null,
+      timedSolves: times.length,
+      perfect: rows.filter(r => r.win && r.accuracy === 100).length,
+      activeDays: new Set(rows.map(r => r.day)).size,
+      players: new Set(rows.map(r => r.playerId)).size,
+    };
+  }
+  function streak(days, today) {
+    const unique = [...new Set(days)].sort();
+    let best = 0, count = 0, previous = '';
+    for (const day of unique) {
+      count = previous && shift(previous, 1) === day ? count + 1 : 1;
+      best = Math.max(best, count); previous = day;
+    }
+    const set = new Set(unique);
+    let cursor = set.has(today) ? today : shift(today, -1), current = 0;
+    while (set.has(cursor)) { current++; cursor = shift(cursor, -1); }
+    return { currentStreak: current, bestStreak: best };
+  }
+  function build(input, today) {
+    const clean = records(input, today), byPlayer = new Map(), byDay = new Map();
+    for (const r of clean) {
+      if (!byPlayer.has(r.playerId)) byPlayer.set(r.playerId, []);
+      byPlayer.get(r.playerId).push(r);
+      if (!byDay.has(r.day)) byDay.set(r.day, new Map());
+      const totals = byDay.get(r.day);
+      totals.set(r.playerId, (totals.get(r.playerId) || 0) + r.points);
+    }
+    const wins = new Map(), winners = [], todayLeaders = [];
+    for (const [day, totals] of byDay) {
+      const top = Math.max(...totals.values());
+      if (top <= 0) continue;
+      const ids = [...totals].filter(([, points]) => points === top).map(([id]) => id);
+      if (day === today) { todayLeaders.push(...ids); continue; }
+      ids.forEach(id => wins.set(id, (wins.get(id) || 0) + 1));
+      winners.push({ day, points: top, players: ids.map(id => ({ playerId: id, name: byPlayer.get(id)[0].name })) });
+    }
+    const days = Array.from({ length: 30 }, (_, i) => shift(today, i - 29));
+    function series(rows) {
+      const groups = new Map();
+      rows.forEach(r => { if (!groups.has(r.day)) groups.set(r.day, []); groups.get(r.day).push(r); });
+      return days.map(day => {
+        const s = stats(groups.get(day) || []);
+        return { day, played: s.played, points: s.points, players: s.players, averageMs: s.averageMs };
+      });
+    }
+    function games(rows) {
+      return GAME_IDS.map(game => ({ game, ...stats(rows.filter(r => r.game === game)) }));
+    }
+    const players = [...byPlayer].map(([playerId, rows]) => ({
+      playerId, name: rows[0].name, ...stats(rows), ...streak(rows.map(r => r.day), today),
+      dayWins: wins.get(playerId) || 0, leadingToday: todayLeaders.includes(playerId),
+      bestDay: Math.max(...[...byDay.values()].map(totals => totals.get(playerId) || 0)),
+      games: games(rows), daily: series(rows),
+    })).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+    return { day: today, windowDays: 30, club: stats(clean), daily: series(clean), games: games(clean), players,
+      winners: winners.sort((a, b) => b.day.localeCompare(a.day)).slice(0, 7) };
+  }
+  return { nameKey, shift, records, stats, streak, build };
+})();
 
 /** ASME Games extension for the existing SponsorFlow Apps Script project. */
 const SF_GAMES = Object.freeze({
@@ -1547,16 +1636,39 @@ function gamesDay_() {
     'yyyy-MM-dd',
   );
 }
-function gamesProfile_(code) {
-  if (!/^[a-f0-9]{48}$/.test(String(code || '')))
-    throw new Error(
-      'Your player code is invalid. Open Your player to restore it.',
-    );
-  const hash = gamesHash_(code);
-  const player = gamesRows_('Players').find((r) => r.codeHash === hash);
-  if (!player)
-    throw new Error('Join the club leaderboard before submitting a score.');
-  return player;
+function gamesName_(value) {
+  const name = String(value || '').normalize('NFC').trim().replace(/\s+/g, ' ');
+  if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N} ._'’\-]{1,39}$/u.test(name))
+    throw new Error('Use 2–40 letters, numbers, spaces, apostrophes, or hyphens for your name.');
+  return name;
+}
+function gamesPeople_() {
+  const players = gamesRows_('Players'), byName = new Map(), aliases = new Map();
+  // Keep the first existing player ID and every historical row intact.
+  players.forEach(player => {
+    const key = SFGamesMetrics.nameKey(player.name);
+    if (!byName.has(key)) byName.set(key, player);
+    aliases.set(player.playerId, byName.get(key));
+  });
+  return { players, byName, aliases };
+}
+function gamesProfile_(input) {
+  const people = gamesPeople_();
+  if (input.name) {
+    const player = people.byName.get(SFGamesMetrics.nameKey(gamesName_(input.name)));
+    if (player) return player;
+  } else if (input.code) {
+    // Compatibility for an already-open 5.1 page; new clients use names only.
+    const old = people.players.find(r => r.codeHash === gamesHash_(input.code));
+    if (old) return people.aliases.get(old.playerId);
+  }
+  throw new Error('Join the club leaderboard before submitting a score.');
+}
+function gamesRecords_(people) {
+  return gamesRows_('Results').map(row => {
+    const player = people.aliases.get(row.playerId);
+    return gamesPublicRecord_(Object.assign({}, row, { playerId: player ? player.playerId : row.playerId }), player ? player.name : 'Club member');
+  });
 }
 function gamesPublicRecord_(r, name) {
   return {
@@ -1567,7 +1679,7 @@ function gamesPublicRecord_(r, name) {
     points: Number(r.points),
     win: r.win === true || String(r.win) === 'true',
     detail: String(r.detail),
-    completedAt: r.completedAt,
+    completedAt: r.completedAt instanceof Date ? r.completedAt.toISOString() : String(r.completedAt || ''),
     version: Number(r.version || 1),
     elapsedMs: Number(r.elapsedMs || 0),
     mistakes: Number(r.mistakes || 0),
@@ -1586,69 +1698,41 @@ function gamesDateOnly_(value) {
     );
   return String(value || '').slice(0, 10);
 }
+function gamesNewRevision_() {
+  return gamesHash_(Date.now() + ':' + Math.random()).slice(0, 24);
+}
+function gamesRevision_(cache) {
+  let revision = cache.get('ASME_GAMES_REVISION_V52');
+  if (!revision) {
+    revision = gamesNewRevision_();
+    cache.put('ASME_GAMES_REVISION_V52', revision, 21600);
+  }
+  return revision;
+}
 function gamesInvalidate_() {
-  const keys = [];
-  for (const period of ['today', 'week', 'month'])
-    for (const game of ['all', 'kart'].concat(SFGames.GAMES.map((g) => g.id)))
-      for (const version of [1, 2])
-        keys.push(
-          'ASME_GAMES_BOARD_V2:' +
-            version +
-            ':' +
-            gamesDay_() +
-            ':' +
-            period +
-            ':' +
-            game,
-        );
-  CacheService.getScriptCache().removeAll(keys);
+  // New reads use a new namespace. An older in-flight read can only fill its
+  // old namespace, so it cannot republish stale standings after a score save.
+  CacheService.getScriptCache().put('ASME_GAMES_REVISION_V52', gamesNewRevision_(), 21600);
 }
 function gamesJoin_(input) {
-  const name = String(input.name || '')
-    .trim()
-    .replace(/\s+/g, ' ');
-  if (!/^[\p{L}\p{N}][\p{L}\p{M}\p{N} ._'’\-]{1,39}$/u.test(name))
-    throw new Error(
-      'Use 2–40 letters, numbers, spaces, apostrophes, or hyphens for your name.',
-    );
-  const code = String(input.code || '');
-  if (!/^[a-f0-9]{48}$/.test(code))
-    throw new Error('Your player code is invalid.');
-  const hash = gamesHash_(code),
-    players = gamesRows_('Players'),
-    existing = players.find((r) => r.codeHash === hash),
-    nameKey = name.toLocaleLowerCase();
-  if (players.some((r) => r.nameKey === nameKey && r.codeHash !== hash))
-    throw new Error(
-      'That name is already on the leaderboard. Restore your player code or choose a different display name.',
-    );
-  const now = new Date().toISOString();
-  const player = {
-    playerId: existing?.playerId || hash.slice(0, 24),
-    codeHash: hash,
-    name,
-    nameKey,
-    createdAt: existing?.createdAt || now,
-    updatedAt: now,
-  };
-  gamesWrite_('Players', player, existing);
-  gamesInvalidate_();
-  const cutoff = new Date(Date.now() - 35 * 86400000)
-    .toISOString()
-    .slice(0, 10);
-  return {
-    playerId: player.playerId,
-    name,
-    results: gamesRows_('Results')
-      .filter(
-        (r) =>
-          r.playerId === player.playerId && gamesDateOnly_(r.day) >= cutoff,
-      )
-      .map((r) => gamesPublicRecord_(r, name)),
-  };
+  const name = gamesName_(input.name), nameKey = SFGamesMetrics.nameKey(name);
+  let people = gamesPeople_(), player = people.byName.get(nameKey);
+  if (!player) {
+    const now = new Date().toISOString();
+    player = { playerId: gamesHash_('name:' + nameKey).slice(0, 24),
+      codeHash: /^[a-f0-9]{48}$/.test(String(input.code || '')) ? gamesHash_(input.code) : '',
+      name, nameKey, createdAt: now, updatedAt: now };
+    gamesWrite_('Players', player);
+    gamesInvalidate_();
+    people = gamesPeople_();
+  }
+  const cutoff = SFGamesMetrics.shift(gamesDay_(), -35);
+  const all = gamesRecords_(people).filter(r => r.playerId === player.playerId && r.day >= cutoff);
+  return { identityMode: 'name', playerId: player.playerId, name: player.name,
+    results: all.filter(r => r.version === 1).concat(SFGamesMetrics.records(all, gamesDay_())) };
 }
 function gamesScore_(input) {
-  const player = gamesProfile_(input.code);
+  const player = gamesProfile_(input);
   const day = String(input.day || ''),
     game = String(input.game || '');
   const version = Number(input.version || 1);
@@ -1683,6 +1767,7 @@ function gamesScore_(input) {
     version === 2
       ? SFGames.scoreTimed(game, gamesPuzzle_(game, day), proof)
       : SFGames.validate(game, gamesPuzzle_(game, day), proof);
+  const aliases = gamesPeople_().aliases;
   const id =
       player.playerId +
       ':' +
@@ -1690,10 +1775,17 @@ function gamesScore_(input) {
       ':' +
       game +
       (version === 1 ? '' : ':v' + version),
-    existing = gamesRows_('Results').find((r) => r.id === id);
+    existing = gamesRows_('Results').filter(r =>
+      aliases.get(r.playerId)?.playerId === player.playerId &&
+      gamesDateOnly_(r.day) === day && r.game === game && Number(r.version || 1) === version)
+      .sort((a, b) => {
+        const left = a.completedAt instanceof Date ? a.completedAt.toISOString() : String(a.completedAt || '');
+        const right = b.completedAt instanceof Date ? b.completedAt.toISOString() : String(b.completedAt || '');
+        return left.localeCompare(right);
+      })[0];
   // Puzzles keep the first result; racing keeps the best. Retried writes are idempotent.
   if (existing && (game !== 'kart' || Number(existing.points) >= result.points))
-    return { record: gamesPublicRecord_(existing, player.name) };
+    return { record: gamesPublicRecord_(Object.assign({}, existing, { playerId: player.playerId }), player.name) };
   const record = {
     id,
     playerId: player.playerId,
@@ -1747,18 +1839,11 @@ function gamesLeaderboard_(input) {
     throw new Error('Invalid standings filter.');
   const cache = CacheService.getScriptCache(),
     key =
-      'ASME_GAMES_BOARD_V2:' + version + ':' + day + ':' + period + ':' + game;
+      'ASME_GAMES_BOARD_V3:' + version + ':' + day + ':' + period + ':' + game + ':' + gamesRevision_(cache);
   const saved = cache.get(key);
   if (saved) return JSON.parse(saved);
-  const players = gamesRows_('Players'),
-    names = {};
-  players.forEach((p) => (names[p.playerId] = p.name));
-  const records = gamesRows_('Results')
-    .map((r) => gamesPublicRecord_(r, names[r.playerId] || 'Club member'))
-    .filter(
-      (record) =>
-        record.version === version && (version === 1 || record.game !== 'kart'),
-    );
+  const raw = gamesRecords_(gamesPeople_()).filter(r => r.version === version);
+  const records = version === 2 ? SFGamesMetrics.records(raw, day) : raw;
   const result = {
     version,
     day,
@@ -1769,16 +1854,57 @@ function gamesLeaderboard_(input) {
   if (text.length < 90000) cache.put(key, text, 60);
   return result;
 }
+function gamesReadSnapshot_(cache, key) {
+  try {
+    const manifest = cache.get(key);
+    if (!manifest) return null;
+    const keys = JSON.parse(manifest).chunks;
+    if (!Array.isArray(keys)) return null;
+    const parts = keys.map(part => cache.get(part));
+    return parts.every(part => part != null) ? JSON.parse(parts.join('')) : null;
+  } catch (_) { return null; }
+}
+function gamesCacheSnapshot_(cache, key, snapshot) {
+  // CacheService limits each value to 100 KB. Publish a manifest last so
+  // concurrent readers never combine chunks from different snapshots.
+  try {
+    const text = Array.from(JSON.stringify(snapshot)), chunks = [], values = {};
+    const revision = gamesHash_(Date.now() + ':' + Math.random()).slice(0, 16);
+    for (let i = 0; i < text.length; i += 20000) {
+      const chunk = key + ':' + revision + ':' + chunks.length;
+      chunks.push(chunk); values[chunk] = text.slice(i, i + 20000).join('');
+    }
+    cache.putAll(values, 90);
+    cache.put(key, JSON.stringify({ chunks }), 60);
+  } catch (_) {} // A cache eviction/outage never prevents a fresh response.
+}
+function gamesInsights_(input) {
+  const day = gamesDay_(), cache = CacheService.getScriptCache(), key = 'ASME_GAMES_INSIGHTS_V1:' + day + ':' + gamesRevision_(cache);
+  let snapshot = gamesReadSnapshot_(cache, key);
+  if (!snapshot) {
+    snapshot = SFGamesMetrics.build(gamesRecords_(gamesPeople_()), day);
+    snapshot.updatedAt = new Date().toISOString();
+    gamesCacheSnapshot_(cache, key, snapshot);
+  }
+  const nameKey = SFGamesMetrics.nameKey(input.name);
+  const player = snapshot.players.find(p => SFGamesMetrics.nameKey(p.name) === nameKey) || null;
+  return { identityMode: 'name', day, windowDays: snapshot.windowDays, updatedAt: snapshot.updatedAt,
+    club: snapshot.club, daily: snapshot.daily, games: snapshot.games, winners: snapshot.winners, player,
+    players: snapshot.players.map(p => ({ playerId: p.playerId, name: p.name })),
+    champions: snapshot.players.filter(p => p.dayWins > 0)
+      .sort((a, b) => b.dayWins - a.dayWins || b.points - a.points || a.name.localeCompare(b.name))
+      .slice(0, 10).map(p => ({ playerId: p.playerId, name: p.name, dayWins: p.dayWins })) };
+}
 function asmeGamesGet_(e) {
   const p = e?.parameter || {};
-  if (p.action !== 'gamesLeaderboard') return null;
+  if (!['gamesLeaderboard', 'gamesInsights'].includes(p.action)) return null;
   const callback = String(p.callback || '');
   if (!/^__asmeGames_[a-f0-9]{32}$/.test(callback))
     return ContentService.createTextOutput('Invalid callback');
   let response;
   try {
     validateFrontendOrigin_(String(p.origin || ''));
-    response = { ok: true, data: gamesLeaderboard_(p) };
+    response = { ok: true, data: p.action === 'gamesInsights' ? gamesInsights_(p) : gamesLeaderboard_(p) };
   } catch (error) {
     response = { ok: false, error: error.message, code: error.code || '' };
   }

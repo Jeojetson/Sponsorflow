@@ -149,6 +149,7 @@ module.exports = function backend(
       getScriptCache: () => ({
         get: (k) => cache.get(k),
         put: (k, v) => cache.set(k, v),
+        putAll: values => Object.entries(values).forEach(([k,v]) => cache.set(k,v)),
         removeAll: (keys) => keys.forEach((k) => cache.delete(k)),
       }),
     },

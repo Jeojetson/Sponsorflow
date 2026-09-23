@@ -1,10 +1,10 @@
-# SponsorFlow 5.0 — Purdue ASME workspace
+# SponsorFlow 5.2 — Purdue ASME workspace
 
 A shared workspace for project work, calendars, sponsor outreach, and meeting attendance. GitHub Pages serves the website; the existing Google Apps Script deployment and Google Sheet hold shared records.
 
 ## Games
 
-Six daily puzzles with time-and-accuracy scoring and shared club rankings. Kart Sprint is removed; previous scores are preserved separately. Follow [RELEASE-5.0.md](RELEASE-5.0.md) for the existing Apps Script update and performance cache installation, and [GAMES-RELEASE.md](GAMES-RELEASE.md) for scoring rules.
+Six daily puzzles with time-and-accuracy scoring and shared club rankings. Kart Sprint is removed; previous scores are preserved separately. Players reconnect by name without codes. Mobile standings, daily wins, solve-time trends, streaks, and club activity charts are included. Follow [RELEASE-5.2.md](RELEASE-5.2.md) for the existing Apps Script update, and [GAMES-RELEASE.md](GAMES-RELEASE.md) for scoring rules.
 
 The homepage uses supplied chapter art and a large Mona Sans Expanded Black heading. Dark mode is the default, with an optional persistent light theme. Finance records remain accessible under their own sidebar section while being hidden from combined project/calendar views. Every list sort supports ascending and descending order.
 
@@ -14,7 +14,7 @@ The homepage uses supplied chapter art and a large Mona Sans Expanded Black head
 - Projects organized in a team/project sidebar. List, Board, Schedule, and Reports share the same records and filters.
 - Quick filters for My work, Due this week (the next seven days), and Needs attention. Detailed filters are available on demand.
 - Calendar sidebar for club, teams, projects, and existing custom calendars; Month and Agenda views, search, and event/deadline filters. Agenda is the default on every device; saved view choices are respected.
-- Viewing no longer requires entering a name; attribution is requested when editing.
+- A welcome prompt collects a name on first entry; the shared name button switches the active Games player and supplies attribution across the workspace.
 - Editors preserve exact progress percentages, due-date-only records, and dependencies absent from the active task list. A successful save retains its assigned ID if the follow-up refresh fails.
 - Restored access to My requests in Outreach and connected Attendance to the 2.1 loading/cache implementation already present in the repository.
 
@@ -36,4 +36,4 @@ Serve this directory over HTTP, for example `python3 -m http.server 8765 --bind 
 
 Install development dependencies with `npm install`, then run `npm test` while the server is running. The tests use Google Chrome by default. Set `SPONSORFLOW_BROWSER=chromium` if using Playwright's bundled Chromium, `SPONSORFLOW_BASE_URL` for a different server, or `SPONSORFLOW_QA_DIR` for screenshots. The tests cover desktop/tablet/phone layouts in both themes, project and calendar filtering, field preservation, optimistic-concurrency errors, retry behavior, and attendance member/officer workflows: password errors, duplicate check-in, meeting creation/editing/closing/archiving/restoring, roster removal and CSV export, session sign-out, analytics links, selection retention, and service outages.
 
-See `RELEASE-5.0.md` for rollout and validation.
+See `RELEASE-5.2.md` for rollout and validation. Run `npm run test:games` for puzzle, identity, analytics, transport, and mobile dashboard coverage.

@@ -56,7 +56,7 @@
       <h2 id="memberWelcomeTitle">Welcome to Purdue ASME</h2>
       <p id="memberWelcomeDescription">Enter your name for attendance, project updates, and the club Games leaderboard. We’ll remember it on this browser.</p>
       <label class="field"><span>Your name</span><input id="memberWelcomeName" name="name" autocomplete="name" minlength="2" maxlength="40" required></label>
-      <p class="member-privacy">Your name appears with your contributions and shared game scores.</p>
+      <p class="member-privacy">Your name appears with your contributions and shared game scores. Use the same name on every device to keep your Games scores together. Changing your name selects a different player.</p>
       <p class="form-status is-error" data-identity-status role="status"></p>
       <div class="member-welcome-actions"><button class="button button-primary" type="submit">Continue</button><button class="button button-secondary" type="button" data-member-cancel hidden>Cancel</button></div>
     </form>`;
