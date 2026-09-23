@@ -1,10 +1,10 @@
-# SponsorFlow 5.3 — Purdue ASME workspace
+# SponsorFlow 5.4 — Purdue ASME workspace
 
 A shared workspace for project work, calendars, sponsor outreach, and meeting attendance. GitHub Pages serves the website; the existing Google Apps Script deployment and Google Sheet hold shared records.
 
 ## Reels
 
-YouTube Shorts play inside a new Reels page, with a karting-first club feed, synced saved reels, share links, and name-only Messages. Members can send a saved reel with a message, keep local drafts, and return to conversation history. **Inboxes are explicitly not private:** anyone using the same name can read and send messages as that person. There are no passwords or identity claims. See [RELEASE-5.3.md](RELEASE-5.3.md) to add `Reels.gs` and its four routing lines to the existing Apps Script project before publishing the website. Run `npm run test:reels` for isolated backend and browser tests.
+Discover opens a clean, continuously scrolling video feed; Club keeps member posts separate. Saved reels and name-only Messages share the same identity. Phones show one inbox or conversation at a time. **Inboxes are not private:** anyone using the same name can read and send as that person. Follow [RELEASE-5.4.md](RELEASE-5.4.md) to update Reels.gs and enable optional daily discovery through the YouTube Apps Script service. Without it, Discover contains four starter picks. This is a shared catalogue, not YouTube's personalized Shorts feed. Run `npm run test:reels` for backend and browser coverage.
 
 ## Games
 
@@ -40,4 +40,4 @@ Serve this directory over HTTP, for example `python3 -m http.server 8765 --bind 
 
 Install development dependencies with `npm install`, then run `npm test` while the server is running. The tests use Google Chrome by default. Set `SPONSORFLOW_BROWSER=chromium` if using Playwright's bundled Chromium, `SPONSORFLOW_BASE_URL` for a different server, or `SPONSORFLOW_QA_DIR` for screenshots. The tests cover desktop/tablet/phone layouts in both themes, project and calendar filtering, field preservation, optimistic-concurrency errors, retry behavior, and attendance member/officer workflows: password errors, duplicate check-in, meeting creation/editing/closing/archiving/restoring, roster removal and CSV export, session sign-out, analytics links, selection retention, and service outages.
 
-See `RELEASE-5.3.md` for the Reels rollout and validation, and `RELEASE-5.2.md` for the earlier Games rollout. Run `npm run test:reels` for Reels, saves, and messaging coverage, and `npm run test:games` for puzzle, identity, analytics, transport, and mobile dashboard coverage.
+See `RELEASE-5.4.md` for the Reels rollout and validation, and `RELEASE-5.2.md` for the earlier Games rollout. Run `npm run test:reels` for Reels, saves, and messaging coverage, and `npm run test:games` for puzzle, identity, analytics, transport, and mobile dashboard coverage.
